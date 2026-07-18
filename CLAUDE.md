@@ -8,14 +8,14 @@ Ladchat är en gamifierad gruppchatt-app. Tanken är att kombinera vanlig gruppc
 
 ## Tech-stack
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS för styling
-- Supabase som backend (databas, auth, realtime)
-- Deploy: Vercel
+- React Native med Expo (SDK 57) + expo-router (fil-baserad routing i `src/app`)
+- TypeScript
+- Supabase som backend (databas, auth, realtime) — session i AsyncStorage
+- Byggen/utgåvor via Expo (EAS) till App Store / Google Play
 
 ## Grundprinciper
 
-- All spellogik ska köras server-side (Supabase Edge Functions / server actions), aldrig lita på klienten för poängsättning eller spelstate.
+- All spellogik ska köras server-side (Supabase Edge Functions / SQL-funktioner med RLS), aldrig lita på klienten för poängsättning eller spelstate.
 - Utmaningar (challenges) ska vara datadrivna, inte hårdkodade i komponenter, så nya typer kan läggas till utan att ändra kärnkoden.
 - Realtidsuppdateringar (t.ex. nya meddelanden, poäng) via Supabase Realtime.
 - Mobile-first design, eftersom det är en chattapp.
@@ -30,14 +30,17 @@ Ladchat är en gamifierad gruppchatt-app. Tanken är att kombinera vanlig gruppc
 ## Kommandon
 
 - `npm install` - installera dependencies
-- `npm run dev` - starta lokal dev-server
-- `npm run build` - bygg för produktion
-- `npm run lint` - kör linter
+- `npx expo start` - starta dev-server (Metro); tryck `i`/`a` för iOS/Android-simulator, eller skanna QR i Expo Go
+- `npx expo start --web` - kör i webbläsare
+- `npx tsc --noEmit` - typkolla
+- `npm run lint` - kör linter (expo lint)
+
+DB-schemat finns som migrationer i `supabase/migrations/` och är applicerat på Supabase-projektet.
 
 ## Nästa steg / roadmap
 
 Se separat planeringsdokument (fas1-prompt.md eller motsvarande) för den fem-fas utvecklingsplanen. Fas 1 fokuserar på grundläggande auth, gruppstruktur och chattfunktionalitet innan spelmekanik läggs på.
 
-## Next.js-specifikt
+## Expo/React Native-specifikt
 
-Se `AGENTS.md` för Next.js agent-regler. Denna Next.js-version kan ha brytande ändringar mot äldre kännedom — läs relevant guide i `node_modules/next/dist/docs/` innan du skriver Next.js-kod.
+Se `AGENTS.md` för Expo agent-regler. Denna Expo/React Native-version (SDK 57, RN 0.86, React 19) kan ha brytande ändringar mot äldre kännedom. Routing sker fil-baserat via expo-router i `src/app`; Supabase-klienten ligger i `src/lib/supabase.ts` och auth-state i `src/lib/auth.tsx`.
