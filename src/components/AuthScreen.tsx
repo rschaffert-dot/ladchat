@@ -52,13 +52,24 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
         email: email.trim(),
         password,
       });
-      setBusy(false);
       if (signUpError) {
+        setBusy(false);
         setError(svAuthError(signUpError.message));
         return;
       }
+      // E-post auto-bekräftas i databasen, så vid utebliven session loggar vi
+      // in direkt för ett sömlöst flöde. (Auth-gatingen navigerar sedan.)
       if (!data.session) {
-        setNotice("Konto skapat! Bekräfta din e-post och logga sedan in.");
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        setBusy(false);
+        if (signInError) {
+          setNotice("Konto skapat! Bekräfta din e-post och logga sedan in.");
+        }
+      } else {
+        setBusy(false);
       }
     }
   }
