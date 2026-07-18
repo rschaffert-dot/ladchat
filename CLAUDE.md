@@ -37,3 +37,7 @@ Ladchat är en gamifierad gruppchatt-app. Tanken är att kombinera vanlig gruppc
 ## Nästa steg / roadmap
 
 Se separat planeringsdokument (fas1-prompt.md eller motsvarande) för den fem-fas utvecklingsplanen. Fas 1 fokuserar på grundläggande auth, gruppstruktur och chattfunktionalitet innan spelmekanik läggs på.
+
+## Next.js-specifikt
+
+Se `AGENTS.md` för Next.js agent-regler. Denna Next.js-version kan ha brytande ändringar mot äldre kännedom — läs relevant guide i `node_modules/next/dist/docs/` innan du skriver Next.js-kod.
