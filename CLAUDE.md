@@ -37,6 +37,8 @@ Ladchat är en gamifierad gruppchatt-app. Tanken är att kombinera vanlig gruppc
 
 DB-schemat finns som migrationer i `supabase/migrations/` och är applicerat på Supabase-projektet.
 
+**Migrationsnummer:** Kör alltid `git pull` och kolla högsta numret i `supabase/migrations/` *innan* du skapar en ny migration — använd nästa lediga nummer. Eftersom vi jobbar parallellt kan annars två branches ta samma nummer (t.ex. båda `0018`). Krockar det efter en merge: döp om din till nästa lediga nummer.
+
 ## Nästa steg / roadmap
 
 Se separat planeringsdokument (fas1-prompt.md eller motsvarande) för den fem-fas utvecklingsplanen. Fas 1 fokuserar på grundläggande auth, gruppstruktur och chattfunktionalitet innan spelmekanik läggs på.
