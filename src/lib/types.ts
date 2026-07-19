@@ -9,11 +9,15 @@ export interface Profile {
   created_at: string;
 }
 
+export type BeerGlassSize = "galopp" | "storstark" | "slaktarbagare";
+
 export interface Group {
   id: string;
   name: string;
   owner_id: string;
   created_at: string;
+  beer_glass_size: BeerGlassSize | null;
+  beer_fill_cl: number;
 }
 
 export interface Message {

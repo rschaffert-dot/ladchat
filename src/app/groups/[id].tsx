@@ -28,6 +28,7 @@ import type {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
+import { BEER_GLASSES } from "@/lib/beer";
 import {
   BACKGROUND_OPTIONS,
   COLOR_OPTIONS,
@@ -37,8 +38,10 @@ import {
 } from "@/lib/chatSettings";
 import type { ChatSettings } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
-import type { Group, Message, MessageWithAuthor } from "@/lib/types";
+import type { BeerGlassSize, Group, Message, MessageWithAuthor } from "@/lib/types";
 import { useColors } from "@/lib/ui";
+
+type LeaderboardRow = { userId: string; name: string; points: number };
 
 function playMessageSound() {
   if (Platform.OS !== "web" || typeof window === "undefined") return;
@@ -83,18 +86,24 @@ function ChatBackground({
 }
 
 function BeerGlassBackground({
-  percent,
+  size,
+  fillCl,
   style,
   children,
 }: {
-  percent: number;
+  size: BeerGlassSize;
+  fillCl: number;
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  const glass = BEER_GLASSES[size];
+  const percent = Math.min(100, Math.round((fillCl / glass.capacityCl) * 100));
   return (
     <View style={[style, styles.beerBackdrop]}>
       <View style={styles.beerGlassWrap} pointerEvents="none">
-        <Text style={styles.beerLabel}>{percent}% fullt 🍺</Text>
+        <Text style={styles.beerLabel}>
+          {glass.label} · {fillCl}/{glass.capacityCl} cl
+        </Text>
         <View style={styles.beerGlass}>
           <View style={[styles.beerLiquidColumn, { height: `${percent}%` }]}>
             {percent > 3 ? <View style={styles.beerFoam} /> : null}
@@ -104,35 +113,6 @@ function BeerGlassBackground({
       </View>
       <View style={styles.flex}>{children}</View>
     </View>
-  );
-}
-
-function BeerGlassOrChatBackground({
-  beerMode,
-  beerPercent,
-  image,
-  color,
-  style,
-  children,
-}: {
-  beerMode: boolean;
-  beerPercent: number;
-  image: string;
-  color: string;
-  style: StyleProp<ViewStyle>;
-  children: ReactNode;
-}) {
-  if (beerMode) {
-    return (
-      <BeerGlassBackground percent={beerPercent} style={style}>
-        {children}
-      </BeerGlassBackground>
-    );
-  }
-  return (
-    <ChatBackground image={image} color={color} style={style}>
-      {children}
-    </ChatBackground>
   );
 }
 
@@ -154,9 +134,10 @@ export default function GroupChatScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
   const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [celebration, setCelebration] = useState<string | null>(null);
   const namesRef = useRef<Record<string, string>>({});
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -173,6 +154,23 @@ export default function GroupChatScreen() {
     return n;
   }, []);
 
+  const loadLeaderboard = useCallback(async () => {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("group_members")
+      .select("user_id, points")
+      .eq("group_id", groupId)
+      .order("points", { ascending: false });
+    const rows = await Promise.all(
+      (data ?? []).map(async (r) => ({
+        userId: r.user_id as string,
+        points: r.points as number,
+        name: await nameFor(r.user_id as string),
+      })),
+    );
+    setLeaderboard(rows);
+  }, [groupId, nameFor]);
+
   // Initial laddning.
   useEffect(() => {
     if (!groupId) return;
@@ -180,7 +178,7 @@ export default function GroupChatScreen() {
     (async () => {
       const { data: g } = await supabase
         .from("groups")
-        .select("id,name,owner_id,created_at")
+        .select("id,name,owner_id,created_at,beer_glass_size,beer_fill_cl")
         .eq("id", groupId)
         .single();
       if (!active) return;
@@ -217,12 +215,6 @@ export default function GroupChatScreen() {
       setMessages(list);
       setHasMore((msgs?.length ?? 0) >= PAGE);
       setLoading(false);
-
-      const { count } = await supabase
-        .from("messages")
-        .select("id", { count: "exact", head: true })
-        .eq("group_id", groupId);
-      if (active) setMessageCount(count ?? 0);
     })();
     return () => {
       active = false;
@@ -241,11 +233,23 @@ export default function GroupChatScreen() {
     };
   }, [groupId]);
 
+  // Poängtavlan behöver bara vara färsk när inställningsrutan visas.
+  useEffect(() => {
+    if (settingsOpen) void loadLeaderboard();
+  }, [settingsOpen, loadLeaderboard]);
+
   async function updateSettings(patch: Partial<ChatSettings>) {
     if (!groupId) return;
     const next = { ...settingsRef.current, ...patch };
     setSettings(next);
     await saveChatSettings(groupId, next);
+  }
+
+  async function setBeerGlass(size: BeerGlassSize | null) {
+    if (!groupId) return;
+    const { error } = await supabase.rpc("set_beer_glass", { gid: groupId, size });
+    if (error) return;
+    setGroup((prev) => (prev ? { ...prev, beer_glass_size: size, beer_fill_cl: 0 } : prev));
   }
 
   async function pickBackgroundImage() {
@@ -265,7 +269,7 @@ export default function GroupChatScreen() {
     await updateSettings({ backgroundImage: `data:${mime};base64,${asset.base64}` });
   }
 
-  // Realtime.
+  // Realtime: nya meddelanden.
   useEffect(() => {
     if (!groupId) return;
     const channel = supabase
@@ -283,7 +287,6 @@ export default function GroupChatScreen() {
           if (m.user_id !== userId && settingsRef.current.soundEnabled) {
             playMessageSound();
           }
-          setMessageCount((n) => n + 1);
           setMessages((prev) =>
             prev.some((x) => x.id === m.id)
               ? prev
@@ -308,6 +311,40 @@ export default function GroupChatScreen() {
       void supabase.removeChannel(channel);
     };
   }, [groupId, nameFor, userId]);
+
+  // Realtime: ölglasets fyllnadsgrad delas av alla medlemmar via gruppraden.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`group:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "groups", filter: `id=eq.${groupId}` },
+        (payload) => {
+          const oldRow = payload.old as Partial<Group>;
+          const newRow = payload.new as Group;
+          setGroup((prev) => (prev ? { ...prev, ...newRow } : newRow));
+
+          const oldSize = oldRow.beer_glass_size as BeerGlassSize | null | undefined;
+          const oldFill = oldRow.beer_fill_cl;
+          if (
+            oldSize &&
+            typeof oldFill === "number" &&
+            oldFill >= BEER_GLASSES[oldSize].capacityCl &&
+            newRow.beer_fill_cl === 0
+          ) {
+            const glass = BEER_GLASSES[oldSize];
+            setCelebration(`🍻 ${glass.label} är fullt! Alla i chatten får +${glass.points} poäng.`);
+            setTimeout(() => setCelebration(null), 4000);
+            void loadLeaderboard();
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, loadLeaderboard]);
 
   function handleKeyPress(e: NativeSyntheticEvent<TextInputKeyPressEventData>) {
     if (Platform.OS !== "web") return;
@@ -381,6 +418,83 @@ export default function GroupChatScreen() {
     }
   }
 
+  const chatBody = (
+    <>
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 32 }} />
+      ) : (
+        <FlatList
+          data={messages}
+          inverted
+          keyExtractor={(m) => m.id}
+          contentContainerStyle={styles.listContent}
+          onEndReached={hasMore ? loadOlder : undefined}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={
+            loadingOlder ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
+          }
+          ListEmptyComponent={
+            <Text style={[styles.empty, { color: c.textSecondary }]}>
+              Inga meddelanden än. Skriv det första!
+            </Text>
+          }
+          renderItem={({ item }) => {
+            const mine = item.user_id === userId;
+            return (
+              <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
+                {!mine ? (
+                  <Text style={[styles.author, { color: c.textSecondary }]}>
+                    {item.author_name}
+                  </Text>
+                ) : null}
+                <View
+                  style={[
+                    styles.bubble,
+                    mine
+                      ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
+                      : {
+                          backgroundColor: c.backgroundElement,
+                          borderBottomLeftRadius: 4,
+                        },
+                  ]}
+                >
+                  <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
+                    {item.content}
+                  </Text>
+                </View>
+              </View>
+            );
+          }}
+        />
+      )}
+
+      <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder="Skriv ett meddelande…"
+          placeholderTextColor={c.textSecondary}
+          multiline
+          onKeyPress={handleKeyPress}
+          style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
+        />
+        <Pressable
+          onPress={send}
+          disabled={sending || text.trim().length === 0}
+          style={[
+            styles.sendBtn,
+            {
+              backgroundColor: settings.color,
+              opacity: sending || text.trim().length === 0 ? 0.4 : 1,
+            },
+          ]}
+        >
+          <Text style={styles.sendText}>Skicka</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
@@ -400,94 +514,34 @@ export default function GroupChatScreen() {
         </Pressable>
       </View>
 
+      {celebration ? (
+        <View style={styles.celebrationBanner}>
+          <Text style={styles.celebrationText}>{celebration}</Text>
+        </View>
+      ) : null}
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
-        <BeerGlassOrChatBackground
-          beerMode={settings.beerMode}
-          beerPercent={Math.min(messageCount, 100)}
-          image={settings.backgroundImage}
-          color={settings.background}
-          style={styles.flex}
-        >
-          {loading ? (
-            <ActivityIndicator style={{ marginTop: 32 }} />
-          ) : (
-            <FlatList
-              data={messages}
-              inverted
-              keyExtractor={(m) => m.id}
-              contentContainerStyle={styles.listContent}
-              onEndReached={hasMore ? loadOlder : undefined}
-              onEndReachedThreshold={0.3}
-              ListFooterComponent={
-                loadingOlder ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
-              }
-              ListEmptyComponent={
-                <Text style={[styles.empty, { color: c.textSecondary }]}>
-                  Inga meddelanden än. Skriv det första!
-                </Text>
-              }
-              renderItem={({ item }) => {
-                const mine = item.user_id === userId;
-                return (
-                  <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
-                    {!mine ? (
-                      <Text style={[styles.author, { color: c.textSecondary }]}>
-                        {item.author_name}
-                      </Text>
-                    ) : null}
-                    <View
-                      style={[
-                        styles.bubble,
-                        mine
-                          ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
-                          : {
-                              backgroundColor: c.backgroundElement,
-                              borderBottomLeftRadius: 4,
-                            },
-                      ]}
-                    >
-                      <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                        {item.content}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              }}
-            />
-          )}
-
-          <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder="Skriv ett meddelande…"
-              placeholderTextColor={c.textSecondary}
-              multiline
-              onKeyPress={handleKeyPress}
-              style={[
-                styles.input,
-                { color: c.text, borderColor: c.backgroundSelected },
-              ]}
-            />
-            <Pressable
-              onPress={send}
-              disabled={sending || text.trim().length === 0}
-              style={[
-                styles.sendBtn,
-                {
-                  backgroundColor: settings.color,
-                  opacity: sending || text.trim().length === 0 ? 0.4 : 1,
-                },
-              ]}
-            >
-              <Text style={styles.sendText}>Skicka</Text>
-            </Pressable>
-          </View>
-        </BeerGlassOrChatBackground>
+        {group?.beer_glass_size ? (
+          <BeerGlassBackground
+            size={group.beer_glass_size}
+            fillCl={group.beer_fill_cl}
+            style={styles.flex}
+          >
+            {chatBody}
+          </BeerGlassBackground>
+        ) : (
+          <ChatBackground
+            image={settings.backgroundImage}
+            color={settings.background}
+            style={styles.flex}
+          >
+            {chatBody}
+          </ChatBackground>
+        )}
       </KeyboardAvoidingView>
 
       <Modal
@@ -565,15 +619,58 @@ export default function GroupChatScreen() {
             ) : null}
           </View>
 
-          <View style={styles.soundRow}>
-            <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
-              Öl-mode 🍺 (bakgrunden fylls på 1% per meddelande)
-            </Text>
-            <Switch
-              value={settings.beerMode}
-              onValueChange={(v) => updateSettings({ beerMode: v })}
-            />
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+            Öl-mode 🍺 (1 cl per meddelande, delad mellan alla i chatten)
+          </Text>
+          <View style={styles.beerPickerRow}>
+            <Pressable
+              onPress={() => setBeerGlass(null)}
+              style={[
+                styles.beerOption,
+                { borderColor: c.backgroundSelected },
+                !group?.beer_glass_size ? styles.beerOptionSelected : null,
+              ]}
+            >
+              <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>Av</Text>
+            </Pressable>
+            {(Object.keys(BEER_GLASSES) as BeerGlassSize[]).map((size) => {
+              const glass = BEER_GLASSES[size];
+              return (
+                <Pressable
+                  key={size}
+                  onPress={() => setBeerGlass(size)}
+                  style={[
+                    styles.beerOption,
+                    { borderColor: c.backgroundSelected },
+                    group?.beer_glass_size === size ? styles.beerOptionSelected : null,
+                  ]}
+                >
+                  <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
+                    {glass.label}
+                  </Text>
+                  <Text style={{ color: c.textSecondary, fontSize: 11 }}>
+                    {glass.capacityCl} cl · +{glass.points}p
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
+
+          {leaderboard.length > 0 ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poäng</Text>
+              <View style={styles.leaderboard}>
+                {leaderboard.map((row) => (
+                  <View key={row.userId} style={styles.leaderboardRow}>
+                    <Text style={{ color: c.text, fontSize: 13 }}>{row.name}</Text>
+                    <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                      {row.points}p
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
 
           <View style={styles.soundRow}>
             <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
@@ -641,6 +738,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendText: { color: "#fff", fontWeight: "700" },
+  celebrationBanner: {
+    backgroundColor: "#f2a916",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  celebrationText: { color: "#2a1a10", fontWeight: "800", textAlign: "center" },
   beerBackdrop: { backgroundColor: "#2a1a10" },
   beerGlassWrap: {
     position: "absolute",
@@ -709,6 +812,25 @@ const styles = StyleSheet.create({
   bgImageThumb: {
     width: 56,
     height: 40,
+  },
+  beerPickerRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  beerOption: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: "center",
+    gap: 2,
+  },
+  beerOptionSelected: {
+    borderWidth: 2,
+    borderColor: "#f2a916",
+  },
+  leaderboard: { gap: 6 },
+  leaderboardRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 4,
   },
   soundRow: {
     flexDirection: "row",
