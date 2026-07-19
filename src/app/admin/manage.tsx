@@ -2,6 +2,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -107,6 +109,29 @@ export default function AdminScreen() {
     await supabase.rpc("set_entry_payment_status", { eid: entryId, new_status: "paid" });
     setBusy(false);
     void load();
+  }
+
+  async function deleteTournament(id: string) {
+    setBusy(true);
+    await supabase.rpc("delete_tournament", { tid: id });
+    setBusy(false);
+    void load();
+  }
+
+  function confirmDeleteTournament(t: Tournament) {
+    const message =
+      `Radera "${t.name}"? Alla anmälningar, uppdrag, bidrag och röster ` +
+      `tas bort permanent. Detta går inte att ångra.`;
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm(message)) {
+        void deleteTournament(t.id);
+      }
+      return;
+    }
+    Alert.alert("Radera turnering", message, [
+      { text: "Avbryt", style: "cancel" },
+      { text: "Radera", style: "destructive", onPress: () => void deleteTournament(t.id) },
+    ]);
   }
 
   async function createChallenge(tournamentId: string) {
@@ -223,7 +248,17 @@ export default function AdminScreen() {
 
           {tournaments.map((t) => (
             <View key={t.id} style={[styles.tournamentCard, { backgroundColor: c.backgroundElement }]}>
-              <Text style={[styles.tournamentTitle, { color: c.text }]}>{t.name}</Text>
+              <View style={styles.tournamentHeader}>
+                <Text style={[styles.tournamentTitle, { color: c.text }]}>{t.name}</Text>
+                <Pressable
+                  onPress={() => confirmDeleteTournament(t)}
+                  disabled={busy}
+                  hitSlop={8}
+                  style={[styles.deleteBtn, { borderColor: c.danger, opacity: busy ? 0.5 : 1 }]}
+                >
+                  <Text style={[styles.deleteBtnText, { color: c.danger }]}>Radera</Text>
+                </Pressable>
+              </View>
 
               <Text style={[styles.subTitle, { color: c.textSecondary }]}>Anmälningar</Text>
               {(entriesByTournament[t.id] ?? []).length === 0 ? (
@@ -353,7 +388,10 @@ const styles = StyleSheet.create({
   primaryBtn: { borderRadius: 14, paddingVertical: 13, alignItems: "center", marginBottom: 8 },
   primaryBtnText: { color: "#fff", fontWeight: "700" },
   tournamentCard: { borderRadius: 16, padding: 16, marginTop: 20 },
-  tournamentTitle: { fontSize: 17, fontWeight: "800" },
+  tournamentHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tournamentTitle: { flex: 1, fontSize: 17, fontWeight: "800" },
+  deleteBtn: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6 },
+  deleteBtnText: { fontWeight: "700", fontSize: 12 },
   entryRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
   challengeRow: { marginBottom: 12 },
   actionRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
