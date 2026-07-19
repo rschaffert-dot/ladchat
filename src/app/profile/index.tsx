@@ -1,4 +1,5 @@
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -6,10 +7,26 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
 import { avatarUrl, uploadAvatar } from "@/lib/avatar";
+import { getChatMediaUrl } from "@/lib/chatMedia";
 import { progressForPoints, titleForPoints } from "@/lib/gamification";
+import {
+  CATEGORIES,
+  HUNT_SERIF,
+  isVideoPath,
+  TIERS,
+} from "@/lib/huntCards";
+import type { HuntChallenge, HuntCompletion } from "@/lib/huntCards";
 import { supabase } from "@/lib/supabase";
 import type { Achievement, Streak, UserAchievement } from "@/lib/types";
 import { useColors } from "@/lib/ui";
+
+/** Ett uppslag i LadBook: klarad utmaning + dess bevismaterial. */
+type LadBookEntry = {
+  completion: HuntCompletion;
+  challenge: HuntChallenge;
+  proofUrl: string | null;
+  proofIsVideo: boolean;
+};
 
 type GroupStat = { groupId: string; groupName: string; points: number };
 
@@ -25,6 +42,7 @@ export default function ProfileScreen() {
   const [streaks, setStreaks] = useState<Streak[]>([]);
   const [catalog, setCatalog] = useState<Achievement[]>([]);
   const [earned, setEarned] = useState<UserAchievement[]>([]);
+  const [ladbook, setLadbook] = useState<LadBookEntry[]>([]);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -61,6 +79,36 @@ export default function ProfileScreen() {
     setStreaks((st ?? []) as Streak[]);
     setCatalog((all ?? []) as Achievement[]);
     setEarned((mine ?? []) as UserAchievement[]);
+
+    // LadBook: klarade (och väntande) jaktutmaningar med bevismaterial.
+    const { data: comps } = await supabase
+      .from("hunt_completions")
+      .select("*")
+      .eq("user_id", userId)
+      .in("status", ["confirmed", "pending"])
+      .order("created_at", { ascending: false });
+    const completions = (comps ?? []) as HuntCompletion[];
+    if (completions.length === 0) {
+      setLadbook([]);
+      return;
+    }
+    const { data: chs } = await supabase
+      .from("hunt_challenges")
+      .select("*")
+      .in("id", completions.map((c) => c.challenge_id));
+    const chMap = new Map(((chs ?? []) as HuntChallenge[]).map((c) => [c.id, c]));
+    setLadbook(
+      await Promise.all(
+        completions
+          .filter((c) => chMap.has(c.challenge_id))
+          .map(async (c) => ({
+            completion: c,
+            challenge: chMap.get(c.challenge_id)!,
+            proofUrl: c.proof_url ? await getChatMediaUrl(c.proof_url) : null,
+            proofIsVideo: c.proof_url ? isVideoPath(c.proof_url) : false,
+          })),
+      ),
+    );
   }, [userId]);
 
   useEffect(() => {
@@ -185,6 +233,73 @@ export default function ProfileScreen() {
             );
           })}
         </View>
+
+        <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>
+          🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
+        </Text>
+        {ladbook.length === 0 ? (
+          <Pressable onPress={() => router.push("/hunt")}>
+            <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+              Inga kort insamlade än — ge dig ut på{" "}
+              <Text style={{ color: c.brand, fontWeight: "700" }}>Poängjakten</Text> och samla
+              din första bragd!
+            </Text>
+          </Pressable>
+        ) : (
+          ladbook.map(({ completion, challenge, proofUrl, proofIsVideo }) => {
+            const t = TIERS[challenge.tier];
+            return (
+              <View key={completion.id} style={styles.ladbookRow}>
+                {/* Utmaningskortet */}
+                <Pressable
+                  onPress={() => router.push("/hunt")}
+                  style={[styles.ladCard, { borderColor: t.frame, backgroundColor: t.face }]}
+                >
+                  <View style={[styles.ladCardInner, { borderColor: t.frameDark }]}>
+                    <Text style={styles.ladCorner}>{t.symbol}</Text>
+                    <Text style={styles.ladCornerRight}>
+                      {CATEGORIES[challenge.category]?.emoji}
+                    </Text>
+                    <Text style={[styles.ladCardName, { color: t.text }]} numberOfLines={3}>
+                      {challenge.name.toUpperCase()}
+                    </Text>
+                    <Text style={[styles.ladCardMeta, { color: t.frameDark }]}>
+                      {t.label} · {completion.status === "confirmed"
+                        ? `+${completion.points_awarded}p`
+                        : `${challenge.points}p`}
+                    </Text>
+                    {completion.status === "pending" ? (
+                      <Text style={styles.ladPending}>⏳ väntar på vittne</Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+
+                {/* Beviskortet */}
+                <Pressable
+                  onPress={() => proofUrl && Linking.openURL(proofUrl)}
+                  disabled={!proofUrl}
+                  style={[styles.ladCard, { borderColor: t.frame, backgroundColor: "#14100d" }]}
+                >
+                  <View style={[styles.ladCardInner, { borderColor: t.frameDark, padding: 0 }]}>
+                    {proofUrl && !proofIsVideo ? (
+                      <Image source={{ uri: proofUrl }} style={styles.ladProofImg} />
+                    ) : (
+                      <View style={styles.ladProofEmpty}>
+                        <Text style={{ fontSize: 30 }}>{proofUrl ? "🎬" : "🕳"}</Text>
+                        <Text style={styles.ladProofEmptyText}>
+                          {proofUrl ? "Visa videobevis" : "Bevis saknas"}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.ladProofBadge}>
+                      <Text style={styles.ladProofBadgeText}>BEVIS</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              </View>
+            );
+          })
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -231,4 +346,47 @@ const styles = StyleSheet.create({
   },
   trophyName: { fontSize: 13, fontWeight: "700" },
   trophyDesc: { fontSize: 11, textAlign: "center" },
+  ladbookRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  ladCard: {
+    flex: 1,
+    aspectRatio: 0.68,
+    borderRadius: 12,
+    borderWidth: 3,
+    padding: 4,
+    overflow: "hidden",
+  },
+  ladCardInner: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 6,
+    gap: 6,
+    overflow: "hidden",
+  },
+  ladCorner: { position: "absolute", top: 4, left: 6, fontSize: 13 },
+  ladCornerRight: { position: "absolute", top: 4, right: 6, fontSize: 12 },
+  ladCardName: {
+    fontFamily: HUNT_SERIF,
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  ladCardMeta: { fontSize: 11, fontWeight: "700", position: "absolute", bottom: 6 },
+  ladPending: { fontSize: 11, color: "#7c4a1e", fontWeight: "600" },
+  ladProofImg: { width: "100%", height: "100%" },
+  ladProofEmpty: { alignItems: "center", gap: 6 },
+  ladProofEmptyText: { color: "#b9a97f", fontSize: 12, fontWeight: "600" },
+  ladProofBadge: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    backgroundColor: "rgba(0,0,0,0.65)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  ladProofBadgeText: { color: "#e9dcb8", fontWeight: "900", fontSize: 10, letterSpacing: 2 },
 });

@@ -8,7 +8,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -20,78 +19,29 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
 import { getChatMediaUrl, uploadChatMedia } from "@/lib/chatMedia";
+import {
+  CATEGORIES,
+  CATEGORY_ORDER,
+  HUNT_SERIF as SERIF,
+  isVideoPath,
+  TIER_ORDER,
+  TIERS,
+} from "@/lib/huntCards";
+import type { Category, HuntChallenge, HuntCompletion, Tier } from "@/lib/huntCards";
 import { supabase } from "@/lib/supabase";
 
 // ============================================================
 // Poängjakten: 100 utmaningar som tarotliknande samlarkort.
 // Kortdata bor i hunt_challenges; klarmarkering + vittnesflöde
 // går via RPC:erna hunt_claim/hunt_respond (se migration 0021).
+// Kortens utseende delas med LadBook via src/lib/huntCards.
 // ============================================================
-
-const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "Georgia" });
-
-type Tier = "wood" | "bronze" | "silver" | "gold" | "diamond";
-
-type Category = "gang" | "social" | "charm" | "scen" | "fys" | "dryck";
-
-const CATEGORY_ORDER: Category[] = ["gang", "social", "charm", "scen", "fys", "dryck"];
-
-const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
-  gang: { label: "Gänget", emoji: "👊" },
-  social: { label: "Främlingar", emoji: "🤝" },
-  charm: { label: "Charm", emoji: "💘" },
-  scen: { label: "Scenen", emoji: "🎤" },
-  fys: { label: "Styrka & mod", emoji: "💪" },
-  dryck: { label: "Dryckesmästarn", emoji: "🍺" },
-};
-
-type HuntChallenge = {
-  id: number;
-  name: string;
-  tier: Tier;
-  category: Category;
-  points: number;
-  bonus_points: number | null;
-  bonus_condition: string | null;
-  description: string;
-  background_theme: string;
-  requires_alcohol: boolean;
-};
-
-type HuntCompletion = {
-  id: string;
-  challenge_id: number;
-  user_id: string;
-  group_id: string;
-  witness_user_id: string;
-  bonus_claimed: boolean;
-  status: "pending" | "confirmed" | "denied";
-  points_awarded: number;
-  proof_url: string | null;
-};
 
 type WitnessRequest = HuntCompletion & {
   claimantName: string;
   challenge?: HuntChallenge;
   proofSignedUrl: string | null;
   proofIsVideo: boolean;
-};
-
-function isVideoPath(path: string): boolean {
-  return /\.(mp4|mov|webm|m4v)$/i.test(path);
-}
-
-const TIER_ORDER: Tier[] = ["wood", "bronze", "silver", "gold", "diamond"];
-
-const TIERS: Record<
-  Tier,
-  { label: string; symbol: string; frame: string; frameDark: string; face: string; text: string }
-> = {
-  wood: { label: "Trä", symbol: "🪵", frame: "#8a5a2b", frameDark: "#5d3c1c", face: "#efe0bd", text: "#4a3418" },
-  bronze: { label: "Brons", symbol: "🥉", frame: "#b87333", frameDark: "#7c4a1e", face: "#f0ddba", text: "#5a3517" },
-  silver: { label: "Silver", symbol: "🥈", frame: "#aab4bf", frameDark: "#6d7681", face: "#eef0ef", text: "#3c434b" },
-  gold: { label: "Guld", symbol: "🏆", frame: "#d4af37", frameDark: "#96781f", face: "#f5e9c0", text: "#5c4a12" },
-  diamond: { label: "Diamant", symbol: "💎", frame: "#8fd8f2", frameDark: "#4d94ad", face: "#e8f6fb", text: "#1f4b5a" },
 };
 
 type StatusFilter = "alla" | "oklarade" | "klarade";
