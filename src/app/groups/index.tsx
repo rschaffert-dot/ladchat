@@ -41,11 +41,24 @@ export default function GroupsScreen() {
   const [unread, setUnread] = useState<Record<string, number>>({});
 
   const load = useCallback(async () => {
+    if (!userId) {
+      setGroups([]);
+      setLoading(false);
+      return;
+    }
+    // Bara grupper användaren faktiskt är medlem i. (RLS tillåter läsning av
+    // gruppnamn för turneringsdeltagare pga den offentliga topplistan, så vi
+    // måste filtrera på medlemskap här — annars syns alla turneringsgrupper.)
     const { data } = await supabase
       .from("groups")
-      .select("id,name,owner_id,created_at")
+      .select("id,name,owner_id,created_at,group_members!inner(user_id)")
+      .eq("group_members.user_id", userId)
       .order("created_at", { ascending: false });
-    setGroups((data ?? []) as Group[]);
+    setGroups(
+      ((data ?? []) as (Group & { group_members: unknown })[]).map(
+        ({ group_members: _gm, ...g }) => g,
+      ),
+    );
     setLoading(false);
 
     if (userId) {
