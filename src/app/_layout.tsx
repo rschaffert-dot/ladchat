@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
 
+import { NEEDS_AVATAR_KEY } from "@/lib/avatar";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { PENDING_INVITE_KEY } from "@/lib/invite";
 
@@ -23,9 +24,14 @@ function RootNavigator() {
       return;
     }
     if (session && isAuthScreen) {
-      AsyncStorage.getItem(PENDING_INVITE_KEY).then((token) => {
+      Promise.all([
+        AsyncStorage.getItem(PENDING_INVITE_KEY),
+        AsyncStorage.getItem(NEEDS_AVATAR_KEY),
+      ]).then(([token, needsAvatar]) => {
         if (token) {
           router.replace({ pathname: "/join/[token]", params: { token } });
+        } else if (needsAvatar) {
+          router.replace("/onboarding/avatar");
         } else {
           router.replace("/groups");
         }
