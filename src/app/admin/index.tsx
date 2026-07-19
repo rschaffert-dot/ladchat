@@ -162,6 +162,15 @@ export default function AdminHomeScreen() {
             <Text style={styles.manageBtnText}>+ Skapa & hantera turneringar</Text>
           </Pressable>
 
+          <Pressable
+            onPress={() => router.push("/admin/activations")}
+            style={[styles.secondaryBtn, { borderColor: c.backgroundSelected }]}
+          >
+            <Text style={[styles.secondaryBtnText, { color: c.text }]}>
+              💤 Aktivera chattar
+            </Text>
+          </Pressable>
+
           <Text style={[styles.sectionTitle, { color: c.text }]}>Översikt</Text>
           {rows.length === 0 ? (
             <Text style={{ color: c.textSecondary, marginTop: 8 }}>
@@ -225,6 +234,14 @@ const styles = StyleSheet.create({
   statLabel: { fontSize: 11, fontWeight: "600", textAlign: "center" },
   manageBtn: { borderRadius: 14, paddingVertical: 14, alignItems: "center", marginBottom: 8 },
   manageBtnText: { color: "#fff", fontWeight: "700" },
+  secondaryBtn: {
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  secondaryBtnText: { fontWeight: "700" },
   sectionTitle: { fontSize: 16, fontWeight: "800", marginTop: 16, marginBottom: 4 },
   card: { borderRadius: 16, padding: 16, marginTop: 12 },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },

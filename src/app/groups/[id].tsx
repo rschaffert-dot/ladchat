@@ -38,9 +38,23 @@ import {
   saveChatSettings,
 } from "@/lib/chatSettings";
 import type { ChatSettings } from "@/lib/chatSettings";
+import {
+  ACTIVATION_KINDS,
+  formatDuration,
+  uploadActivationMedia,
+  videoDurationMs,
+} from "@/lib/activation";
 import { supabase } from "@/lib/supabase";
-import type { BeerGlassSize, Group, Message, MessageWithAuthor } from "@/lib/types";
+import type {
+  ActivationParticipation,
+  BeerGlassSize,
+  Group,
+  GroupActivation,
+  Message,
+  MessageWithAuthor,
+} from "@/lib/types";
 import { useColors } from "@/lib/ui";
+import { useIsAdmin } from "@/lib/useIsAdmin";
 
 type LeaderboardRow = { userId: string; name: string; points: number };
 
@@ -70,6 +84,17 @@ function formatCountdown(ms: number): string {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+// Längre nedräkning (aktiveringens svarstid kan vara timmar).
+function formatRemaining(ms: number): string {
+  const totalMinutes = Math.max(0, Math.ceil(ms / 60000));
+  if (totalMinutes >= 60) {
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  return formatCountdown(ms);
 }
 
 function ChatBackground({
@@ -138,6 +163,7 @@ export default function GroupChatScreen() {
   const c = useColors();
   const router = useRouter();
   const { userId } = useAuth();
+  const isAdmin = useIsAdmin();
   const { id: groupId } = useLocalSearchParams<{ id: string }>();
 
   const [group, setGroup] = useState<Group | null>(null);
@@ -154,9 +180,19 @@ export default function GroupChatScreen() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [celebration, setCelebration] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
+  const [activation, setActivation] = useState<GroupActivation | null>(null);
+  const [participations, setParticipations] = useState<ActivationParticipation[]>([]);
+  const [activationBusy, setActivationBusy] = useState(false);
   const namesRef = useRef<Record<string, string>>({});
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const activationRef = useRef<GroupActivation | null>(activation);
+  activationRef.current = activation;
+
+  const myParticipation = participations.find((p) => p.user_id === userId) ?? null;
+  const activationRemainingMs = activation
+    ? Math.max(0, new Date(activation.deadline_at).getTime() - nowTick)
+    : 0;
 
   const beerRemainingMs =
     group?.beer_round_started_at && group.beer_duration_minutes
@@ -168,12 +204,35 @@ export default function GroupChatScreen() {
         )
       : 0;
 
-  // Öl-mode-klockan tickar en gång i sekunden så nedräkningen syns live.
+  // Klockan tickar en gång i sekunden så öl-nedräkning och aktiverings-deadline syns live.
   useEffect(() => {
-    if (!group?.beer_glass_size) return;
+    if (!group?.beer_glass_size && !activation) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [group?.beer_glass_size]);
+  }, [group?.beer_glass_size, activation]);
+
+  const loadActivation = useCallback(async () => {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("group_activations")
+      .select("*")
+      .eq("group_id", groupId)
+      .eq("status", "active")
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const act = (data as GroupActivation) ?? null;
+    setActivation(act);
+    if (act) {
+      const { data: parts } = await supabase
+        .from("activation_participations")
+        .select("*")
+        .eq("activation_id", act.id);
+      setParticipations((parts ?? []) as ActivationParticipation[]);
+    } else {
+      setParticipations([]);
+    }
+  }, [groupId]);
 
   const nameFor = useCallback(async (uid: string): Promise<string> => {
     if (namesRef.current[uid]) return namesRef.current[uid];
@@ -250,11 +309,12 @@ export default function GroupChatScreen() {
       setMessages(list);
       setHasMore((msgs?.length ?? 0) >= PAGE);
       setLoading(false);
+      void loadActivation();
     })();
     return () => {
       active = false;
     };
-  }, [groupId, router]);
+  }, [groupId, router, loadActivation]);
 
   // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
   useEffect(() => {
@@ -400,6 +460,42 @@ export default function GroupChatScreen() {
     };
   }, [groupId, loadLeaderboard]);
 
+  // Realtime: aktiveringar startas/avslutas (av cron eller admin) + deltaganden.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`activations:${groupId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "group_activations",
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload) => {
+          const wasActive = activationRef.current?.status === "active";
+          const nowCompleted = (payload.new as GroupActivation)?.status === "completed";
+          void loadActivation();
+          if (wasActive && nowCompleted) void loadLeaderboard();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "activation_participations" },
+        (payload) => {
+          const aid =
+            (payload.new as ActivationParticipation)?.activation_id ??
+            (payload.old as ActivationParticipation)?.activation_id;
+          if (aid && aid === activationRef.current?.id) void loadActivation();
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, loadActivation, loadLeaderboard]);
+
   function handleKeyPress(e: NativeSyntheticEvent<TextInputKeyPressEventData>) {
     if (Platform.OS !== "web") return;
     // På webben förmedlar react-native-web den riktiga DOM-KeyboardEvent här,
@@ -420,6 +516,68 @@ export default function GroupChatScreen() {
       .insert({ group_id: groupId, user_id: userId, content });
     setSending(false);
     if (!error) setText("");
+  }
+
+  async function participateThumb() {
+    if (!activation || activationBusy) return;
+    setActivationBusy(true);
+    try {
+      await supabase.rpc("submit_activation", { aid: activation.id });
+      await loadActivation();
+    } finally {
+      setActivationBusy(false);
+    }
+  }
+
+  async function participateFart() {
+    if (!activation || !groupId || !userId || activationBusy) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["videos"],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+
+    setActivationBusy(true);
+    try {
+      let durationMs = Math.round(asset.duration ?? 0);
+      if (!durationMs) durationMs = await videoDurationMs(asset.uri);
+      if (!durationMs) {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert("Kunde inte läsa inspelningens längd. Prova en annan fil.");
+        }
+        return;
+      }
+      const path = await uploadActivationMedia(
+        activation.id,
+        groupId,
+        userId,
+        asset.uri,
+        asset.mimeType ?? "video/mp4",
+      );
+      await supabase.rpc("submit_activation", {
+        aid: activation.id,
+        media_path: path,
+        duration_ms: durationMs,
+      });
+      await loadActivation();
+    } finally {
+      setActivationBusy(false);
+    }
+  }
+
+  async function adminCompleteActivation() {
+    if (!activation || activationBusy) return;
+    setActivationBusy(true);
+    try {
+      await supabase.rpc("admin_complete_activation", { aid: activation.id });
+      await loadActivation();
+      await loadLeaderboard();
+    } finally {
+      setActivationBusy(false);
+    }
   }
 
   async function loadOlder() {
@@ -592,6 +750,52 @@ export default function GroupChatScreen() {
       {celebration ? (
         <View style={styles.celebrationBanner}>
           <Text style={styles.celebrationText}>{celebration}</Text>
+        </View>
+      ) : null}
+
+      {activation ? (
+        <View style={[styles.activationCard, { backgroundColor: c.brand }]}>
+          <View style={styles.activationTop}>
+            <Text style={styles.activationTitle} numberOfLines={1}>
+              {ACTIVATION_KINDS[activation.kind]?.emoji} {activation.name}
+            </Text>
+            <Text style={styles.activationTimer}>⏳ {formatRemaining(activationRemainingMs)}</Text>
+          </View>
+          <Text style={styles.activationBlurb}>
+            {ACTIVATION_KINDS[activation.kind]?.blurb}
+          </Text>
+          <View style={styles.activationActions}>
+            {myParticipation ? (
+              <Text style={styles.activationDone}>
+                ✓ Du har deltagit
+                {activation.kind === "longest_fart" && myParticipation.duration_ms
+                  ? ` (${formatDuration(myParticipation.duration_ms)})`
+                  : ""}
+              </Text>
+            ) : (
+              <Pressable
+                onPress={activation.kind === "longest_fart" ? participateFart : participateThumb}
+                disabled={activationBusy}
+                style={[styles.activationBtn, { opacity: activationBusy ? 0.6 : 1 }]}
+              >
+                <Text style={[styles.activationBtnText, { color: c.brand }]}>
+                  {activationBusy
+                    ? "Skickar…"
+                    : activation.kind === "longest_fart"
+                      ? "💨 Ladda upp prutt"
+                      : "👍 Skicka tumme"}
+                </Text>
+              </Pressable>
+            )}
+            <Text style={styles.activationCount}>
+              {participations.length} {participations.length === 1 ? "deltagare" : "deltagare"}
+            </Text>
+          </View>
+          {isAdmin ? (
+            <Pressable onPress={adminCompleteActivation} disabled={activationBusy} hitSlop={6}>
+              <Text style={styles.activationAdmin}>Avsluta &amp; dela ut poäng nu →</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -891,6 +1095,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   celebrationText: { color: "#2a1a10", fontWeight: "800", textAlign: "center" },
+  activationCard: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  activationTop: { flexDirection: "row", alignItems: "center", gap: 8 },
+  activationTitle: { flex: 1, color: "#fff", fontWeight: "800", fontSize: 15 },
+  activationTimer: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  activationBlurb: { color: "#eef", fontSize: 13 },
+  activationActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  activationBtn: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  activationBtnText: { fontWeight: "800", fontSize: 14 },
+  activationDone: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  activationCount: { color: "#eef", fontSize: 12 },
+  activationAdmin: { color: "#fff", fontWeight: "700", fontSize: 12, textDecorationLine: "underline" },
   beerBackdrop: { backgroundColor: "#2a1a10" },
   beerGlassWrap: {
     position: "absolute",
