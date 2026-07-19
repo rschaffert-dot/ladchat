@@ -576,6 +576,9 @@ export default function GroupChatScreen() {
         <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
           {group?.name ?? ""}
         </Text>
+        <Pressable onPress={() => router.push("/feed")} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>🏆</Text>
+        </Pressable>
         <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>⚙️</Text>
         </Pressable>
