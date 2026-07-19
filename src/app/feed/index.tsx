@@ -42,6 +42,7 @@ type LeaderboardRow = {
   groupName: string;
   points: number;
   tournaments: number;
+  achievements: string[];
 };
 
 export default function FeedScreen() {
@@ -59,16 +60,33 @@ export default function FeedScreen() {
   }, [router]);
 
   const load = useCallback(async () => {
-    const [{ data: ts }, { data: entries }, { data: groups }] = await Promise.all([
-      supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
-      supabase.from("tournament_entries").select("group_id,points"),
-      supabase.from("groups").select("id,name"),
-    ]);
+    const [{ data: ts }, { data: entries }, { data: groups }, { data: catalog }, { data: groupAch }] =
+      await Promise.all([
+        supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
+        supabase.from("tournament_entries").select("group_id,points"),
+        supabase.from("groups").select("id,name"),
+        supabase.from("achievements").select("code,emoji"),
+        // Gruppens badges (bara group_id + code, aldrig vem) — deltagarnamn skyddas.
+        supabase.rpc("public_group_achievements"),
+      ]);
 
     const sorted = ((ts ?? []) as Tournament[]).sort(
       (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
     );
     setTournaments(sorted);
+
+    // code → emoji, samt group_id → emoji-lista för gruppens achievements.
+    const emojiFor = new Map(
+      ((catalog ?? []) as { code: string; emoji: string }[]).map((a) => [a.code, a.emoji]),
+    );
+    const achByGroup = new Map<string, string[]>();
+    for (const r of (groupAch ?? []) as { group_id: string; code: string }[]) {
+      const emoji = emojiFor.get(r.code);
+      if (!emoji) continue;
+      const list = achByGroup.get(r.group_id) ?? [];
+      list.push(emoji);
+      achByGroup.set(r.group_id, list);
+    }
 
     // Aggregera lagpoäng över samtliga turneringar till en global topplista.
     const nameMap = new Map((groups ?? []).map((g) => [g.id as string, g.name as string]));
@@ -84,6 +102,7 @@ export default function FeedScreen() {
           groupName: nameMap.get(e.group_id) ?? "Okänt lag",
           points: e.points,
           tournaments: 1,
+          achievements: achByGroup.get(e.group_id) ?? [],
         });
       }
     }
@@ -203,6 +222,11 @@ export default function FeedScreen() {
                 <Text style={[styles.boardMeta, { color: c.textSecondary }]}>
                   {item.tournaments} {item.tournaments === 1 ? "turnering" : "turneringar"}
                 </Text>
+                {item.achievements.length > 0 ? (
+                  <Text style={styles.boardBadges} numberOfLines={1}>
+                    {item.achievements.join(" ")}
+                  </Text>
+                ) : null}
               </View>
               <Text style={[styles.points, { color: c.brand }]}>{item.points}p</Text>
             </View>
@@ -255,5 +279,6 @@ const styles = StyleSheet.create({
   rank: { width: 28, fontSize: 17, fontWeight: "800", textAlign: "center" },
   boardName: { fontSize: 15, fontWeight: "700" },
   boardMeta: { fontSize: 12, marginTop: 1 },
+  boardBadges: { fontSize: 15, marginTop: 3 },
   points: { fontSize: 17, fontWeight: "800" },
 });
