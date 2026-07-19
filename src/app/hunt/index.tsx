@@ -1,6 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -46,6 +46,9 @@ type WitnessRequest = HuntCompletion & {
 
 type StatusFilter = "alla" | "oklarade" | "klarade";
 
+/** Gruppens senaste bekräftade bragder (visas när jakten öppnas från en grupp). */
+type GroupFeat = { id: string; name: string; challengeName: string; points: number };
+
 function KlaradStamp({ small }: { small?: boolean }) {
   return (
     <View pointerEvents="none" style={styles.stampWrap}>
@@ -75,6 +78,12 @@ function useShimmer() {
 export default function HuntScreen() {
   const router = useRouter();
   const { userId } = useAuth();
+  // Öppnad från en gruppchatt: jakten visas i den gruppens kontext.
+  const { groupId: contextGroupId } = useLocalSearchParams<{ groupId?: string }>();
+  const [contextGroupName, setContextGroupName] = useState<string | null>(null);
+  const [groupFeats, setGroupFeats] = useState<GroupFeat[]>([]);
+  const [groupFeatCount, setGroupFeatCount] = useState(0);
+  const [groupFeatPoints, setGroupFeatPoints] = useState(0);
 
   const [challenges, setChallenges] = useState<HuntChallenge[]>([]);
   const [completions, setCompletions] = useState<Record<number, HuntCompletion>>({});
@@ -143,8 +152,51 @@ export default function HuntScreen() {
         })),
       ),
     );
+    // Gruppkontext: namn + gruppens samlade bekräftade bragder.
+    if (contextGroupId) {
+      const [{ data: grp }, { data: feats }] = await Promise.all([
+        supabase.from("groups").select("name").eq("id", contextGroupId).maybeSingle(),
+        supabase
+          .from("hunt_completions")
+          .select("id, user_id, challenge_id, points_awarded")
+          .eq("group_id", contextGroupId)
+          .eq("status", "confirmed")
+          .order("responded_at", { ascending: false }),
+      ]);
+      setContextGroupName((grp?.name as string) ?? null);
+      const rows = (feats ?? []) as {
+        id: string;
+        user_id: string;
+        challenge_id: number;
+        points_awarded: number;
+      }[];
+      setGroupFeatCount(rows.length);
+      setGroupFeatPoints(rows.reduce((sum, r) => sum + r.points_awarded, 0));
+      const featUserIds = [...new Set(rows.map((r) => r.user_id))];
+      let featNames: Record<string, string> = {};
+      if (featUserIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id,display_name,email")
+          .in("id", featUserIds);
+        featNames = Object.fromEntries(
+          (profs ?? []).map((p) => [
+            p.id as string,
+            (p.display_name || p.email || "Okänd") as string,
+          ]),
+        );
+      }
+      setGroupFeats(
+        rows.slice(0, 5).map((r) => ({
+          id: r.id,
+          name: featNames[r.user_id] ?? "Okänd",
+          challengeName: ch.find((x) => x.id === r.challenge_id)?.name ?? "?",
+          points: r.points_awarded,
+        })),
+      );
+    }
     setLoading(false);
-  }, [userId]);
+  }, [userId, contextGroupId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -191,9 +243,15 @@ export default function HuntScreen() {
       .from("groups")
       .select("id,name,group_members!inner(user_id)")
       .eq("group_members.user_id", userId);
-    setGroups(
-      ((data ?? []) as { id: string; name: string }[]).map((g) => ({ id: g.id, name: g.name })),
-    );
+    const mine = ((data ?? []) as { id: string; name: string }[]).map((g) => ({
+      id: g.id,
+      name: g.name,
+    }));
+    setGroups(mine);
+    // Öppnad från en grupp: förvälj den direkt.
+    if (contextGroupId && mine.some((g) => g.id === contextGroupId)) {
+      void pickGroup(contextGroupId);
+    }
   }
 
   async function pickGroup(gid: string) {
@@ -291,7 +349,9 @@ export default function HuntScreen() {
         <Pressable onPress={() => router.back()} hitSlop={8}>
           <Text style={{ color: "#d8c9a3", fontSize: 26 }}>‹</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>🃏 Poängjakten</Text>
+        <Text style={styles.headerTitle}>
+          🃏 Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
+        </Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -320,6 +380,22 @@ export default function HuntScreen() {
                 </View>
                 <Text style={styles.progressDim}>⭐ {totalPoints} poäng insamlade i jakten</Text>
               </View>
+
+              {contextGroupId ? (
+                <View style={styles.progressCard}>
+                  <Text style={styles.progressBig}>
+                    ⚜️ {contextGroupName ?? "Gruppen"}s jakt
+                  </Text>
+                  <Text style={styles.progressDim}>
+                    {groupFeatCount} bekräftade bragder · {groupFeatPoints} poäng till laget
+                  </Text>
+                  {groupFeats.map((f) => (
+                    <Text key={f.id} style={styles.progressDim}>
+                      🃏 {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
 
               {witnessReqs.length > 0 ? (
                 <View style={styles.witnessBox}>

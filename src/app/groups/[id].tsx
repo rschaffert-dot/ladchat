@@ -1605,6 +1605,15 @@ export default function GroupChatScreen() {
         <Pressable onPress={() => setGameOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>🎮</Text>
         </Pressable>
+        <Pressable
+          onPress={() =>
+            groupId && router.push({ pathname: "/hunt", params: { groupId } })
+          }
+          hitSlop={8}
+          style={styles.gear}
+        >
+          <Text style={{ fontSize: 20 }}>🃏</Text>
+        </Pressable>
         <Pressable onPress={() => setDuelModalOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>⚔️</Text>
         </Pressable>

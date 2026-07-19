@@ -240,9 +240,16 @@ export default function ProfileScreen() {
           <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 0, marginBottom: 0 }]}>
             🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
           </Text>
-          <Text style={{ color: c.textSecondary, fontSize: 13 }}>
-            {ladbookOpen ? "▾" : "▸"}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
+            <Pressable onPress={() => router.push("/hunt")} hitSlop={6}>
+              <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+                Poängjakten ›
+              </Text>
+            </Pressable>
+            <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+              {ladbookOpen ? "▾" : "▸"}
+            </Text>
+          </View>
         </Pressable>
         {!ladbookOpen ? null : ladbook.length === 0 ? (
           <Pressable onPress={() => router.push("/hunt")}>
