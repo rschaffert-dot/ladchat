@@ -94,8 +94,8 @@ export default function GroupsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: c.text }]}>Dina grupper</Text>
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push("/tournaments")} hitSlop={8}>
-            <Text style={{ color: c.brand, fontWeight: "700" }}>Turneringar</Text>
+          <Pressable onPress={() => router.push("/feed")} hitSlop={8}>
+            <Text style={{ color: c.brand, fontWeight: "700" }}>Utforska</Text>
           </Pressable>
           {isAdmin ? (
             <Pressable onPress={() => router.push("/admin")} hitSlop={8}>
