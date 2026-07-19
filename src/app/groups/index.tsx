@@ -21,11 +21,13 @@ import type { Currency } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
 import { useColors } from "@/lib/ui";
+import { useIsAdmin } from "@/lib/useIsAdmin";
 
 export default function GroupsScreen() {
   const c = useColors();
   const router = useRouter();
   const { userId } = useAuth();
+  const isAdmin = useIsAdmin();
 
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,11 +93,21 @@ export default function GroupsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <View style={styles.header}>
         <Text style={[styles.title, { color: c.text }]}>Dina grupper</Text>
-        <Pressable onPress={() => supabase.auth.signOut()} hitSlop={8}>
-          <Text style={{ color: c.textSecondary, fontWeight: "600" }}>
-            Logga ut
-          </Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push("/tournaments")} hitSlop={8}>
+            <Text style={{ color: c.brand, fontWeight: "700" }}>Turneringar</Text>
+          </Pressable>
+          {isAdmin ? (
+            <Pressable onPress={() => router.push("/admin")} hitSlop={8}>
+              <Text style={{ color: c.textSecondary, fontWeight: "600" }}>⚙️</Text>
+            </Pressable>
+          ) : null}
+          <Pressable onPress={() => supabase.auth.signOut()} hitSlop={8}>
+            <Text style={{ color: c.textSecondary, fontWeight: "600" }}>
+              Logga ut
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.forms}>
@@ -205,6 +217,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   title: { fontSize: 22, fontWeight: "800" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 16 },
   forms: { paddingHorizontal: 20, gap: 10, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 8 },
   currencyRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },

@@ -493,6 +493,22 @@ export default function GroupChatScreen() {
             </Text>
           }
           renderItem={({ item }) => {
+            if (item.kind === "system") {
+              const challengeId = item.metadata?.challenge_id as string | undefined;
+              return (
+                <Pressable
+                  onPress={() =>
+                    challengeId &&
+                    router.push({ pathname: "/challenges/[id]", params: { id: challengeId } })
+                  }
+                  style={[styles.systemPill, { backgroundColor: c.backgroundElement }]}
+                >
+                  <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+                    {item.content} {challengeId ? "→" : ""}
+                  </Text>
+                </Pressable>
+              );
+            }
             const mine = item.user_id === userId;
             return (
               <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
@@ -832,6 +848,13 @@ const styles = StyleSheet.create({
   listContent: { padding: 12, gap: 8 },
   empty: { textAlign: "center", marginTop: 40, transform: [{ scaleY: -1 }] },
   msgRow: { maxWidth: "82%" },
+  systemPill: {
+    alignSelf: "center",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginVertical: 4,
+  },
   mine: { alignSelf: "flex-end", alignItems: "flex-end" },
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
