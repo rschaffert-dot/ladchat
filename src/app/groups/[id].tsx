@@ -943,6 +943,18 @@ export default function GroupChatScreen() {
     }
   }
 
+  async function adminStartActivation() {
+    if (!groupId || activationBusy || activation) return;
+    setActivationBusy(true);
+    try {
+      await supabase.rpc("admin_start_activation", { gid: groupId });
+      await loadActivation();
+      setSettingsOpen(false);
+    } finally {
+      setActivationBusy(false);
+    }
+  }
+
   async function adminCompleteActivation() {
     if (!activation || activationBusy) return;
     setActivationBusy(true);
@@ -1560,6 +1572,30 @@ export default function GroupChatScreen() {
                 {settings.currency} till alla — hinner ni inte i tid nollställs glaset utan
                 belöning.
               </Text>
+            </>
+          ) : null}
+
+          {isAdmin ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Aktivera chatten 💤 (tävlingsledning)
+              </Text>
+              <Pressable
+                onPress={adminStartActivation}
+                disabled={activationBusy || !!activation}
+                style={[
+                  styles.beerOption,
+                  {
+                    borderColor: c.backgroundSelected,
+                    alignItems: "center",
+                    opacity: activationBusy || activation ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
+                  {activation ? "Aktivering redan igång" : "Starta aktivering nu"}
+                </Text>
+              </Pressable>
             </>
           ) : null}
 
