@@ -32,9 +32,9 @@ const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "Geor
 
 type Tier = "wood" | "bronze" | "silver" | "gold" | "diamond";
 
-type Category = "gang" | "social" | "charm" | "scen" | "fys" | "bar";
+type Category = "gang" | "social" | "charm" | "scen" | "fys" | "dryck";
 
-const CATEGORY_ORDER: Category[] = ["gang", "social", "charm", "scen", "fys", "bar"];
+const CATEGORY_ORDER: Category[] = ["gang", "social", "charm", "scen", "fys", "dryck"];
 
 const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
   gang: { label: "Gänget", emoji: "👊" },
@@ -42,7 +42,7 @@ const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
   charm: { label: "Charm", emoji: "💘" },
   scen: { label: "Scenen", emoji: "🎤" },
   fys: { label: "Styrka & mod", emoji: "💪" },
-  bar: { label: "Baren", emoji: "🍻" },
+  dryck: { label: "Dryckesmästarn", emoji: "🍺" },
 };
 
 type HuntChallenge = {
