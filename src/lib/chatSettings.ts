@@ -4,6 +4,7 @@ export type ChatSettings = {
   color: string;
   background: string;
   backgroundImage: string;
+  beerMode: boolean;
   soundEnabled: boolean;
 };
 
@@ -11,6 +12,7 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   color: "#4f46e5",
   background: "",
   backgroundImage: "",
+  beerMode: false,
   soundEnabled: true,
 };
 

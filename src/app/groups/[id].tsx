@@ -82,6 +82,60 @@ function ChatBackground({
   return <View style={[style, color ? { backgroundColor: color } : null]}>{children}</View>;
 }
 
+function BeerGlassBackground({
+  percent,
+  style,
+  children,
+}: {
+  percent: number;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  return (
+    <View style={[style, styles.beerBackdrop]}>
+      <View style={styles.beerGlassWrap} pointerEvents="none">
+        <Text style={styles.beerLabel}>{percent}% fullt 🍺</Text>
+        <View style={styles.beerGlass}>
+          <View style={[styles.beerLiquidColumn, { height: `${percent}%` }]}>
+            {percent > 3 ? <View style={styles.beerFoam} /> : null}
+            <View style={styles.beerLiquid} />
+          </View>
+        </View>
+      </View>
+      <View style={styles.flex}>{children}</View>
+    </View>
+  );
+}
+
+function BeerGlassOrChatBackground({
+  beerMode,
+  beerPercent,
+  image,
+  color,
+  style,
+  children,
+}: {
+  beerMode: boolean;
+  beerPercent: number;
+  image: string;
+  color: string;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  if (beerMode) {
+    return (
+      <BeerGlassBackground percent={beerPercent} style={style}>
+        {children}
+      </BeerGlassBackground>
+    );
+  }
+  return (
+    <ChatBackground image={image} color={color} style={style}>
+      {children}
+    </ChatBackground>
+  );
+}
+
 const PAGE = 30;
 const MISSING = "00000000-0000-0000-0000-000000000000";
 
@@ -100,6 +154,7 @@ export default function GroupChatScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
   const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const namesRef = useRef<Record<string, string>>({});
@@ -162,6 +217,12 @@ export default function GroupChatScreen() {
       setMessages(list);
       setHasMore((msgs?.length ?? 0) >= PAGE);
       setLoading(false);
+
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { count: "exact", head: true })
+        .eq("group_id", groupId);
+      if (active) setMessageCount(count ?? 0);
     })();
     return () => {
       active = false;
@@ -222,6 +283,7 @@ export default function GroupChatScreen() {
           if (m.user_id !== userId && settingsRef.current.soundEnabled) {
             playMessageSound();
           }
+          setMessageCount((n) => n + 1);
           setMessages((prev) =>
             prev.some((x) => x.id === m.id)
               ? prev
@@ -343,7 +405,9 @@ export default function GroupChatScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
-        <ChatBackground
+        <BeerGlassOrChatBackground
+          beerMode={settings.beerMode}
+          beerPercent={Math.min(messageCount, 100)}
           image={settings.backgroundImage}
           color={settings.background}
           style={styles.flex}
@@ -423,7 +487,7 @@ export default function GroupChatScreen() {
               <Text style={styles.sendText}>Skicka</Text>
             </Pressable>
           </View>
-        </ChatBackground>
+        </BeerGlassOrChatBackground>
       </KeyboardAvoidingView>
 
       <Modal
@@ -503,6 +567,16 @@ export default function GroupChatScreen() {
 
           <View style={styles.soundRow}>
             <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
+              Öl-mode 🍺 (bakgrunden fylls på 1% per meddelande)
+            </Text>
+            <Switch
+              value={settings.beerMode}
+              onValueChange={(v) => updateSettings({ beerMode: v })}
+            />
+          </View>
+
+          <View style={styles.soundRow}>
+            <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
               Ljud vid nya meddelanden
             </Text>
             <Switch
@@ -567,6 +641,34 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendText: { color: "#fff", fontWeight: "700" },
+  beerBackdrop: { backgroundColor: "#2a1a10" },
+  beerGlassWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 12,
+    opacity: 0.9,
+  },
+  beerLabel: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  beerGlass: {
+    width: 140,
+    height: 220,
+    borderWidth: 3,
+    borderColor: "rgba(255,255,255,0.55)",
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+  },
+  beerLiquidColumn: { width: "100%" },
+  beerFoam: { width: "100%", height: 10, backgroundColor: "#fff8e1" },
+  beerLiquid: { flex: 1, width: "100%", backgroundColor: "#f2a916" },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
