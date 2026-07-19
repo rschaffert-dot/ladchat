@@ -140,6 +140,15 @@ export default function GroupChatScreen() {
     };
   }, [groupId, nameFor]);
 
+  function handleKeyPress(e: { nativeEvent: KeyboardEvent }) {
+    if (Platform.OS !== "web") return;
+    const { key, shiftKey } = e.nativeEvent;
+    if (key === "Enter" && !shiftKey) {
+      e.nativeEvent.preventDefault();
+      void send();
+    }
+  }
+
   async function send() {
     const content = text.trim();
     if (!content || sending || !userId || !groupId) return;
@@ -181,9 +190,23 @@ export default function GroupChatScreen() {
       .select("token")
       .single();
     if (error || !data) return;
-    await Share.share({
-      message: `Gå med i "${group?.name ?? "gruppen"}" på Ladchat med koden:\n\n${data.token}`,
-    });
+    const message = `Gå med i "${group?.name ?? "gruppen"}" på Ladchat med koden:\n\n${data.token}`;
+
+    if (Platform.OS === "web") {
+      if (navigator.share) {
+        try {
+          await navigator.share({ text: message });
+          return;
+        } catch {
+          // Användaren avbröt eller webbläsaren stödjer det ändå inte — fall tillbaka på urklipp.
+        }
+      }
+      await navigator.clipboard.writeText(message);
+      window.alert("Inbjudningskoden är kopierad till urklipp!");
+      return;
+    }
+
+    await Share.share({ message });
   }
 
   return (
@@ -260,6 +283,7 @@ export default function GroupChatScreen() {
             placeholder="Skriv ett meddelande…"
             placeholderTextColor={c.textSecondary}
             multiline
+            onKeyPress={handleKeyPress}
             style={[
               styles.input,
               { color: c.text, borderColor: c.backgroundSelected },
