@@ -1,9 +1,24 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type Currency =
+  | "Douchepoints"
+  | "Ass points"
+  | "Dick sticks"
+  | "Fanny farts";
+
+export const CURRENCY_OPTIONS: Currency[] = [
+  "Douchepoints",
+  "Ass points",
+  "Dick sticks",
+  "Fanny farts",
+];
+
 export type ChatSettings = {
   color: string;
   background: string;
   backgroundImage: string;
+  // Kosmetisk etikett för poäng — själva poängen lagras server-side (group_members.points).
+  currency: Currency;
   soundEnabled: boolean;
 };
 
@@ -11,6 +26,7 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   color: "#4f46e5",
   background: "",
   backgroundImage: "",
+  currency: "Douchepoints",
   soundEnabled: true,
 };
 

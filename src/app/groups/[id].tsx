@@ -28,10 +28,11 @@ import type {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
-import { BEER_GLASSES } from "@/lib/beer";
+import { BEER_DURATION_BONUS, BEER_DURATION_OPTIONS, BEER_GLASSES } from "@/lib/beer";
 import {
   BACKGROUND_OPTIONS,
   COLOR_OPTIONS,
+  CURRENCY_OPTIONS,
   DEFAULT_CHAT_SETTINGS,
   loadChatSettings,
   saveChatSettings,
@@ -64,6 +65,13 @@ function playMessageSound() {
   }
 }
 
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function ChatBackground({
   image,
   color,
@@ -88,11 +96,13 @@ function ChatBackground({
 function BeerGlassBackground({
   size,
   fillCl,
+  remainingMs,
   style,
   children,
 }: {
   size: BeerGlassSize;
   fillCl: number;
+  remainingMs: number;
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
@@ -100,6 +110,11 @@ function BeerGlassBackground({
   const percent = Math.min(100, Math.round((fillCl / glass.capacityCl) * 100));
   return (
     <View style={[style, styles.beerBackdrop]}>
+      <View style={styles.beerCountdownWrap} pointerEvents="none">
+        <Text style={styles.beerCountdownBig} numberOfLines={1} adjustsFontSizeToFit>
+          {formatCountdown(remainingMs)}
+        </Text>
+      </View>
       <View style={styles.beerGlassWrap} pointerEvents="none">
         <Text style={styles.beerLabel}>
           {glass.label} · {fillCl}/{glass.capacityCl} cl
@@ -138,9 +153,27 @@ export default function GroupChatScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [celebration, setCelebration] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
   const namesRef = useRef<Record<string, string>>({});
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+
+  const beerRemainingMs =
+    group?.beer_round_started_at && group.beer_duration_minutes
+      ? Math.max(
+          0,
+          new Date(group.beer_round_started_at).getTime() +
+            group.beer_duration_minutes * 60_000 -
+            nowTick,
+        )
+      : 0;
+
+  // Öl-mode-klockan tickar en gång i sekunden så nedräkningen syns live.
+  useEffect(() => {
+    if (!group?.beer_glass_size) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [group?.beer_glass_size]);
 
   const nameFor = useCallback(async (uid: string): Promise<string> => {
     if (namesRef.current[uid]) return namesRef.current[uid];
@@ -178,7 +211,9 @@ export default function GroupChatScreen() {
     (async () => {
       const { data: g } = await supabase
         .from("groups")
-        .select("id,name,owner_id,created_at,beer_glass_size,beer_fill_cl")
+        .select(
+          "id,name,owner_id,created_at,beer_glass_size,beer_fill_cl,beer_round_started_at,beer_duration_minutes",
+        )
         .eq("id", groupId)
         .single();
       if (!active) return;
@@ -245,11 +280,25 @@ export default function GroupChatScreen() {
     await saveChatSettings(groupId, next);
   }
 
-  async function setBeerGlass(size: BeerGlassSize | null) {
+  async function setBeerGlass(size: BeerGlassSize | null, durationMinutes: number) {
     if (!groupId) return;
-    const { error } = await supabase.rpc("set_beer_glass", { gid: groupId, size });
+    const { error } = await supabase.rpc("set_beer_glass", {
+      gid: groupId,
+      size,
+      duration_minutes: size ? durationMinutes : null,
+    });
     if (error) return;
-    setGroup((prev) => (prev ? { ...prev, beer_glass_size: size, beer_fill_cl: 0 } : prev));
+    setGroup((prev) =>
+      prev
+        ? {
+            ...prev,
+            beer_glass_size: size,
+            beer_fill_cl: 0,
+            beer_round_started_at: size ? new Date().toISOString() : null,
+            beer_duration_minutes: size ? durationMinutes : null,
+          }
+        : prev,
+    );
   }
 
   async function pickBackgroundImage() {
@@ -312,7 +361,7 @@ export default function GroupChatScreen() {
     };
   }, [groupId, nameFor, userId]);
 
-  // Realtime: ölglasets fyllnadsgrad delas av alla medlemmar via gruppraden.
+  // Realtime: ölglasets fyllnadsgrad och tidsgräns delas av alla medlemmar via gruppraden.
   useEffect(() => {
     if (!groupId) return;
     const channel = supabase
@@ -327,6 +376,7 @@ export default function GroupChatScreen() {
 
           const oldSize = oldRow.beer_glass_size as BeerGlassSize | null | undefined;
           const oldFill = oldRow.beer_fill_cl;
+          const oldDuration = oldRow.beer_duration_minutes;
           if (
             oldSize &&
             typeof oldFill === "number" &&
@@ -334,7 +384,11 @@ export default function GroupChatScreen() {
             newRow.beer_fill_cl === 0
           ) {
             const glass = BEER_GLASSES[oldSize];
-            setCelebration(`🍻 ${glass.label} är fullt! Alla i chatten får +${glass.points} poäng.`);
+            const bonus = oldDuration ? (BEER_DURATION_BONUS[oldDuration] ?? 0) : 0;
+            const reward = glass.points + bonus;
+            setCelebration(
+              `🍻 ${glass.label} är fullt! Alla i chatten får +${reward} ${settingsRef.current.currency}.`,
+            );
             setTimeout(() => setCelebration(null), 4000);
             void loadLeaderboard();
           }
@@ -495,6 +549,8 @@ export default function GroupChatScreen() {
     </>
   );
 
+  const selectedDuration = group?.beer_duration_minutes ?? BEER_DURATION_OPTIONS[0];
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
@@ -529,6 +585,7 @@ export default function GroupChatScreen() {
           <BeerGlassBackground
             size={group.beer_glass_size}
             fillCl={group.beer_fill_cl}
+            remainingMs={beerRemainingMs}
             style={styles.flex}
           >
             {chatBody}
@@ -619,12 +676,38 @@ export default function GroupChatScreen() {
             ) : null}
           </View>
 
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Valuta</Text>
+          <View style={styles.swatchRow}>
+            {CURRENCY_OPTIONS.map((currency) => (
+              <Pressable
+                key={currency}
+                onPress={() => updateSettings({ currency })}
+                style={[
+                  styles.chip,
+                  { borderColor: c.backgroundSelected },
+                  settings.currency === currency
+                    ? { backgroundColor: settings.color, borderColor: settings.color }
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: settings.currency === currency ? "#fff" : c.text },
+                  ]}
+                >
+                  {currency}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
             Öl-mode 🍺 (1 cl per meddelande, delad mellan alla i chatten)
           </Text>
           <View style={styles.beerPickerRow}>
             <Pressable
-              onPress={() => setBeerGlass(null)}
+              onPress={() => setBeerGlass(null, selectedDuration)}
               style={[
                 styles.beerOption,
                 { borderColor: c.backgroundSelected },
@@ -638,7 +721,7 @@ export default function GroupChatScreen() {
               return (
                 <Pressable
                   key={size}
-                  onPress={() => setBeerGlass(size)}
+                  onPress={() => setBeerGlass(size, selectedDuration)}
                   style={[
                     styles.beerOption,
                     { borderColor: c.backgroundSelected },
@@ -656,6 +739,44 @@ export default function GroupChatScreen() {
             })}
           </View>
 
+          {group?.beer_glass_size ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Tid (nollställer och startar om rundan)
+              </Text>
+              <View style={styles.swatchRow}>
+                {BEER_DURATION_OPTIONS.map((minutes) => (
+                  <Pressable
+                    key={minutes}
+                    onPress={() => setBeerGlass(group.beer_glass_size, minutes)}
+                    style={[
+                      styles.chip,
+                      { borderColor: c.backgroundSelected },
+                      selectedDuration === minutes
+                        ? { backgroundColor: settings.color, borderColor: settings.color }
+                        : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        { color: selectedDuration === minutes ? "#fff" : c.text },
+                      ]}
+                    >
+                      {minutes} min
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={[styles.pointsText, { color: c.textSecondary }]}>
+                Fullt glas ger {BEER_GLASSES[group.beer_glass_size].points +
+                  (BEER_DURATION_BONUS[selectedDuration] ?? 0)}{" "}
+                {settings.currency} till alla — hinner ni inte i tid nollställs glaset utan
+                belöning.
+              </Text>
+            </>
+          ) : null}
+
           {leaderboard.length > 0 ? (
             <>
               <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poäng</Text>
@@ -664,7 +785,7 @@ export default function GroupChatScreen() {
                   <View key={row.userId} style={styles.leaderboardRow}>
                     <Text style={{ color: c.text, fontSize: 13 }}>{row.name}</Text>
                     <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
-                      {row.points}p
+                      {row.points} {settings.currency}
                     </Text>
                   </View>
                 ))}
@@ -772,6 +893,30 @@ const styles = StyleSheet.create({
   beerLiquidColumn: { width: "100%" },
   beerFoam: { width: "100%", height: 10, backgroundColor: "#fff8e1" },
   beerLiquid: { flex: 1, width: "100%", backgroundColor: "#f2a916" },
+  beerCountdownWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  beerCountdownBig: {
+    width: "70%",
+    textAlign: "center",
+    color: "rgba(255,255,255,0.16)",
+    fontSize: 140,
+    fontWeight: "900",
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipText: { fontSize: 13, fontWeight: "600" },
+  pointsText: { fontSize: 12, marginTop: 6 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",

@@ -18,6 +18,8 @@ export interface Group {
   created_at: string;
   beer_glass_size: BeerGlassSize | null;
   beer_fill_cl: number;
+  beer_round_started_at: string | null;
+  beer_duration_minutes: number | null;
 }
 
 export interface Message {
