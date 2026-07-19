@@ -203,6 +203,15 @@ export default function GroupsScreen() {
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <Pressable onPress={() => router.push("/hunt")} style={styles.huntBanner}>
+          <Text style={{ fontSize: 26 }}>🃏</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.huntTitle}>Poängjakten</Text>
+            <Text style={styles.huntDesc}>100 utmaningar ute i verkligheten — samla korten</Text>
+          </View>
+          <Text style={styles.huntArrow}>›</Text>
+        </Pressable>
       </View>
 
       {loading ? (
@@ -282,6 +291,20 @@ const styles = StyleSheet.create({
   },
   btnText: { color: "#fff", fontWeight: "700" },
   error: { color: "#dc2626", fontSize: 14 },
+  huntBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#221833",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: "#d4af37",
+  },
+  huntTitle: { color: "#e9dcb8", fontSize: 16, fontWeight: "800" },
+  huntDesc: { color: "#b9a97f", fontSize: 12 },
+  huntArrow: { color: "#e9dcb8", fontSize: 20 },
   list: { paddingHorizontal: 20, paddingTop: 8, gap: 8 },
   empty: { textAlign: "center", marginTop: 40 },
   groupItem: {
