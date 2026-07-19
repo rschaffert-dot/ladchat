@@ -38,11 +38,20 @@ import {
   saveChatSettings,
 } from "@/lib/chatSettings";
 import type { ChatSettings } from "@/lib/chatSettings";
+import { REACTIONS, REACTION_ORDER } from "@/lib/reactions";
 import { supabase } from "@/lib/supabase";
-import type { BeerGlassSize, Group, Message, MessageWithAuthor } from "@/lib/types";
+import type {
+  BeerGlassSize,
+  Group,
+  Message,
+  MessageReaction,
+  MessageWithAuthor,
+  ReactionKey,
+} from "@/lib/types";
 import { useColors } from "@/lib/ui";
 
 type LeaderboardRow = { userId: string; name: string; points: number };
+type ReactionBucket = Partial<Record<ReactionKey, { count: number; mine: boolean }>>;
 
 function playMessageSound() {
   if (Platform.OS !== "web" || typeof window === "undefined") return;
@@ -152,9 +161,15 @@ export default function GroupChatScreen() {
   const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
+  const [reactions, setReactions] = useState<Record<string, ReactionBucket>>({});
   const [celebration, setCelebration] = useState<string | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
   const namesRef = useRef<Record<string, string>>({});
+  // DELETE-events för RLS-skyddade tabeller innehåller bara primärnyckeln
+  // (id) från Supabase Realtime, inte hela raden — trots replica identity
+  // full. Vi sparar radernas innehåll själva för att kunna slå upp vad
+  // som togs bort.
+  const reactionRowsRef = useRef<Record<string, MessageReaction>>({});
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
@@ -186,6 +201,35 @@ export default function GroupChatScreen() {
     namesRef.current[uid] = n;
     return n;
   }, []);
+
+  const loadReactionsFor = useCallback(
+    async (ids: string[]) => {
+      if (!ids.length) return;
+      const { data } = await supabase
+        .from("message_reactions")
+        .select("id, message_id, user_id, reaction")
+        .in("message_id", ids);
+      if (!data) return;
+      for (const row of data as MessageReaction[]) {
+        reactionRowsRef.current[row.id] = row;
+      }
+      setReactions((prev) => {
+        const next = { ...prev };
+        for (const id of ids) next[id] = {};
+        for (const row of data as Pick<MessageReaction, "message_id" | "user_id" | "reaction">[]) {
+          const bucket = { ...(next[row.message_id] ?? {}) };
+          const entry = bucket[row.reaction] ?? { count: 0, mine: false };
+          bucket[row.reaction] = {
+            count: entry.count + 1,
+            mine: entry.mine || row.user_id === userId,
+          };
+          next[row.message_id] = bucket;
+        }
+        return next;
+      });
+    },
+    [userId],
+  );
 
   const loadLeaderboard = useCallback(async () => {
     if (!groupId) return;
@@ -250,11 +294,12 @@ export default function GroupChatScreen() {
       setMessages(list);
       setHasMore((msgs?.length ?? 0) >= PAGE);
       setLoading(false);
+      void loadReactionsFor(list.map((m) => m.id));
     })();
     return () => {
       active = false;
     };
-  }, [groupId, router]);
+  }, [groupId, router, loadReactionsFor]);
 
   // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
   useEffect(() => {
@@ -361,6 +406,60 @@ export default function GroupChatScreen() {
     };
   }, [groupId, nameFor, userId]);
 
+  // Realtime: reaktioner. Ingen optimistisk uppdatering (som send()) — vi väntar
+  // på DB-eventet, annars dubbelräknas den egna reaktionen.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`reactions:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "message_reactions", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const r = payload.new as MessageReaction;
+          reactionRowsRef.current[r.id] = r;
+          setReactions((prev) => {
+            const bucket = { ...(prev[r.message_id] ?? {}) };
+            const entry = bucket[r.reaction] ?? { count: 0, mine: false };
+            bucket[r.reaction] = {
+              count: entry.count + 1,
+              mine: entry.mine || r.user_id === userId,
+            };
+            return { ...prev, [r.message_id]: bucket };
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "message_reactions", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const deletedId = (payload.old as Partial<MessageReaction>).id;
+          if (!deletedId) return;
+          const r = reactionRowsRef.current[deletedId];
+          delete reactionRowsRef.current[deletedId];
+          if (!r) return;
+          setReactions((prev) => {
+            const bucket = { ...(prev[r.message_id] ?? {}) };
+            const entry = bucket[r.reaction];
+            if (!entry) return prev;
+            bucket[r.reaction] = {
+              count: Math.max(0, entry.count - 1),
+              mine: r.user_id === userId ? false : entry.mine,
+            };
+            return { ...prev, [r.message_id]: bucket };
+          });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, userId]);
+
+  async function toggleReaction(messageId: string, reaction: ReactionKey) {
+    await supabase.rpc("toggle_reaction", { mid: messageId, reaction_key: reaction });
+  }
+
   // Realtime: ölglasets fyllnadsgrad och tidsgräns delas av alla medlemmar via gruppraden.
   useEffect(() => {
     if (!groupId) return;
@@ -442,6 +541,7 @@ export default function GroupChatScreen() {
     setMessages((prev) => [...prev, ...older]);
     setHasMore((data?.length ?? 0) >= PAGE);
     setLoadingOlder(false);
+    void loadReactionsFor(older.map((m) => m.id));
   }
 
   async function invite() {
@@ -532,6 +632,32 @@ export default function GroupChatScreen() {
                     {item.content}
                   </Text>
                 </View>
+                {!mine ? (
+                  <View style={styles.reactionRow}>
+                    {REACTION_ORDER.map((key) => {
+                      const entry = reactions[item.id]?.[key];
+                      const def = REACTIONS[key];
+                      return (
+                        <Pressable
+                          key={key}
+                          onPress={() => toggleReaction(item.id, key)}
+                          style={[
+                            styles.reactionChip,
+                            { backgroundColor: c.backgroundElement },
+                            entry?.mine
+                              ? { backgroundColor: settings.color, borderColor: settings.color }
+                              : null,
+                          ]}
+                        >
+                          <Text style={{ fontSize: 13 }}>
+                            {def.emoji}
+                            {entry && entry.count > 0 ? ` ${entry.count}` : ""}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                ) : null}
               </View>
             );
           }}
@@ -862,6 +988,14 @@ const styles = StyleSheet.create({
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
   bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+  reactionRow: { flexDirection: "row", gap: 4, marginTop: 4, flexWrap: "wrap" },
+  reactionChip: {
+    borderWidth: 1,
+    borderColor: "transparent",
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",

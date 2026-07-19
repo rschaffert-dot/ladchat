@@ -36,6 +36,17 @@ export interface MessageWithAuthor extends Message {
   author_name: string;
 }
 
+export type ReactionKey = "respekt" | "skal" | "eld" | "get" | "skalle";
+
+export interface MessageReaction {
+  id: string;
+  message_id: string;
+  group_id: string;
+  user_id: string;
+  reaction: ReactionKey;
+  created_at: string;
+}
+
 export type TournamentStatus =
   | "draft"
   | "registration_open"
