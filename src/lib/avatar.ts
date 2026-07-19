@@ -18,12 +18,15 @@ export async function uploadAvatar(
   const response = await fetch(localUri);
   const blob = await response.blob();
   const ext = (mimeType.split("/")[1] ?? "jpg").replace("jpeg", "jpg");
+  // Unik tidsstämplad sökväg → ingen krock. Vi använder INTE upsert: det sätter
+  // headern 'x-upsert' som får storage att köra en UPSERT-väg vår RLS-policy
+  // nekar (403). En ren INSERT räcker.
   const path = `${userId}/avatar-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, blob, {
     contentType: mimeType,
-    upsert: true,
   });
   if (error) throw error;
+
   await supabase.from("profiles").update({ avatar_path: path }).eq("id", userId);
   return supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
