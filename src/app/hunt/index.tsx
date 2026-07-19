@@ -32,10 +32,24 @@ const SERIF = Platform.select({ ios: "Georgia", android: "serif", default: "Geor
 
 type Tier = "wood" | "bronze" | "silver" | "gold" | "diamond";
 
+type Category = "gang" | "social" | "charm" | "scen" | "fys" | "bar";
+
+const CATEGORY_ORDER: Category[] = ["gang", "social", "charm", "scen", "fys", "bar"];
+
+const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
+  gang: { label: "Gänget", emoji: "👊" },
+  social: { label: "Främlingar", emoji: "🤝" },
+  charm: { label: "Charm", emoji: "💘" },
+  scen: { label: "Scenen", emoji: "🎤" },
+  fys: { label: "Styrka & mod", emoji: "💪" },
+  bar: { label: "Baren", emoji: "🍻" },
+};
+
 type HuntChallenge = {
   id: number;
   name: string;
   tier: Tier;
+  category: Category;
   points: number;
   bonus_points: number | null;
   bonus_condition: string | null;
@@ -118,6 +132,7 @@ export default function HuntScreen() {
   const [loading, setLoading] = useState(true);
 
   const [tierFilter, setTierFilter] = useState<Tier | "alla">("alla");
+  const [catFilter, setCatFilter] = useState<Category | "alla">("alla");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("alla");
 
   const [selected, setSelected] = useState<HuntChallenge | null>(null);
@@ -197,12 +212,13 @@ export default function HuntScreen() {
     () =>
       challenges.filter((ch) => {
         if (tierFilter !== "alla" && ch.tier !== tierFilter) return false;
+        if (catFilter !== "alla" && ch.category !== catFilter) return false;
         const st = completions[ch.id]?.status;
         if (statusFilter === "klarade") return st === "confirmed";
         if (statusFilter === "oklarade") return st !== "confirmed";
         return true;
       }),
-    [challenges, tierFilter, statusFilter, completions],
+    [challenges, tierFilter, catFilter, statusFilter, completions],
   );
 
   function openCard(ch: HuntChallenge) {
@@ -417,6 +433,27 @@ export default function HuntScreen() {
                   ))}
                 </View>
               </ScrollView>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.filterRow}>
+                  <Pressable
+                    onPress={() => setCatFilter("alla")}
+                    style={[styles.filterChip, catFilter === "alla" ? styles.filterChipOn : null]}
+                  >
+                    <Text style={styles.filterText}>Alla kategorier</Text>
+                  </Pressable>
+                  {CATEGORY_ORDER.map((cat) => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => setCatFilter(cat)}
+                      style={[styles.filterChip, catFilter === cat ? styles.filterChipOn : null]}
+                    >
+                      <Text style={styles.filterText}>
+                        {CATEGORIES[cat].emoji} {CATEGORIES[cat].label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
               <View style={styles.filterRow}>
                 {(["alla", "oklarade", "klarade"] as StatusFilter[]).map((s) => (
                   <Pressable
@@ -438,6 +475,7 @@ export default function HuntScreen() {
                 <View style={[styles.cardBack, { borderColor: t.frame, backgroundColor: t.face }]}>
                   <View style={[styles.cardInnerFrame, { borderColor: t.frameDark }]}>
                     <Text style={styles.cornerSymbol}>{t.symbol}</Text>
+                    <Text style={styles.cornerCategory}>{CATEGORIES[item.category].emoji}</Text>
                     <Text style={[styles.cardName, { color: t.text }]} numberOfLines={3}>
                       {item.name.toUpperCase()}
                     </Text>
@@ -497,6 +535,9 @@ export default function HuntScreen() {
 
                   <Text style={[styles.bigName, { color: selTier.text }]}>
                     {sel.name.toUpperCase()}
+                  </Text>
+                  <Text style={[styles.bigCategory, { color: selTier.frameDark }]}>
+                    {CATEGORIES[sel.category].emoji} {CATEGORIES[sel.category].label}
                   </Text>
                   <Text style={[styles.ornament, { color: selTier.frame }]}>✦ ─────── ✦</Text>
 
@@ -748,6 +789,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   cornerSymbol: { position: "absolute", top: 3, left: 5, fontSize: 12 },
+  cornerCategory: { position: "absolute", top: 3, right: 5, fontSize: 11 },
+  bigCategory: {
+    fontFamily: SERIF,
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 2,
+  },
   cardName: {
     fontFamily: SERIF,
     fontSize: 13,
@@ -766,7 +815,7 @@ const styles = StyleSheet.create({
   },
   pendingBadge: {
     position: "absolute",
-    top: 4,
+    bottom: 4,
     right: 4,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: 8,
