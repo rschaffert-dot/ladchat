@@ -30,7 +30,7 @@ export interface Message {
   user_id: string;
   content: string;
   created_at: string;
-  kind: "user" | "system";
+  kind: "user" | "system" | "image" | "audio" | "poll";
   metadata: Record<string, unknown>;
   reply_to_id: string | null;
 }

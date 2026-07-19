@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   ImageBackground,
   KeyboardAvoidingView,
   Modal,
@@ -44,6 +45,7 @@ import {
   uploadActivationMedia,
   videoDurationMs,
 } from "@/lib/activation";
+import { getChatMediaUrl, uploadChatMedia } from "@/lib/chatMedia";
 import { levelForPoints, titleForPoints } from "@/lib/gamification";
 import { REACTIONS, REACTION_ORDER } from "@/lib/reactions";
 import { supabase } from "@/lib/supabase";
@@ -167,6 +169,72 @@ function BeerGlassBackground({
 const PAGE = 30;
 const MISSING = "00000000-0000-0000-0000-000000000000";
 
+const QUICK_EMOJIS = [
+  "😀", "😂", "🤣", "😎", "😭", "😡", "🥴", "🤠",
+  "❤️", "🔥", "👍", "👎", "💪", "🍺", "🐐", "💀",
+  "🎉", "👀", "🙏", "🤝", "🖕", "💩", "🧠", "⚽",
+];
+
+function ChatImage({ path }: { path: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void getChatMediaUrl(path).then((u) => active && setUrl(u));
+    return () => {
+      active = false;
+    };
+  }, [path]);
+  if (!url) return <ActivityIndicator style={{ margin: 24 }} />;
+  return <Image source={{ uri: url }} style={styles.chatImage} resizeMode="cover" />;
+}
+
+function AudioBubble({
+  path,
+  durationMs,
+  tint,
+}: {
+  path: string;
+  durationMs: number | null;
+  tint: string;
+}) {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+    },
+    [],
+  );
+
+  async function toggle() {
+    // Uppspelning via webbens Audio-API — på native visas bara etiketten tills vidare.
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    if (playing) {
+      audioRef.current?.pause();
+      setPlaying(false);
+      return;
+    }
+    const url = await getChatMediaUrl(path);
+    if (!url) return;
+    if (!audioRef.current) {
+      audioRef.current = new window.Audio(url);
+      audioRef.current.onended = () => setPlaying(false);
+    }
+    void audioRef.current.play();
+    setPlaying(true);
+  }
+
+  return (
+    <Pressable onPress={toggle} style={styles.audioBubble}>
+      <Text style={{ color: tint, fontSize: 15, fontWeight: "700" }}>
+        {playing ? "⏸" : "▶️"} Röstmemo
+        {durationMs ? ` · ${formatCountdown(durationMs)}` : ""}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function GroupChatScreen() {
   const c = useColors();
   const router = useRouter();
@@ -209,6 +277,27 @@ export default function GroupChatScreen() {
   const [powerHourEndsAt, setPowerHourEndsAt] = useState<number | null>(null);
   const [weekly, setWeekly] = useState<LeaderboardRow[]>([]);
   const [gotw, setGotw] = useState<string | null>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [pollModalOpen, setPollModalOpen] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", "", "", ""]);
+  const [polls, setPolls] = useState<
+    Record<
+      string,
+      {
+        question: string;
+        options: { id: string; label: string; votes: number }[];
+        total: number;
+        mine: string | null;
+      }
+    >
+  >({});
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordChunksRef = useRef<Blob[]>([]);
+  const recordStartRef = useRef(0);
   const namesRef = useRef<Record<string, string>>({});
   const prevOwnPointsRef = useRef<number | null>(null);
   const settledDuelRef = useRef<string | null>(null);
@@ -325,6 +414,42 @@ export default function GroupChatScreen() {
     },
     [userId],
   );
+
+  const loadPolls = useCallback(
+    async (pollIds: string[]) => {
+      if (!pollIds.length) return;
+      const [{ data: ps }, { data: opts }, { data: votes }] = await Promise.all([
+        supabase.from("polls").select("id, question").in("id", pollIds),
+        supabase.from("poll_options").select("id, poll_id, label, idx").in("poll_id", pollIds).order("idx"),
+        supabase.from("poll_votes").select("poll_id, option_id, voter_id").in("poll_id", pollIds),
+      ]);
+      setPolls((prev) => {
+        const next = { ...prev };
+        for (const p of ps ?? []) {
+          const pOpts = (opts ?? []).filter((o) => o.poll_id === p.id);
+          const pVotes = (votes ?? []).filter((v) => v.poll_id === p.id);
+          next[p.id as string] = {
+            question: p.question as string,
+            options: pOpts.map((o) => ({
+              id: o.id as string,
+              label: o.label as string,
+              votes: pVotes.filter((v) => v.option_id === o.id).length,
+            })),
+            total: pVotes.length,
+            mine: (pVotes.find((v) => v.voter_id === userId)?.option_id as string) ?? null,
+          };
+        }
+        return next;
+      });
+    },
+    [userId],
+  );
+
+  const pollIdsIn = (list: Message[]) =>
+    list
+      .filter((m) => m.kind === "poll")
+      .map((m) => m.metadata?.poll_id as string)
+      .filter(Boolean);
 
   const loadLeaderboard = useCallback(async () => {
     if (!groupId) return;
@@ -462,6 +587,7 @@ export default function GroupChatScreen() {
       setHasMore((msgs?.length ?? 0) >= PAGE);
       setLoading(false);
       void loadReactionsFor(list.map((m) => m.id));
+      void loadPolls(pollIdsIn(list));
       void loadActivation();
       void loadLeaderboard();
       void loadDuel();
@@ -470,7 +596,7 @@ export default function GroupChatScreen() {
     return () => {
       active = false;
     };
-  }, [groupId, router, loadReactionsFor, loadActivation, loadLeaderboard, loadDuel, loadGamification]);
+  }, [groupId, router, loadReactionsFor, loadPolls, loadActivation, loadLeaderboard, loadDuel, loadGamification]);
 
   // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
   useEffect(() => {
@@ -568,6 +694,9 @@ export default function GroupChatScreen() {
           if (m.user_id !== userId && settingsRef.current.soundEnabled) {
             playMessageSound();
           }
+          if (m.kind === "poll" && m.metadata?.poll_id) {
+            void loadPolls([m.metadata.poll_id as string]);
+          }
           setMessages((prev) =>
             prev.some((x) => x.id === m.id)
               ? prev
@@ -591,7 +720,28 @@ export default function GroupChatScreen() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [groupId, nameFor, userId]);
+  }, [groupId, nameFor, userId, loadPolls]);
+
+  // Realtime: omröstningsröster.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`polls:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "poll_votes", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const pid =
+            ((payload.new as { poll_id?: string })?.poll_id ??
+              (payload.old as { poll_id?: string })?.poll_id) as string | undefined;
+          if (pid) void loadPolls([pid]);
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, loadPolls]);
 
   // Realtime: reaktioner. Ingen optimistisk uppdatering (som send()) — vi väntar
   // på DB-eventet, annars dubbelräknas den egna reaktionen.
@@ -893,6 +1043,112 @@ export default function GroupChatScreen() {
     }
   }
 
+  async function sendMediaMessage(
+    kind: "image" | "audio",
+    source: string | Blob,
+    mime: string,
+    fallback: string,
+    extraMeta: Record<string, unknown> = {},
+  ) {
+    if (!groupId || !userId || uploadingMedia) return;
+    setUploadingMedia(true);
+    try {
+      const path = await uploadChatMedia(groupId, userId, source, mime);
+      await supabase.from("messages").insert({
+        group_id: groupId,
+        user_id: userId,
+        content: fallback,
+        kind,
+        metadata: { media_path: path, mime, ...extraMeta },
+      });
+    } finally {
+      setUploadingMedia(false);
+    }
+  }
+
+  async function pickChatImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setAttachOpen(false);
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "📷 Bild");
+  }
+
+  async function takeChatPhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setAttachOpen(false);
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "📷 Bild");
+  }
+
+  async function toggleRecording() {
+    // Inspelning via webbens MediaRecorder — native kräver expo-av och tas separat.
+    if (Platform.OS !== "web" || typeof navigator === "undefined" || !navigator.mediaDevices) {
+      return;
+    }
+    if (recording) {
+      recorderRef.current?.stop();
+      setRecording(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recordChunksRef.current = [];
+      recordStartRef.current = Date.now();
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const mime = recorder.mimeType || "audio/webm";
+        const blob = new Blob(recordChunksRef.current, { type: mime });
+        const durationMs = Date.now() - recordStartRef.current;
+        if (blob.size > 0) {
+          void sendMediaMessage("audio", blob, mime, "🎤 Röstmemo", { duration_ms: durationMs });
+        }
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setRecording(true);
+    } catch {
+      // Mikrofonåtkomst nekad — inget att göra.
+    }
+  }
+
+  async function createPoll() {
+    if (!groupId) return;
+    const q = pollQuestion.trim();
+    const opts = pollOptions.map((o) => o.trim()).filter(Boolean);
+    if (!q || opts.length < 2) return;
+    const { error } = await supabase.rpc("create_poll", {
+      gid: groupId,
+      question: q,
+      options: opts,
+    });
+    if (!error) {
+      setPollModalOpen(false);
+      setPollQuestion("");
+      setPollOptions(["", "", "", ""]);
+      setAttachOpen(false);
+    }
+  }
+
+  async function votePoll(pollId: string, optionId: string) {
+    await supabase.rpc("vote_poll", { pid: pollId, oid: optionId });
+  }
+
   async function participateThumb() {
     if (!activation || activationBusy) return;
     setActivationBusy(true);
@@ -976,6 +1232,7 @@ export default function GroupChatScreen() {
     setHasMore((data?.length ?? 0) >= PAGE);
     setLoadingOlder(false);
     void loadReactionsFor(older.map((m) => m.id));
+    void loadPolls(pollIdsIn(older));
   }
 
   async function invite() {
@@ -1078,9 +1335,80 @@ export default function GroupChatScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                    {item.content}
-                  </Text>
+                  {item.kind === "image" && item.metadata?.media_path ? (
+                    <ChatImage path={item.metadata.media_path as string} />
+                  ) : item.kind === "audio" && item.metadata?.media_path ? (
+                    <AudioBubble
+                      path={item.metadata.media_path as string}
+                      durationMs={(item.metadata.duration_ms as number) ?? null}
+                      tint={mine ? "#fff" : c.text}
+                    />
+                  ) : item.kind === "poll" && item.metadata?.poll_id ? (
+                    (() => {
+                      const poll = polls[item.metadata.poll_id as string];
+                      if (!poll) return <ActivityIndicator style={{ margin: 12 }} />;
+                      return (
+                        <View style={styles.pollBox}>
+                          <Text
+                            style={{
+                              color: mine ? "#fff" : c.text,
+                              fontWeight: "800",
+                              fontSize: 15,
+                              marginBottom: 6,
+                            }}
+                          >
+                            📊 {poll.question}
+                          </Text>
+                          {poll.options.map((o) => {
+                            const pct = poll.total
+                              ? Math.round((o.votes / poll.total) * 100)
+                              : 0;
+                            const isMine = poll.mine === o.id;
+                            return (
+                              <Pressable
+                                key={o.id}
+                                onPress={() =>
+                                  votePoll(item.metadata.poll_id as string, o.id)
+                                }
+                                style={[
+                                  styles.pollOption,
+                                  isMine ? styles.pollOptionMine : null,
+                                ]}
+                              >
+                                <View
+                                  style={[styles.pollFill, { width: `${pct}%` }]}
+                                />
+                                <View style={styles.pollOptionRow}>
+                                  <Text
+                                    style={{
+                                      color: "#fff",
+                                      fontSize: 13,
+                                      fontWeight: isMine ? "800" : "600",
+                                      flex: 1,
+                                    }}
+                                    numberOfLines={1}
+                                  >
+                                    {isMine ? "✓ " : ""}
+                                    {o.label}
+                                  </Text>
+                                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                                    {o.votes} ({pct}%)
+                                  </Text>
+                                </View>
+                              </Pressable>
+                            );
+                          })}
+                          <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                            {poll.total} {poll.total === 1 ? "röst" : "röster"} — tryck för att rösta
+                          </Text>
+                        </View>
+                      );
+                    })()
+                  ) : (
+                    <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
+                      {item.content}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.reactionRow}>
                   {!mine
@@ -1136,7 +1464,68 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
+      {attachOpen ? (
+        <View style={[styles.attachRow, { borderTopColor: c.backgroundElement }]}>
+          <Pressable onPress={takeChatPhoto} style={styles.attachBtn} disabled={uploadingMedia}>
+            <Text style={styles.attachEmoji}>📸</Text>
+            <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Kamera</Text>
+          </Pressable>
+          <Pressable onPress={pickChatImage} style={styles.attachBtn} disabled={uploadingMedia}>
+            <Text style={styles.attachEmoji}>🖼️</Text>
+            <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Bild</Text>
+          </Pressable>
+          <Pressable onPress={toggleRecording} style={styles.attachBtn}>
+            <Text style={styles.attachEmoji}>{recording ? "⏹" : "🎤"}</Text>
+            <Text style={[styles.attachLabel, { color: recording ? "#dc2626" : c.textSecondary }]}>
+              {recording ? "Stoppa" : "Röstmemo"}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => setPollModalOpen(true)} style={styles.attachBtn}>
+            <Text style={styles.attachEmoji}>📊</Text>
+            <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Omröstning</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {emojiOpen ? (
+        <View style={[styles.emojiRow, { borderTopColor: c.backgroundElement }]}>
+          {QUICK_EMOJIS.map((emoji) => (
+            <Pressable key={emoji} onPress={() => setText((t) => t + emoji)} hitSlop={4}>
+              <Text style={{ fontSize: 24 }}>{emoji}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      {recording ? (
+        <View style={styles.recordingBanner}>
+          <Text style={styles.recordingText}>🔴 Spelar in röstmemo… tryck ⏹ för att skicka</Text>
+        </View>
+      ) : null}
+
       <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
+        <Pressable
+          onPress={() => {
+            setAttachOpen((v) => !v);
+            setEmojiOpen(false);
+          }}
+          hitSlop={8}
+          style={styles.plusBtn}
+        >
+          <Text style={{ color: settings.color, fontSize: 26, fontWeight: "700" }}>
+            {attachOpen ? "×" : "＋"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            setEmojiOpen((v) => !v);
+            setAttachOpen(false);
+          }}
+          hitSlop={8}
+          style={styles.plusBtn}
+        >
+          <Text style={{ fontSize: 22 }}>😊</Text>
+        </Pressable>
         <TextInput
           value={text}
           onChangeText={setText}
@@ -1157,7 +1546,7 @@ export default function GroupChatScreen() {
             },
           ]}
         >
-          <Text style={styles.sendText}>Skicka</Text>
+          <Text style={styles.sendText}>{uploadingMedia ? "Laddar…" : "Skicka"}</Text>
         </Pressable>
       </View>
     </>
@@ -1628,6 +2017,62 @@ export default function GroupChatScreen() {
       </Modal>
 
       <Modal
+        visible={pollModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPollModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setPollModalOpen(false)} />
+        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>📊 Skapa omröstning</Text>
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Fråga</Text>
+          <TextInput
+            value={pollQuestion}
+            onChangeText={setPollQuestion}
+            placeholder="Vem bjuder på nästa runda?"
+            placeholderTextColor={c.textSecondary}
+            style={[styles.input, { color: c.text, borderColor: c.backgroundSelected, flex: 0 }]}
+          />
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+            Alternativ (minst 2)
+          </Text>
+          {pollOptions.map((opt, i) => (
+            <TextInput
+              key={i}
+              value={opt}
+              onChangeText={(v) =>
+                setPollOptions((prev) => prev.map((p, j) => (j === i ? v : p)))
+              }
+              placeholder={`Alternativ ${i + 1}${i < 2 ? "" : " (valfritt)"}`}
+              placeholderTextColor={c.textSecondary}
+              style={[
+                styles.input,
+                { color: c.text, borderColor: c.backgroundSelected, flex: 0, marginBottom: 8 },
+              ]}
+            />
+          ))}
+          <Pressable
+            onPress={createPoll}
+            disabled={
+              !pollQuestion.trim() || pollOptions.filter((o) => o.trim()).length < 2
+            }
+            style={[
+              styles.closeBtn,
+              {
+                backgroundColor: settings.color,
+                opacity:
+                  pollQuestion.trim() && pollOptions.filter((o) => o.trim()).length >= 2
+                    ? 1
+                    : 0.4,
+              },
+            ]}
+          >
+            <Text style={styles.sendText}>Starta omröstning</Text>
+          </Pressable>
+        </View>
+      </Modal>
+
+      <Modal
         visible={duelModalOpen}
         animationType="slide"
         transparent
@@ -1787,6 +2232,51 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  plusBtn: { paddingBottom: 9, paddingHorizontal: 2 },
+  attachRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  attachBtn: { alignItems: "center", gap: 2, minWidth: 64 },
+  attachEmoji: { fontSize: 26 },
+  attachLabel: { fontSize: 11, fontWeight: "600" },
+  emojiRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  recordingBanner: { backgroundColor: "#7f1d1d", paddingVertical: 6 },
+  recordingText: { color: "#fecaca", fontWeight: "700", fontSize: 12, textAlign: "center" },
+  chatImage: { width: 230, height: 230, borderRadius: 12 },
+  audioBubble: { paddingVertical: 2 },
+  pollBox: { minWidth: 230, gap: 6 },
+  pollOption: {
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  pollOptionMine: { borderColor: "#f2a916" },
+  pollFill: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: "rgba(255,255,255,0.25)",
+  },
+  pollOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   input: {
     flex: 1,
