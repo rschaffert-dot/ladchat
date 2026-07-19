@@ -134,3 +134,41 @@ export interface ChallengeResult {
   points_awarded: number;
   created_at: string;
 }
+
+export type ActivationKind = "thumb_order" | "longest_fart";
+
+export interface ActivationActivity {
+  id: string;
+  kind: ActivationKind;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  window_hours: number;
+  created_by: string;
+  created_at: string;
+}
+
+export type ActivationStatus = "active" | "completed";
+
+export interface GroupActivation {
+  id: string;
+  group_id: string;
+  activity_id: string | null;
+  kind: ActivationKind;
+  name: string;
+  status: ActivationStatus;
+  started_at: string;
+  deadline_at: string;
+  completed_at: string | null;
+}
+
+export interface ActivationParticipation {
+  id: string;
+  activation_id: string;
+  user_id: string;
+  media_path: string | null;
+  duration_ms: number | null;
+  rank: number | null;
+  points_awarded: number;
+  submitted_at: string;
+}
