@@ -3,12 +3,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export type ChatSettings = {
   color: string;
   background: string;
+  backgroundImage: string;
   soundEnabled: boolean;
 };
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   color: "#4f46e5",
   background: "",
+  backgroundImage: "",
   soundEnabled: true,
 };
 

@@ -32,6 +32,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Ladchat behöver tillgång till dina bilder för att du ska kunna välja en bakgrundsbild till chatten."
+        }
       ]
     ],
     "experiments": {

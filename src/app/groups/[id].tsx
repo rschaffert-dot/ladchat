@@ -1,10 +1,13 @@
 import * as Clipboard from "expo-clipboard";
+import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  ImageBackground,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,7 +19,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { NativeSyntheticEvent, TextInputKeyPressEventData } from "react-native";
+import type {
+  NativeSyntheticEvent,
+  StyleProp,
+  TextInputKeyPressEventData,
+  ViewStyle,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -51,6 +59,27 @@ function playMessageSound() {
   } catch {
     // Ljud är en trevlig detalj, inte kritiskt — ignorera fel tyst.
   }
+}
+
+function ChatBackground({
+  image,
+  color,
+  style,
+  children,
+}: {
+  image: string;
+  color: string;
+  style: StyleProp<ViewStyle>;
+  children: ReactNode;
+}) {
+  if (image) {
+    return (
+      <ImageBackground source={{ uri: image }} style={style} resizeMode="cover">
+        {children}
+      </ImageBackground>
+    );
+  }
+  return <View style={[style, color ? { backgroundColor: color } : null]}>{children}</View>;
 }
 
 const PAGE = 30;
@@ -156,6 +185,23 @@ export default function GroupChatScreen() {
     const next = { ...settingsRef.current, ...patch };
     setSettings(next);
     await saveChatSettings(groupId, next);
+  }
+
+  async function pickBackgroundImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.6,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    if (!asset.base64) return;
+    const mime = asset.mimeType ?? "image/jpeg";
+    await updateSettings({ backgroundImage: `data:${mime};base64,${asset.base64}` });
   }
 
   // Realtime.
@@ -293,85 +339,91 @@ export default function GroupChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={[styles.flex, settings.background ? { backgroundColor: settings.background } : null]}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
-        {loading ? (
-          <ActivityIndicator style={{ marginTop: 32 }} />
-        ) : (
-          <FlatList
-            data={messages}
-            inverted
-            keyExtractor={(m) => m.id}
-            contentContainerStyle={styles.listContent}
-            onEndReached={hasMore ? loadOlder : undefined}
-            onEndReachedThreshold={0.3}
-            ListFooterComponent={
-              loadingOlder ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
-            }
-            ListEmptyComponent={
-              <Text style={[styles.empty, { color: c.textSecondary }]}>
-                Inga meddelanden än. Skriv det första!
-              </Text>
-            }
-            renderItem={({ item }) => {
-              const mine = item.user_id === userId;
-              return (
-                <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
-                  {!mine ? (
-                    <Text style={[styles.author, { color: c.textSecondary }]}>
-                      {item.author_name}
-                    </Text>
-                  ) : null}
-                  <View
-                    style={[
-                      styles.bubble,
-                      mine
-                        ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
-                        : {
-                            backgroundColor: c.backgroundElement,
-                            borderBottomLeftRadius: 4,
-                          },
-                    ]}
-                  >
-                    <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                      {item.content}
-                    </Text>
+        <ChatBackground
+          image={settings.backgroundImage}
+          color={settings.background}
+          style={styles.flex}
+        >
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 32 }} />
+          ) : (
+            <FlatList
+              data={messages}
+              inverted
+              keyExtractor={(m) => m.id}
+              contentContainerStyle={styles.listContent}
+              onEndReached={hasMore ? loadOlder : undefined}
+              onEndReachedThreshold={0.3}
+              ListFooterComponent={
+                loadingOlder ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
+              }
+              ListEmptyComponent={
+                <Text style={[styles.empty, { color: c.textSecondary }]}>
+                  Inga meddelanden än. Skriv det första!
+                </Text>
+              }
+              renderItem={({ item }) => {
+                const mine = item.user_id === userId;
+                return (
+                  <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
+                    {!mine ? (
+                      <Text style={[styles.author, { color: c.textSecondary }]}>
+                        {item.author_name}
+                      </Text>
+                    ) : null}
+                    <View
+                      style={[
+                        styles.bubble,
+                        mine
+                          ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
+                          : {
+                              backgroundColor: c.backgroundElement,
+                              borderBottomLeftRadius: 4,
+                            },
+                      ]}
+                    >
+                      <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
+                        {item.content}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-              );
-            }}
-          />
-        )}
+                );
+              }}
+            />
+          )}
 
-        <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            placeholder="Skriv ett meddelande…"
-            placeholderTextColor={c.textSecondary}
-            multiline
-            onKeyPress={handleKeyPress}
-            style={[
-              styles.input,
-              { color: c.text, borderColor: c.backgroundSelected },
-            ]}
-          />
-          <Pressable
-            onPress={send}
-            disabled={sending || text.trim().length === 0}
-            style={[
-              styles.sendBtn,
-              {
-                backgroundColor: settings.color,
-                opacity: sending || text.trim().length === 0 ? 0.4 : 1,
-              },
-            ]}
-          >
-            <Text style={styles.sendText}>Skicka</Text>
-          </Pressable>
-        </View>
+          <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              placeholder="Skriv ett meddelande…"
+              placeholderTextColor={c.textSecondary}
+              multiline
+              onKeyPress={handleKeyPress}
+              style={[
+                styles.input,
+                { color: c.text, borderColor: c.backgroundSelected },
+              ]}
+            />
+            <Pressable
+              onPress={send}
+              disabled={sending || text.trim().length === 0}
+              style={[
+                styles.sendBtn,
+                {
+                  backgroundColor: settings.color,
+                  opacity: sending || text.trim().length === 0 ? 0.4 : 1,
+                },
+              ]}
+            >
+              <Text style={styles.sendText}>Skicka</Text>
+            </Pressable>
+          </View>
+        </ChatBackground>
       </KeyboardAvoidingView>
 
       <Modal
@@ -409,7 +461,7 @@ export default function GroupChatScreen() {
             {BACKGROUND_OPTIONS.map((bg) => (
               <Pressable
                 key={bg.label}
-                onPress={() => updateSettings({ background: bg.value })}
+                onPress={() => updateSettings({ background: bg.value, backgroundImage: "" })}
                 style={[
                   styles.swatch,
                   {
@@ -417,10 +469,36 @@ export default function GroupChatScreen() {
                     borderWidth: 1,
                     borderColor: c.backgroundSelected,
                   },
-                  settings.background === bg.value ? styles.swatchSelected : null,
+                  !settings.backgroundImage && settings.background === bg.value
+                    ? styles.swatchSelected
+                    : null,
                 ]}
               />
             ))}
+          </View>
+
+          <View style={styles.bgImageRow}>
+            <Pressable
+              onPress={pickBackgroundImage}
+              style={[styles.bgImageBtn, { borderColor: c.backgroundSelected }]}
+            >
+              {settings.backgroundImage ? (
+                <ImageBackground
+                  source={{ uri: settings.backgroundImage }}
+                  style={styles.bgImageThumb}
+                  imageStyle={{ borderRadius: 10 }}
+                />
+              ) : (
+                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
+                  Välj bild från telefonen
+                </Text>
+              )}
+            </Pressable>
+            {settings.backgroundImage ? (
+              <Pressable onPress={() => updateSettings({ backgroundImage: "" })} hitSlop={8}>
+                <Text style={{ color: c.textSecondary, fontSize: 13 }}>Ta bort</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           <View style={styles.soundRow}>
@@ -511,6 +589,24 @@ const styles = StyleSheet.create({
   swatchSelected: {
     borderWidth: 3,
     borderColor: "#94a3b8",
+  },
+  bgImageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 10,
+  },
+  bgImageBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bgImageThumb: {
+    width: 56,
+    height: 40,
   },
   soundRow: {
     flexDirection: "row",
