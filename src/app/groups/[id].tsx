@@ -47,6 +47,8 @@ import {
 } from "@/lib/activation";
 import { getChatMediaUrl, uploadChatMedia } from "@/lib/chatMedia";
 import { levelForPoints, titleForPoints } from "@/lib/gamification";
+import { KINGS_CUP_RULES, RANK_LABELS, isRedSuit, shuffledDeck } from "@/lib/kingsCup";
+import type { Card } from "@/lib/kingsCup";
 import { REACTIONS, REACTION_ORDER } from "@/lib/reactions";
 import { supabase } from "@/lib/supabase";
 import type {
@@ -295,6 +297,21 @@ export default function GroupChatScreen() {
       }
     >
   >({});
+  // Spel: menyn väljer spel, setup bockar i deltagare (ordningen = turordning),
+  // playing kör Kings Cup lokalt på den här telefonen som skickas runt.
+  const [gamePhase, setGamePhase] = useState<"closed" | "menu" | "setup" | "playing" | "done">(
+    "closed",
+  );
+  const [gamePlayers, setGamePlayers] = useState<string[]>([]);
+  const [gameDeck, setGameDeck] = useState<Card[]>([]);
+  const [gameCard, setGameCard] = useState<Card | null>(null);
+  const [gameKings, setGameKings] = useState(0);
+  const [gameTurn, setGameTurn] = useState(0);
+  const [gameStarting, setGameStarting] = useState(false);
+  const [gameEndReason, setGameEndReason] = useState("");
+  // Strikt växling dra→nästa→dra: refen hindrar dubbeltryck från att dra två
+  // kort eller hoppa över en spelare (state hinner inte uppdateras mellan tryck).
+  const gameCardLockRef = useRef(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
   const recordStartRef = useRef(0);
@@ -1149,6 +1166,63 @@ export default function GroupChatScreen() {
     await supabase.rpc("vote_poll", { pid: pollId, oid: optionId });
   }
 
+  function toggleGamePlayer(uid: string) {
+    setGamePlayers((prev) =>
+      prev.includes(uid) ? prev.filter((p) => p !== uid) : [...prev, uid],
+    );
+  }
+
+  async function startKingsCup() {
+    if (!groupId || gamePlayers.length < 2 || gameStarting) return;
+    setGameStarting(true);
+    const { error } = await supabase.rpc("start_drinking_game", {
+      gid: groupId,
+      game_name: "Kings Cup",
+      participant_ids: gamePlayers,
+    });
+    setGameStarting(false);
+    if (error) return;
+    setGameDeck(shuffledDeck());
+    setGameCard(null);
+    setGameKings(0);
+    setGameTurn(0);
+    setGameEndReason("");
+    gameCardLockRef.current = false;
+    setGamePhase("playing");
+  }
+
+  function drawGameCard() {
+    if (gameCardLockRef.current || gameCard || gameDeck.length === 0) return;
+    gameCardLockRef.current = true;
+    const [card, ...rest] = gameDeck;
+    setGameDeck(rest);
+    setGameCard(card);
+    if (card.rank === "K") setGameKings((k) => k + 1);
+  }
+
+  function nextGameTurn() {
+    if (!gameCard || !gameCardLockRef.current) return;
+    gameCardLockRef.current = false;
+    if (gameCard.rank === "K" && gameKings >= 4) {
+      setGameEndReason("👑 Fjärde kungen drogs — Kungens kopp har druckits!");
+      setGamePhase("done");
+      return;
+    }
+    if (gameDeck.length === 0) {
+      setGameEndReason("🃏 Leken är slut — bra kämpat, grabbar!");
+      setGamePhase("done");
+      return;
+    }
+    setGameCard(null);
+    setGameTurn((t) => (t + 1) % gamePlayers.length);
+  }
+
+  function closeGame() {
+    setGamePhase("closed");
+    setGamePlayers([]);
+    setGameCard(null);
+  }
+
   async function participateThumb() {
     if (!activation || activationBusy) return;
     setActivationBusy(true);
@@ -1579,6 +1653,9 @@ export default function GroupChatScreen() {
           <Text style={{ fontSize: 15, fontWeight: "800", color: "#f2a916" }}>
             🔥{streak?.current_streak ?? 0}
           </Text>
+        </Pressable>
+        <Pressable onPress={() => setGamePhase("menu")} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>🎮</Text>
         </Pressable>
         <Pressable onPress={() => setDuelModalOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>⚔️</Text>
@@ -2053,6 +2130,173 @@ export default function GroupChatScreen() {
       </Modal>
 
       <Modal
+        visible={gamePhase !== "closed"}
+        animationType="slide"
+        onRequestClose={closeGame}
+      >
+        <SafeAreaView style={[styles.safe, { backgroundColor: "#1a1024" }]} edges={["top"]}>
+          <View style={styles.gameHeader}>
+            <Pressable onPress={closeGame} hitSlop={8}>
+              <Text style={{ color: "#c4b5fd", fontSize: 26 }}>×</Text>
+            </Pressable>
+            <Text style={styles.gameHeaderTitle}>
+              {gamePhase === "menu" ? "🎮 Spel" : "🍺 Kings Cup"}
+            </Text>
+            <View style={{ width: 26 }} />
+          </View>
+
+          {gamePhase === "menu" ? (
+            <View style={styles.gameContent}>
+              <Text style={styles.gameCategory}>🍺 Drickspel</Text>
+              <Pressable onPress={() => setGamePhase("setup")} style={styles.gameCardBtn}>
+                <Text style={styles.gameCardEmoji}>👑</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.gameCardTitle}>Kings Cup</Text>
+                  <Text style={styles.gameCardDesc}>
+                    Dra kort, följ regeln, skicka telefonen vidare. Alla deltagare får +10
+                    poäng.
+                  </Text>
+                </View>
+              </Pressable>
+
+              <Text style={styles.gameCategory}>🎯 Utmaningar</Text>
+              <View style={[styles.gameCardBtn, { opacity: 0.45 }]}>
+                <Text style={styles.gameCardEmoji}>🔒</Text>
+                <View style={styles.flex}>
+                  <Text style={styles.gameCardTitle}>Kommer snart</Text>
+                  <Text style={styles.gameCardDesc}>
+                    Fler spel och utmaningar är på väg — håll utkik!
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : null}
+
+          {gamePhase === "setup" ? (
+            <View style={styles.gameContent}>
+              <Text style={styles.gameSetupTitle}>Vilka är med?</Text>
+              <Text style={styles.gameCardDesc}>
+                Bocka i spelarna i den ordning ni sitter runt bordet — telefonen skickas
+                runt i samma ordning. Alla får +10 poäng.
+              </Text>
+              {leaderboard.map((m) => {
+                const order = gamePlayers.indexOf(m.userId);
+                return (
+                  <Pressable
+                    key={m.userId}
+                    onPress={() => toggleGamePlayer(m.userId)}
+                    style={[
+                      styles.gamePlayerRow,
+                      order >= 0 ? styles.gamePlayerRowSelected : null,
+                    ]}
+                  >
+                    <View style={[styles.gameOrderBadge, order < 0 ? { opacity: 0.25 } : null]}>
+                      <Text style={styles.gameOrderText}>{order >= 0 ? order + 1 : "–"}</Text>
+                    </View>
+                    <Text style={styles.gamePlayerName}>{m.name}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                onPress={startKingsCup}
+                disabled={gamePlayers.length < 2 || gameStarting}
+                style={[
+                  styles.gameStartBtn,
+                  { opacity: gamePlayers.length >= 2 && !gameStarting ? 1 : 0.4 },
+                ]}
+              >
+                <Text style={styles.sendText}>
+                  {gameStarting
+                    ? "Startar…"
+                    : `Starta Kings Cup (${gamePlayers.length} spelare)`}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {gamePhase === "playing" ? (
+            <View style={styles.gameContent}>
+              <Text style={styles.gameTurnLabel}>Din tur:</Text>
+              <Text style={styles.gameTurnName}>
+                {namesRef.current[gamePlayers[gameTurn]] ?? "?"}
+              </Text>
+
+              <Pressable onPress={drawGameCard} style={styles.gameCardArea}>
+                {gameCard ? (
+                  <View style={styles.playingCard}>
+                    <Text
+                      style={[
+                        styles.playingCardCorner,
+                        { color: isRedSuit(gameCard.suit) ? "#dc2626" : "#111" },
+                      ]}
+                    >
+                      {gameCard.rank}
+                      {gameCard.suit}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.playingCardSuit,
+                        { color: isRedSuit(gameCard.suit) ? "#dc2626" : "#111" },
+                      ]}
+                    >
+                      {gameCard.suit}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.cardBack}>
+                    <Text style={{ fontSize: 44 }}>🂠</Text>
+                    <Text style={styles.cardBackText}>Tryck för att dra ett kort</Text>
+                  </View>
+                )}
+              </Pressable>
+
+              {gameCard ? (
+                <View style={styles.gameRuleBox}>
+                  <Text style={styles.gameRuleTitle}>
+                    {RANK_LABELS[gameCard.rank]} — {KINGS_CUP_RULES[gameCard.rank].title}
+                    {gameCard.rank === "K" ? ` (${gameKings}/4)` : ""}
+                  </Text>
+                  <Text style={styles.gameRuleText}>
+                    {gameCard.rank === "K" && gameKings >= 4
+                      ? "FJÄRDE KUNGEN! Drick hela Kungens kopp! 🍻"
+                      : KINGS_CUP_RULES[gameCard.rank].rule}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.gameStatusRow}>
+                <Text style={styles.gameStatus}>🃏 {gameDeck.length} kort kvar</Text>
+                <Text style={styles.gameStatus}>👑 {gameKings}/4 kungar</Text>
+              </View>
+
+              {gameCard ? (
+                <Pressable onPress={nextGameTurn} style={styles.gameStartBtn}>
+                  <Text style={styles.sendText}>
+                    {(gameCard.rank === "K" && gameKings >= 4) || gameDeck.length === 0
+                      ? "Avsluta spelet"
+                      : `Nästa: ${namesRef.current[gamePlayers[(gameTurn + 1) % gamePlayers.length]] ?? "?"} →`}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {gamePhase === "done" ? (
+            <View style={[styles.gameContent, { alignItems: "center", gap: 16 }]}>
+              <Text style={{ fontSize: 56 }}>🏁</Text>
+              <Text style={styles.gameSetupTitle}>Spelet är slut!</Text>
+              <Text style={[styles.gameCardDesc, { textAlign: "center" }]}>
+                {gameEndReason}
+              </Text>
+              <Pressable onPress={closeGame} style={styles.gameStartBtn}>
+                <Text style={styles.sendText}>Tillbaka till chatten</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </SafeAreaView>
+      </Modal>
+
+      <Modal
         visible={pollModalOpen}
         animationType="slide"
         transparent
@@ -2262,6 +2506,100 @@ const styles = StyleSheet.create({
   },
   duelBtnSelected: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.25)" },
   duelBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  gameHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  gameHeaderTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  gameContent: { padding: 20, gap: 12, flex: 1 },
+  gameCategory: { color: "#c4b5fd", fontSize: 14, fontWeight: "800", marginTop: 8 },
+  gameCardBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 16,
+    padding: 16,
+  },
+  gameCardEmoji: { fontSize: 34 },
+  gameCardTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  gameCardDesc: { color: "#c4b5fd", fontSize: 13, marginTop: 2 },
+  gameSetupTitle: { color: "#fff", fontSize: 20, fontWeight: "800" },
+  gamePlayerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  gamePlayerRowSelected: { borderColor: "#f2a916" },
+  gameOrderBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#f2a916",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  gameOrderText: { color: "#2a1a10", fontWeight: "900", fontSize: 13 },
+  gamePlayerName: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  gameStartBtn: {
+    backgroundColor: "#7c3aed",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    marginTop: 12,
+    paddingHorizontal: 24,
+  },
+  gameTurnLabel: { color: "#c4b5fd", fontSize: 14, textAlign: "center" },
+  gameTurnName: { color: "#fff", fontSize: 28, fontWeight: "900", textAlign: "center" },
+  gameCardArea: { alignItems: "center", marginVertical: 12 },
+  playingCard: {
+    width: 170,
+    height: 240,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  playingCardCorner: {
+    position: "absolute",
+    top: 10,
+    left: 12,
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  playingCardSuit: { fontSize: 84 },
+  cardBack: {
+    width: 170,
+    height: 240,
+    backgroundColor: "#4c1d95",
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    borderWidth: 3,
+    borderColor: "#7c3aed",
+  },
+  cardBackText: { color: "#c4b5fd", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  gameRuleBox: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 14,
+    padding: 14,
+    gap: 6,
+  },
+  gameRuleTitle: { color: "#f2a916", fontSize: 16, fontWeight: "800" },
+  gameRuleText: { color: "#fff", fontSize: 14, lineHeight: 20 },
+  gameStatusRow: { flexDirection: "row", justifyContent: "space-between" },
+  gameStatus: { color: "#c4b5fd", fontSize: 13, fontWeight: "700" },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
