@@ -38,6 +38,8 @@ export default function GroupsScreen() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [unread, setUnread] = useState<Record<string, number>>({});
+
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("groups")
@@ -45,7 +47,20 @@ export default function GroupsScreen() {
       .order("created_at", { ascending: false });
     setGroups((data ?? []) as Group[]);
     setLoading(false);
-  }, []);
+
+    if (userId) {
+      const { data: notes } = await supabase
+        .from("notifications")
+        .select("group_id")
+        .eq("user_id", userId)
+        .eq("read", false);
+      const counts: Record<string, number> = {};
+      for (const n of notes ?? []) {
+        counts[n.group_id as string] = (counts[n.group_id as string] ?? 0) + 1;
+      }
+      setUnread(counts);
+    }
+  }, [userId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -94,6 +109,9 @@ export default function GroupsScreen() {
       <View style={styles.header}>
         <Text style={[styles.title, { color: c.text }]}>Dina grupper</Text>
         <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
+            <Text style={{ fontSize: 18 }}>👤</Text>
+          </Pressable>
           <Pressable onPress={() => router.push("/feed")} hitSlop={8}>
             <Text style={{ color: c.brand, fontWeight: "700" }}>Utforska</Text>
           </Pressable>
@@ -193,7 +211,14 @@ export default function GroupsScreen() {
               }
               style={[styles.groupItem, { backgroundColor: c.backgroundElement }]}
             >
-              <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
+              <View style={styles.groupNameRow}>
+                <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
+                {unread[item.id] ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unread[item.id]}</Text>
+                  </View>
+                ) : null}
+              </View>
               {item.owner_id === userId ? (
                 <Text style={[styles.ownerTag, { color: c.brand }]}>Ägare</Text>
               ) : (
@@ -255,5 +280,16 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   groupName: { fontSize: 16, fontWeight: "600" },
+  groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  badge: {
+    backgroundColor: "#dc2626",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 5,
+  },
+  badgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
   ownerTag: { fontSize: 12, fontWeight: "700" },
 });

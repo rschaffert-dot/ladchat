@@ -20,6 +20,8 @@ export interface Group {
   beer_fill_cl: number;
   beer_round_started_at: string | null;
   beer_duration_minutes: number | null;
+  energy: number;
+  energy_updated_at: string;
 }
 
 export interface Message {
@@ -30,6 +32,7 @@ export interface Message {
   created_at: string;
   kind: "user" | "system";
   metadata: Record<string, unknown>;
+  reply_to_id: string | null;
 }
 
 export interface MessageWithAuthor extends Message {
@@ -133,6 +136,68 @@ export interface ChallengeResult {
   aggregate_vote_score: number;
   points_awarded: number;
   created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  group_id: string;
+  message_id: string | null;
+  kind: string;
+  content: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface Streak {
+  group_id: string;
+  user_id: string;
+  current_streak: number;
+  longest_streak: number;
+  last_checkin: string | null;
+}
+
+export type DuelStatus = "pending" | "active" | "declined" | "finished";
+
+export interface Duel {
+  id: string;
+  group_id: string;
+  challenger_id: string;
+  opponent_id: string;
+  stake: number;
+  status: DuelStatus;
+  winner_id: string | null;
+  ends_at: string | null;
+  created_at: string;
+}
+
+export interface DuelVote {
+  duel_id: string;
+  group_id: string;
+  voter_id: string;
+  voted_for: string;
+  created_at: string;
+}
+
+export interface Achievement {
+  code: string;
+  name: string;
+  emoji: string;
+  description: string;
+}
+
+export interface UserAchievement {
+  user_id: string;
+  code: string;
+  group_id: string | null;
+  earned_at: string;
+}
+
+export interface PowerHour {
+  id: string;
+  group_id: string;
+  starts_at: string;
+  ends_at: string;
 }
 
 export type ActivationKind = "thumb_order" | "longest_fart";

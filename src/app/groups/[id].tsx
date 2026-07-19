@@ -44,17 +44,21 @@ import {
   uploadActivationMedia,
   videoDurationMs,
 } from "@/lib/activation";
+import { levelForPoints, titleForPoints } from "@/lib/gamification";
 import { REACTIONS, REACTION_ORDER } from "@/lib/reactions";
 import { supabase } from "@/lib/supabase";
 import type {
   ActivationParticipation,
   BeerGlassSize,
+  Duel,
   Group,
   GroupActivation,
   Message,
   MessageReaction,
   MessageWithAuthor,
+  PowerHour,
   ReactionKey,
+  Streak,
 } from "@/lib/types";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
@@ -188,7 +192,26 @@ export default function GroupChatScreen() {
   const [activation, setActivation] = useState<GroupActivation | null>(null);
   const [participations, setParticipations] = useState<ActivationParticipation[]>([]);
   const [activationBusy, setActivationBusy] = useState(false);
+  const [memberPoints, setMemberPoints] = useState<Record<string, number>>({});
+  const [replyTo, setReplyTo] = useState<MessageWithAuthor | null>(null);
+  const [streak, setStreak] = useState<Streak | null>(null);
+  const [quest, setQuest] = useState<{ quest_id: number; title: string; bonus: number } | null>(null);
+  const [questDone, setQuestDone] = useState(false);
+  const [duel, setDuel] = useState<Duel | null>(null);
+  const [duelVotes, setDuelVotes] = useState<{ ch: number; op: number; mine: string | null }>({
+    ch: 0,
+    op: 0,
+    mine: null,
+  });
+  const [duelModalOpen, setDuelModalOpen] = useState(false);
+  const [duelStake, setDuelStake] = useState("10");
+  const [duelOpponent, setDuelOpponent] = useState<string | null>(null);
+  const [powerHourEndsAt, setPowerHourEndsAt] = useState<number | null>(null);
+  const [weekly, setWeekly] = useState<LeaderboardRow[]>([]);
+  const [gotw, setGotw] = useState<string | null>(null);
   const namesRef = useRef<Record<string, string>>({});
+  const prevOwnPointsRef = useRef<number | null>(null);
+  const settledDuelRef = useRef<string | null>(null);
   // DELETE-events för RLS-skyddade tabeller innehåller bara primärnyckeln
   // (id) från Supabase Realtime, inte hela raden — trots replica identity
   // full. Vi sparar radernas innehåll själva för att kunna slå upp vad
@@ -214,12 +237,30 @@ export default function GroupChatScreen() {
         )
       : 0;
 
-  // Klockan tickar en gång i sekunden så öl-nedräkning och aktiverings-deadline syns live.
+  // Klockan tickar en gång i sekunden — driver öl-/aktiverings-/duell-nedräkning
+  // och energibarens förfall.
   useEffect(() => {
-    if (!group?.beer_glass_size && !activation) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [group?.beer_glass_size, activation]);
+  }, []);
+
+  // Energin förfaller med 1 per 2:e tyst minut — beräknas klient-side ur
+  // senaste server-värdet så baren sjunker live utan extra anrop.
+  const energyNow = group
+    ? Math.max(
+        0,
+        group.energy -
+          Math.floor((nowTick - new Date(group.energy_updated_at).getTime()) / 120_000),
+      )
+    : 0;
+
+  const powerHourRemainingMs = powerHourEndsAt ? Math.max(0, powerHourEndsAt - nowTick) : 0;
+  const powerHourActive = powerHourRemainingMs > 0;
+
+  const duelRemainingMs =
+    duel?.status === "active" && duel.ends_at
+      ? Math.max(0, new Date(duel.ends_at).getTime() - nowTick)
+      : 0;
 
   const loadActivation = useCallback(async () => {
     if (!groupId) return;
@@ -300,7 +341,79 @@ export default function GroupChatScreen() {
       })),
     );
     setLeaderboard(rows);
+    setMemberPoints(Object.fromEntries(rows.map((r) => [r.userId, r.points])));
   }, [groupId, nameFor]);
+
+  const loadDuel = useCallback(async () => {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("duels")
+      .select("*")
+      .eq("group_id", groupId)
+      .in("status", ["pending", "active"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const d = (data as Duel) ?? null;
+    setDuel(d);
+    if (d) {
+      const { data: votes } = await supabase
+        .from("duel_votes")
+        .select("voter_id, voted_for")
+        .eq("duel_id", d.id);
+      const list = votes ?? [];
+      setDuelVotes({
+        ch: list.filter((v) => v.voted_for === d.challenger_id).length,
+        op: list.filter((v) => v.voted_for === d.opponent_id).length,
+        mine: list.find((v) => v.voter_id === userId)?.voted_for ?? null,
+      });
+    } else {
+      setDuelVotes({ ch: 0, op: 0, mine: null });
+    }
+  }, [groupId, userId]);
+
+  const loadGamification = useCallback(async () => {
+    if (!groupId || !userId) return;
+    const [{ data: st }, { data: q }, { data: ph }] = await Promise.all([
+      supabase
+        .from("streaks")
+        .select("*")
+        .eq("group_id", groupId)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase.rpc("todays_quest"),
+      supabase
+        .from("power_hours")
+        .select("*")
+        .eq("group_id", groupId)
+        .gt("ends_at", new Date().toISOString())
+        .order("ends_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    setStreak((st as Streak) ?? null);
+    const qRow = Array.isArray(q) ? q[0] : q;
+    setQuest((qRow as { quest_id: number; title: string; bonus: number }) ?? null);
+    setPowerHourEndsAt(ph ? new Date((ph as PowerHour).ends_at).getTime() : null);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: qc } = await supabase
+      .from("quest_completions")
+      .select("quest_date")
+      .eq("group_id", groupId)
+      .eq("user_id", userId)
+      .eq("quest_date", today)
+      .maybeSingle();
+    setQuestDone(Boolean(qc));
+
+    // Markera gruppens notiser som lästa när chatten öppnas.
+    void supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", userId)
+      .eq("group_id", groupId)
+      .eq("read", false);
+  }, [groupId, userId]);
 
   // Initial laddning.
   useEffect(() => {
@@ -310,7 +423,7 @@ export default function GroupChatScreen() {
       const { data: g } = await supabase
         .from("groups")
         .select(
-          "id,name,owner_id,created_at,beer_glass_size,beer_fill_cl,beer_round_started_at,beer_duration_minutes",
+          "id,name,owner_id,created_at,beer_glass_size,beer_fill_cl,beer_round_started_at,beer_duration_minutes,energy,energy_updated_at",
         )
         .eq("id", groupId)
         .single();
@@ -350,11 +463,14 @@ export default function GroupChatScreen() {
       setLoading(false);
       void loadReactionsFor(list.map((m) => m.id));
       void loadActivation();
+      void loadLeaderboard();
+      void loadDuel();
+      void loadGamification();
     })();
     return () => {
       active = false;
     };
-  }, [groupId, router, loadReactionsFor, loadActivation]);
+  }, [groupId, router, loadReactionsFor, loadActivation, loadLeaderboard, loadDuel, loadGamification]);
 
   // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
   useEffect(() => {
@@ -368,10 +484,26 @@ export default function GroupChatScreen() {
     };
   }, [groupId]);
 
-  // Poängtavlan behöver bara vara färsk när inställningsrutan visas.
+  // Poängtavlan + veckotopplistan behöver bara vara färska när inställningsrutan visas.
   useEffect(() => {
-    if (settingsOpen) void loadLeaderboard();
-  }, [settingsOpen, loadLeaderboard]);
+    if (!settingsOpen || !groupId) return;
+    void loadLeaderboard();
+    void (async () => {
+      const [{ data: wk }, { data: winner }] = await Promise.all([
+        supabase.rpc("weekly_leaderboard", { gid: groupId }),
+        supabase.rpc("grabb_of_the_week", { gid: groupId }),
+      ]);
+      const rows = await Promise.all(
+        ((wk ?? []) as { user_id: string; weekly_points: number }[]).map(async (r) => ({
+          userId: r.user_id,
+          points: Number(r.weekly_points),
+          name: await nameFor(r.user_id),
+        })),
+      );
+      setWeekly(rows);
+      setGotw((winner as string) ?? null);
+    })();
+  }, [settingsOpen, groupId, loadLeaderboard, nameFor]);
 
   async function updateSettings(patch: Partial<ChatSettings>) {
     if (!groupId) return;
@@ -515,6 +647,141 @@ export default function GroupChatScreen() {
     await supabase.rpc("toggle_reaction", { mid: messageId, reaction_key: reaction });
   }
 
+  // Realtime: medlemmarnas poäng (titlar bredvid namn + level-up-firande).
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`points:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "group_members", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const row = payload.new as { user_id: string; points: number };
+          setMemberPoints((prev) => ({ ...prev, [row.user_id]: row.points }));
+          if (row.user_id === userId) {
+            const prevPts = prevOwnPointsRef.current;
+            prevOwnPointsRef.current = row.points;
+            if (prevPts !== null && levelForPoints(row.points) > levelForPoints(prevPts)) {
+              setCelebration(`🎖️ LEVEL UP! Du är nu ${titleForPoints(row.points)}!`);
+              setTimeout(() => setCelebration(null), 4000);
+            }
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, userId]);
+
+  // Startvärde för level-up-jämförelsen.
+  useEffect(() => {
+    if (userId && memberPoints[userId] !== undefined && prevOwnPointsRef.current === null) {
+      prevOwnPointsRef.current = memberPoints[userId];
+    }
+  }, [memberPoints, userId]);
+
+  // Realtime: dueller och röster.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`duels:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "duels", filter: `group_id=eq.${groupId}` },
+        () => void loadDuel(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "duel_votes", filter: `group_id=eq.${groupId}` },
+        () => void loadDuel(),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, loadDuel]);
+
+  // Realtime: Power Hour startar.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`powerhours:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "power_hours", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const ph = payload.new as PowerHour;
+          setPowerHourEndsAt(new Date(ph.ends_at).getTime());
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId]);
+
+  // Duellen avgörs automatiskt när rösttiden gått ut (första klient som ser det).
+  useEffect(() => {
+    if (
+      duel?.status === "active" &&
+      duel.ends_at &&
+      duelRemainingMs === 0 &&
+      settledDuelRef.current !== duel.id
+    ) {
+      settledDuelRef.current = duel.id;
+      void supabase.rpc("settle_duel", { did: duel.id });
+    }
+  }, [duel, duelRemainingMs]);
+
+  async function checkin() {
+    if (!groupId) return;
+    const { data, error } = await supabase.rpc("checkin_streak", { gid: groupId });
+    if (error) return;
+    const today = new Date().toISOString().slice(0, 10);
+    setStreak((prev) => ({
+      group_id: groupId,
+      user_id: userId ?? "",
+      current_streak: (data as number) ?? 1,
+      longest_streak: Math.max(prev?.longest_streak ?? 0, (data as number) ?? 1),
+      last_checkin: today,
+    }));
+  }
+
+  async function completeQuest() {
+    if (!groupId || questDone) return;
+    const { error } = await supabase.rpc("complete_daily_quest", { gid: groupId });
+    if (!error) setQuestDone(true);
+  }
+
+  async function createDuel() {
+    if (!groupId || !duelOpponent) return;
+    const stake = parseInt(duelStake, 10);
+    if (!Number.isFinite(stake) || stake <= 0) return;
+    const { error } = await supabase.rpc("create_duel", {
+      gid: groupId,
+      opponent: duelOpponent,
+      stake_amount: stake,
+    });
+    if (!error) {
+      setDuelModalOpen(false);
+      setDuelOpponent(null);
+      void loadDuel();
+    }
+  }
+
+  async function respondDuel(accept: boolean) {
+    if (!duel) return;
+    await supabase.rpc("respond_duel", { did: duel.id, accept });
+    void loadDuel();
+  }
+
+  async function voteDuel(target: string) {
+    if (!duel) return;
+    await supabase.rpc("vote_duel", { did: duel.id, target });
+    void loadDuel();
+  }
+
   // Realtime: ölglasets fyllnadsgrad och tidsgräns delas av alla medlemmar via gruppraden.
   useEffect(() => {
     if (!groupId) return;
@@ -605,11 +872,25 @@ export default function GroupChatScreen() {
     const content = text.trim();
     if (!content || sending || !userId || !groupId) return;
     setSending(true);
-    const { error } = await supabase
-      .from("messages")
-      .insert({ group_id: groupId, user_id: userId, content });
+
+    // @namn → user-id (matchar medlemmarnas visningsnamn, skiftlägesokänsligt).
+    const lower = content.toLowerCase();
+    const mentions = Object.entries(namesRef.current)
+      .filter(([, name]) => lower.includes("@" + name.toLowerCase()))
+      .map(([uid]) => uid);
+
+    const { error } = await supabase.from("messages").insert({
+      group_id: groupId,
+      user_id: userId,
+      content,
+      reply_to_id: replyTo?.id ?? null,
+      metadata: mentions.length ? { mentions } : {},
+    });
     setSending(false);
-    if (!error) setText("");
+    if (!error) {
+      setText("");
+      setReplyTo(null);
+    }
   }
 
   async function participateThumb() {
@@ -763,11 +1044,17 @@ export default function GroupChatScreen() {
               );
             }
             const mine = item.user_id === userId;
+            const parent = item.reply_to_id
+              ? messages.find((m) => m.id === item.reply_to_id)
+              : undefined;
             return (
               <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
                 {!mine ? (
                   <Text style={[styles.author, { color: c.textSecondary }]}>
-                    {item.author_name}
+                    {item.author_name} ·{" "}
+                    <Text style={{ fontWeight: "700" }}>
+                      {titleForPoints(memberPoints[item.user_id] ?? 0)}
+                    </Text>
                   </Text>
                 ) : null}
                 <View
@@ -781,41 +1068,73 @@ export default function GroupChatScreen() {
                         },
                   ]}
                 >
+                  {item.reply_to_id ? (
+                    <View style={styles.quoteBox}>
+                      <Text style={styles.quoteAuthor} numberOfLines={1}>
+                        {parent?.author_name ?? "Svar"}
+                      </Text>
+                      <Text style={styles.quoteContent} numberOfLines={2}>
+                        {parent?.content ?? "…"}
+                      </Text>
+                    </View>
+                  ) : null}
                   <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
                     {item.content}
                   </Text>
                 </View>
-                {!mine ? (
-                  <View style={styles.reactionRow}>
-                    {REACTION_ORDER.map((key) => {
-                      const entry = reactions[item.id]?.[key];
-                      const def = REACTIONS[key];
-                      return (
-                        <Pressable
-                          key={key}
-                          onPress={() => toggleReaction(item.id, key)}
-                          style={[
-                            styles.reactionChip,
-                            { backgroundColor: c.backgroundElement },
-                            entry?.mine
-                              ? { backgroundColor: settings.color, borderColor: settings.color }
-                              : null,
-                          ]}
-                        >
-                          <Text style={{ fontSize: 13 }}>
-                            {def.emoji}
-                            {entry && entry.count > 0 ? ` ${entry.count}` : ""}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ) : null}
+                <View style={styles.reactionRow}>
+                  {!mine
+                    ? REACTION_ORDER.map((key) => {
+                        const entry = reactions[item.id]?.[key];
+                        const def = REACTIONS[key];
+                        return (
+                          <Pressable
+                            key={key}
+                            onPress={() => toggleReaction(item.id, key)}
+                            style={[
+                              styles.reactionChip,
+                              { backgroundColor: c.backgroundElement },
+                              entry?.mine
+                                ? { backgroundColor: settings.color, borderColor: settings.color }
+                                : null,
+                            ]}
+                          >
+                            <Text style={{ fontSize: 13 }}>
+                              {def.emoji}
+                              {entry && entry.count > 0 ? ` ${entry.count}` : ""}
+                            </Text>
+                          </Pressable>
+                        );
+                      })
+                    : null}
+                  <Pressable
+                    onPress={() => setReplyTo(item)}
+                    style={[styles.reactionChip, { backgroundColor: c.backgroundElement }]}
+                  >
+                    <Text style={{ fontSize: 13, color: c.textSecondary }}>↩︎</Text>
+                  </Pressable>
+                </View>
               </View>
             );
           }}
         />
       )}
+
+      {replyTo ? (
+        <View style={[styles.replyPreview, { backgroundColor: c.backgroundElement }]}>
+          <View style={styles.flex}>
+            <Text style={{ color: c.brand, fontWeight: "700", fontSize: 12 }}>
+              Svarar {replyTo.author_name}
+            </Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12 }} numberOfLines={1}>
+              {replyTo.content}
+            </Text>
+          </View>
+          <Pressable onPress={() => setReplyTo(null)} hitSlop={8}>
+            <Text style={{ color: c.textSecondary, fontSize: 18 }}>×</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
         <TextInput
@@ -855,6 +1174,14 @@ export default function GroupChatScreen() {
         <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
           {group?.name ?? ""}
         </Text>
+        <Pressable onPress={checkin} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 15, fontWeight: "800", color: "#f2a916" }}>
+            🔥{streak?.current_streak ?? 0}
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => setDuelModalOpen(true)} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>⚔️</Text>
+        </Pressable>
         <Pressable onPress={() => router.push("/feed")} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>🏆</Text>
         </Pressable>
@@ -868,9 +1195,124 @@ export default function GroupChatScreen() {
         </Pressable>
       </View>
 
+      {/* Gemensam energibar: fylls av aktivitet, sjunker vid tystnad. */}
+      <View style={[styles.energyTrack, { backgroundColor: c.backgroundElement }]}>
+        <View
+          style={[
+            styles.energyFill,
+            {
+              width: `${energyNow}%`,
+              backgroundColor: powerHourActive ? "#f2a916" : energyNow >= 80 ? "#22c55e" : settings.color,
+            },
+          ]}
+        />
+      </View>
+
       {celebration ? (
         <View style={styles.celebrationBanner}>
           <Text style={styles.celebrationText}>{celebration}</Text>
+        </View>
+      ) : null}
+
+      {powerHourActive ? (
+        <View style={styles.powerHourBanner}>
+          <Text style={styles.powerHourText}>
+            ⚡ POWER HOUR — dubbel XP! {formatCountdown(powerHourRemainingMs)} kvar
+          </Text>
+        </View>
+      ) : null}
+
+      {streak &&
+      streak.current_streak > 0 &&
+      streak.last_checkin !== new Date().toISOString().slice(0, 10) ? (
+        <Pressable onPress={checkin} style={styles.streakWarning}>
+          <Text style={styles.streakWarningText}>
+            🔥 Din {streak.current_streak}-dagarsstreak ryker om du inte checkar in idag — tryck här!
+          </Text>
+        </Pressable>
+      ) : null}
+
+      {quest ? (
+        <View style={[styles.questStrip, { backgroundColor: c.backgroundElement }]}>
+          <Text style={[styles.questText, { color: c.text }]} numberOfLines={1}>
+            🎯 {quest.title}
+          </Text>
+          <Pressable
+            onPress={completeQuest}
+            disabled={questDone}
+            style={[
+              styles.questBtn,
+              { backgroundColor: questDone ? c.backgroundSelected : settings.color },
+            ]}
+          >
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>
+              {questDone ? "✔ Klar" : `Klar +${quest.bonus}p`}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {duel ? (
+        <View style={[styles.duelBanner, { backgroundColor: "#7c2d12" }]}>
+          {duel.status === "pending" ? (
+            <>
+              <Text style={styles.duelText}>
+                ⚔️ {namesRef.current[duel.challenger_id] ?? "?"} utmanar{" "}
+                {namesRef.current[duel.opponent_id] ?? "?"} om {duel.stake}p
+              </Text>
+              {duel.opponent_id === userId ? (
+                <View style={styles.duelActions}>
+                  <Pressable onPress={() => respondDuel(true)} style={styles.duelBtn}>
+                    <Text style={styles.duelBtnText}>Acceptera</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => respondDuel(false)}
+                    style={[styles.duelBtn, { backgroundColor: "transparent" }]}
+                  >
+                    <Text style={[styles.duelBtnText, { color: "#fca5a5" }]}>Neka</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.duelSub}>Väntar på svar…</Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.duelText}>
+                ⚔️ {namesRef.current[duel.challenger_id] ?? "?"} ({duelVotes.ch}) vs{" "}
+                {namesRef.current[duel.opponent_id] ?? "?"} ({duelVotes.op}) · pott {duel.stake * 2}p ·{" "}
+                {formatCountdown(duelRemainingMs)}
+              </Text>
+              {userId !== duel.challenger_id && userId !== duel.opponent_id ? (
+                <View style={styles.duelActions}>
+                  <Pressable
+                    onPress={() => voteDuel(duel.challenger_id)}
+                    style={[
+                      styles.duelBtn,
+                      duelVotes.mine === duel.challenger_id ? styles.duelBtnSelected : null,
+                    ]}
+                  >
+                    <Text style={styles.duelBtnText}>
+                      {namesRef.current[duel.challenger_id] ?? "?"}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => voteDuel(duel.opponent_id)}
+                    style={[
+                      styles.duelBtn,
+                      duelVotes.mine === duel.opponent_id ? styles.duelBtnSelected : null,
+                    ]}
+                  >
+                    <Text style={styles.duelBtnText}>
+                      {namesRef.current[duel.opponent_id] ?? "?"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <Text style={styles.duelSub}>Gruppen röstar — håll tummarna!</Text>
+              )}
+            </>
+          )}
         </View>
       ) : null}
 
@@ -1127,7 +1569,9 @@ export default function GroupChatScreen() {
               <View style={styles.leaderboard}>
                 {leaderboard.map((row) => (
                   <View key={row.userId} style={styles.leaderboardRow}>
-                    <Text style={{ color: c.text, fontSize: 13 }}>{row.name}</Text>
+                    <Text style={{ color: c.text, fontSize: 13 }}>
+                      {row.name} · {titleForPoints(row.points)}
+                    </Text>
                     <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
                       {row.points} {settings.currency}
                     </Text>
@@ -1135,6 +1579,33 @@ export default function GroupChatScreen() {
                 ))}
               </View>
             </>
+          ) : null}
+
+          {weekly.length > 0 ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Veckans topplista (nollställs varje måndag)
+              </Text>
+              <View style={styles.leaderboard}>
+                {weekly.map((row, i) => (
+                  <View key={row.userId} style={styles.leaderboardRow}>
+                    <Text style={{ color: c.text, fontSize: 13 }}>
+                      {i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : ""}
+                      {row.name}
+                    </Text>
+                    <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                      +{row.points}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : null}
+
+          {gotw ? (
+            <Text style={[styles.pointsText, { color: c.text, fontWeight: "700" }]}>
+              👑 Grabb of the Week: {namesRef.current[gotw] ?? "?"}
+            </Text>
           ) : null}
 
           <View style={styles.soundRow}>
@@ -1153,6 +1624,74 @@ export default function GroupChatScreen() {
           >
             <Text style={styles.sendText}>Klart</Text>
           </Pressable>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={duelModalOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setDuelModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setDuelModalOpen(false)} />
+        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>⚔️ Utmana på duell</Text>
+          {duel ? (
+            <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+              Det pågår redan en duell i gruppen — vänta tills den är avgjord.
+            </Text>
+          ) : (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Motståndare</Text>
+              <View style={styles.swatchRow}>
+                {leaderboard
+                  .filter((m) => m.userId !== userId)
+                  .map((m) => (
+                    <Pressable
+                      key={m.userId}
+                      onPress={() => setDuelOpponent(m.userId)}
+                      style={[
+                        styles.chip,
+                        { borderColor: c.backgroundSelected },
+                        duelOpponent === m.userId
+                          ? { backgroundColor: settings.color, borderColor: settings.color }
+                          : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: duelOpponent === m.userId ? "#fff" : c.text },
+                        ]}
+                      >
+                        {m.name} ({m.points}p)
+                      </Text>
+                    </Pressable>
+                  ))}
+              </View>
+
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Insats (dras från er båda, vinnaren tar allt)
+              </Text>
+              <TextInput
+                value={duelStake}
+                onChangeText={setDuelStake}
+                keyboardType="number-pad"
+                style={[styles.input, { color: c.text, borderColor: c.backgroundSelected, flex: 0 }]}
+              />
+
+              <Pressable
+                onPress={createDuel}
+                disabled={!duelOpponent}
+                style={[
+                  styles.closeBtn,
+                  { backgroundColor: settings.color, opacity: duelOpponent ? 1 : 0.4 },
+                ]}
+              >
+                <Text style={styles.sendText}>Skicka utmaning</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </Modal>
     </SafeAreaView>
@@ -1195,6 +1734,53 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
+  quoteBox: {
+    borderLeftWidth: 3,
+    borderLeftColor: "rgba(255,255,255,0.45)",
+    backgroundColor: "rgba(0,0,0,0.15)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    marginBottom: 6,
+  },
+  quoteAuthor: { color: "rgba(255,255,255,0.85)", fontSize: 11, fontWeight: "700" },
+  quoteContent: { color: "rgba(255,255,255,0.7)", fontSize: 12 },
+  replyPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  energyTrack: { height: 5, width: "100%" },
+  energyFill: { height: 5 },
+  powerHourBanner: { backgroundColor: "#f2a916", paddingHorizontal: 16, paddingVertical: 8 },
+  powerHourText: { color: "#2a1a10", fontWeight: "900", textAlign: "center", fontSize: 13 },
+  streakWarning: { backgroundColor: "#7f1d1d", paddingHorizontal: 16, paddingVertical: 8 },
+  streakWarningText: { color: "#fecaca", fontWeight: "700", textAlign: "center", fontSize: 12 },
+  questStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  questText: { flex: 1, fontSize: 13, fontWeight: "600" },
+  questBtn: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  duelBanner: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
+  duelText: { color: "#fff", fontWeight: "800", fontSize: 13, textAlign: "center" },
+  duelSub: { color: "#fed7aa", fontSize: 12, textAlign: "center" },
+  duelActions: { flexDirection: "row", justifyContent: "center", gap: 12 },
+  duelBtn: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  duelBtnSelected: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.25)" },
+  duelBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   inputBar: {
     flexDirection: "row",
     alignItems: "flex-end",
