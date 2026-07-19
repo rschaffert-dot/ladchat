@@ -1,3 +1,5 @@
+import * as Clipboard from "expo-clipboard";
+import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -36,6 +38,7 @@ export default function GroupChatScreen() {
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const namesRef = useRef<Record<string, string>>({});
 
   const nameFor = useCallback(async (uid: string): Promise<string> => {
@@ -181,9 +184,25 @@ export default function GroupChatScreen() {
       .select("token")
       .single();
     if (error || !data) return;
-    await Share.share({
-      message: `Gå med i "${group?.name ?? "gruppen"}" på Ladchat med koden:\n\n${data.token}`,
-    });
+
+    const link = Linking.createURL(`join/${data.token}`);
+
+    try {
+      await Clipboard.setStringAsync(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Kopiering kan nekas av webbläsaren (t.ex. saknad användarinteraktion) - visa länken istället.
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.prompt("Kopiera inbjudningslänken:", link);
+      }
+    }
+
+    if (Platform.OS !== "web") {
+      Share.share({
+        message: `Gå med i "${group?.name ?? "gruppen"}" på Ladchat:\n\n${link}`,
+      }).catch(() => {});
+    }
   }
 
   return (
@@ -196,7 +215,9 @@ export default function GroupChatScreen() {
           {group?.name ?? ""}
         </Text>
         <Pressable onPress={invite} hitSlop={8}>
-          <Text style={{ color: c.brand, fontWeight: "700" }}>Bjud in</Text>
+          <Text style={{ color: c.brand, fontWeight: "700" }}>
+            {linkCopied ? "Länk kopierad!" : "Bjud in"}
+          </Text>
         </Pressable>
       </View>
 
