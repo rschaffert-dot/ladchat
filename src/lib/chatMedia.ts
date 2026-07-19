@@ -3,6 +3,11 @@ import { supabase } from "@/lib/supabase";
 /** Bild-/ljuduppladdning till privata bucketen chat-media ({group_id}/{user_id}/{fil}). */
 
 function extensionFor(mime: string): string {
+  if (mime.startsWith("video/")) {
+    if (mime.includes("quicktime") || mime.includes("mov")) return "mov";
+    if (mime.includes("webm")) return "webm";
+    return "mp4";
+  }
   if (mime.includes("png")) return "png";
   if (mime.includes("gif")) return "gif";
   if (mime.includes("webp")) return "webp";

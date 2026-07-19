@@ -1,9 +1,12 @@
+import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   FlatList,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -16,6 +19,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
+import { getChatMediaUrl, uploadChatMedia } from "@/lib/chatMedia";
 import { supabase } from "@/lib/supabase";
 
 // ============================================================
@@ -49,9 +53,19 @@ type HuntCompletion = {
   bonus_claimed: boolean;
   status: "pending" | "confirmed" | "denied";
   points_awarded: number;
+  proof_url: string | null;
 };
 
-type WitnessRequest = HuntCompletion & { claimantName: string; challenge?: HuntChallenge };
+type WitnessRequest = HuntCompletion & {
+  claimantName: string;
+  challenge?: HuntChallenge;
+  proofSignedUrl: string | null;
+  proofIsVideo: boolean;
+};
+
+function isVideoPath(path: string): boolean {
+  return /\.(mp4|mov|webm|m4v)$/i.test(path);
+}
 
 const TIER_ORDER: Tier[] = ["wood", "bronze", "silver", "gold", "diamond"];
 
@@ -116,6 +130,7 @@ export default function HuntScreen() {
   const [members, setMembers] = useState<{ id: string; name: string }[]>([]);
   const [witness, setWitness] = useState<string | null>(null);
   const [bonus, setBonus] = useState(false);
+  const [proof, setProof] = useState<{ uri: string; mime: string; video: boolean } | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,11 +168,15 @@ export default function HuntScreen() {
       );
     }
     setWitnessReqs(
-      reqs.map((r) => ({
-        ...r,
-        claimantName: names[r.user_id] ?? "Okänd",
-        challenge: ch.find((c) => c.id === r.challenge_id),
-      })),
+      await Promise.all(
+        reqs.map(async (r) => ({
+          ...r,
+          claimantName: names[r.user_id] ?? "Okänd",
+          challenge: ch.find((c) => c.id === r.challenge_id),
+          proofSignedUrl: r.proof_url ? await getChatMediaUrl(r.proof_url) : null,
+          proofIsVideo: r.proof_url ? isVideoPath(r.proof_url) : false,
+        })),
+      ),
     );
     setLoading(false);
   }, [userId]);
@@ -192,6 +211,7 @@ export default function HuntScreen() {
     setClaimGroup(null);
     setWitness(null);
     setBonus(false);
+    setProof(null);
     setError(null);
     flip.setValue(0);
     Animated.timing(flip, { toValue: 1, duration: 450, useNativeDriver: true }).start();
@@ -234,23 +254,60 @@ export default function HuntScreen() {
     );
   }
 
+  async function pickProofFromLibrary() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images", "videos"],
+      quality: 0.7,
+      videoMaxDuration: 60,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const video = asset.type === "video";
+    setProof({
+      uri: asset.uri,
+      mime: asset.mimeType ?? (video ? "video/mp4" : "image/jpeg"),
+      video,
+    });
+  }
+
+  async function takeProofPhoto() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setProof({ uri: asset.uri, mime: asset.mimeType ?? "image/jpeg", video: false });
+  }
+
   async function submitClaim() {
-    if (!selected || !claimGroup || !witness || sending) return;
+    if (!selected || !claimGroup || !witness || !proof || !userId || sending) return;
     setSending(true);
     setError(null);
-    const { error: rpcError } = await supabase.rpc("hunt_claim", {
-      cid: selected.id,
-      gid: claimGroup,
-      witness,
-      bonus,
-    });
-    setSending(false);
-    if (rpcError) {
-      setError(rpcError.message);
-      return;
+    try {
+      const proofPath = await uploadChatMedia(claimGroup, userId, proof.uri, proof.mime);
+      const { error: rpcError } = await supabase.rpc("hunt_claim", {
+        cid: selected.id,
+        gid: claimGroup,
+        witness,
+        proof: proofPath,
+        bonus,
+      });
+      if (rpcError) {
+        setError(rpcError.message);
+        return;
+      }
+      await load();
+      setClaiming(false);
+    } catch {
+      setError("Uppladdningen av beviset misslyckades — försök igen.");
+    } finally {
+      setSending(false);
     }
-    await load();
-    setClaiming(false);
   }
 
   async function respond(completionId: string, approve: boolean) {
@@ -307,6 +364,25 @@ export default function HuntScreen() {
                         {r.claimantName} hävdar: {"”"}{r.challenge?.name ?? "?"}{"”"}
                         {r.bonus_claimed ? " (+bonus)" : ""}
                       </Text>
+                      {r.proofSignedUrl ? (
+                        r.proofIsVideo ? (
+                          <Pressable
+                            onPress={() => Linking.openURL(r.proofSignedUrl!)}
+                            style={styles.proofVideoBtn}
+                          >
+                            <Text style={styles.btnText}>🎬 Visa videobevis</Text>
+                          </Pressable>
+                        ) : (
+                          <Pressable onPress={() => Linking.openURL(r.proofSignedUrl!)}>
+                            <Image
+                              source={{ uri: r.proofSignedUrl }}
+                              style={styles.proofThumb}
+                            />
+                          </Pressable>
+                        )
+                      ) : (
+                        <Text style={styles.witnessNoProof}>Bevis saknas (äldre klarmarkering)</Text>
+                      )}
                       <View style={{ flexDirection: "row", gap: 8 }}>
                         <Pressable onPress={() => respond(r.id, true)} style={styles.confirmBtn}>
                           <Text style={styles.btnText}>Bekräfta</Text>
@@ -500,6 +576,35 @@ export default function HuntScreen() {
                         </>
                       ) : null}
 
+                      {claimGroup ? (
+                        <>
+                          <Text style={[styles.claimLabel, { color: selTier.text }]}>
+                            Bevis (obligatoriskt) — bild eller video:
+                          </Text>
+                          <View style={styles.chipWrap}>
+                            <Pressable onPress={takeProofPhoto} style={styles.pickChip}>
+                              <Text style={styles.pickChipText}>📷 Ta foto</Text>
+                            </Pressable>
+                            <Pressable onPress={pickProofFromLibrary} style={styles.pickChip}>
+                              <Text style={styles.pickChipText}>🖼 Välj bild/video</Text>
+                            </Pressable>
+                          </View>
+                          {proof ? (
+                            proof.video ? (
+                              <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
+                                🎬 Video vald — bifogas när du skickar.
+                              </Text>
+                            ) : (
+                              <Image source={{ uri: proof.uri }} style={styles.proofPreview} />
+                            )
+                          ) : (
+                            <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
+                              Inget bevis valt än — vittnet ser beviset innan bekräftelse.
+                            </Text>
+                          )}
+                        </>
+                      ) : null}
+
                       {sel.bonus_points && claimGroup ? (
                         <View style={styles.bonusRow}>
                           <Text style={[styles.claimLabel, { color: selTier.text, flexShrink: 1 }]}>
@@ -513,14 +618,14 @@ export default function HuntScreen() {
 
                       <Pressable
                         onPress={submitClaim}
-                        disabled={!claimGroup || !witness || sending}
+                        disabled={!claimGroup || !witness || !proof || sending}
                         style={[
                           styles.claimBtn,
-                          !claimGroup || !witness || sending ? { opacity: 0.4 } : null,
+                          !claimGroup || !witness || !proof || sending ? { opacity: 0.4 } : null,
                         ]}
                       >
                         <Text style={styles.btnText}>
-                          {sending ? "Skickar…" : "Skicka till vittnet 🕯"}
+                          {sending ? "Laddar upp bevis…" : "Skicka till vittnet 🕯"}
                         </Text>
                       </Pressable>
                     </View>
@@ -586,6 +691,21 @@ const styles = StyleSheet.create({
   witnessTitle: { color: "#e9dcb8", fontWeight: "800", fontSize: 15, fontFamily: SERIF },
   witnessRow: { gap: 8 },
   witnessText: { color: "#e9dcb8", fontSize: 14 },
+  witnessNoProof: { color: "#b9a97f", fontSize: 12, fontStyle: "italic" },
+  proofThumb: { width: 120, height: 120, borderRadius: 10, backgroundColor: "#000" },
+  proofVideoBtn: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignSelf: "flex-start",
+  },
+  proofPreview: {
+    width: "100%",
+    height: 160,
+    borderRadius: 10,
+    backgroundColor: "#000",
+  },
   confirmBtn: {
     backgroundColor: "#15803d",
     borderRadius: 10,
