@@ -6,10 +6,10 @@
 -- ============================================================
 
 alter table public.profiles
-  add column first_name  text,
-  add column last_name   text,
-  add column phone       text,
-  add column avatar_path text;
+  add column if not exists first_name  text,
+  add column if not exists last_name   text,
+  add column if not exists phone       text,
+  add column if not exists avatar_path text;
 
 -- Uppdatera speglingen av nya auth-användare så namn/telefon från
 -- registreringen (raw_user_meta_data) fångas. Faller tillbaka på Googles
@@ -20,14 +20,14 @@ declare
   meta  jsonb := coalesce(new.raw_user_meta_data, '{}'::jsonb);
   fname text := nullif(trim(coalesce(meta->>'first_name', meta->>'given_name', '')), '');
   lname text := nullif(trim(coalesce(meta->>'last_name', meta->>'family_name', '')), '');
-  full  text := nullif(trim(concat_ws(' ', fname, lname)), '');
+  fullname text := nullif(trim(concat_ws(' ', fname, lname)), '');
 begin
   insert into public.profiles (id, email, display_name, first_name, last_name, phone)
   values (
     new.id,
     new.email,
     coalesce(
-      full,
+      fullname,
       nullif(trim(coalesce(meta->>'full_name', meta->>'name', '')), ''),
       split_part(coalesce(new.email, 'anvandare'), '@', 1)
     ),
@@ -48,12 +48,15 @@ insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
+drop policy if exists "avatars_insert_own" on storage.objects;
 create policy "avatars_insert_own" on storage.objects for insert to authenticated
   with check (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
 
+drop policy if exists "avatars_update_own" on storage.objects;
 create policy "avatars_update_own" on storage.objects for update to authenticated
   using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text)
   with check (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
 
+drop policy if exists "avatars_delete_own" on storage.objects;
 create policy "avatars_delete_own" on storage.objects for delete to authenticated
   using (bucket_id = 'avatars' and split_part(name, '/', 1) = auth.uid()::text);
