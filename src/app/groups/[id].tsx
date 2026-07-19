@@ -277,6 +277,11 @@ export default function GroupChatScreen() {
   const [duelOpponent, setDuelOpponent] = useState<string | null>(null);
   const [powerHourEndsAt, setPowerHourEndsAt] = useState<number | null>(null);
   const [weekly, setWeekly] = useState<LeaderboardRow[]>([]);
+  const [teamScore, setTeamScore] = useState<{
+    member: number;
+    team: number;
+    total: number;
+  } | null>(null);
   const [gotw, setGotw] = useState<string | null>(null);
   const [attachOpen, setAttachOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -618,10 +623,24 @@ export default function GroupChatScreen() {
     if (!settingsOpen || !groupId) return;
     void loadLeaderboard();
     void (async () => {
-      const [{ data: wk }, { data: winner }] = await Promise.all([
+      const [{ data: wk }, { data: winner }, { data: score }] = await Promise.all([
         supabase.rpc("weekly_leaderboard", { gid: groupId }),
         supabase.rpc("grabb_of_the_week", { gid: groupId }),
+        supabase
+          .from("group_scores")
+          .select("member_points, team_points, total_points")
+          .eq("group_id", groupId)
+          .maybeSingle(),
       ]);
+      setTeamScore(
+        score
+          ? {
+              member: score.member_points as number,
+              team: score.team_points as number,
+              total: score.total_points as number,
+            }
+          : null,
+      );
       const rows = await Promise.all(
         ((wk ?? []) as { user_id: string; weekly_points: number }[]).map(async (r) => ({
           userId: r.user_id,
@@ -1991,6 +2010,20 @@ export default function GroupChatScreen() {
                   {activation ? "Aktivering redan igång" : "Starta aktivering nu"}
                 </Text>
               </Pressable>
+            </>
+          ) : null}
+
+          {teamScore ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
+              <View style={styles.leaderboardRow}>
+                <Text style={{ color: c.text, fontSize: 15, fontWeight: "800" }}>
+                  🛡 {teamScore.total} teampoäng
+                </Text>
+                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                  {teamScore.member} individuellt + {teamScore.team} team
+                </Text>
+              </View>
             </>
           ) : null}
 

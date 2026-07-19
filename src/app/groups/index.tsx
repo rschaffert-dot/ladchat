@@ -39,6 +39,9 @@ export default function GroupsScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [unread, setUnread] = useState<Record<string, number>>({});
+  const [teamScores, setTeamScores] = useState<
+    Record<string, { member: number; team: number; total: number }>
+  >({});
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -54,12 +57,30 @@ export default function GroupsScreen() {
       .select("id,name,owner_id,created_at,group_members!inner(user_id)")
       .eq("group_members.user_id", userId)
       .order("created_at", { ascending: false });
-    setGroups(
-      ((data ?? []) as (Group & { group_members: unknown })[]).map(
-        ({ group_members: _gm, ...g }) => g,
-      ),
+    const myGroups = ((data ?? []) as (Group & { group_members: unknown })[]).map(
+      ({ group_members: _gm, ...g }) => g,
     );
+    setGroups(myGroups);
     setLoading(false);
+
+    if (myGroups.length > 0) {
+      const { data: scores } = await supabase
+        .from("group_scores")
+        .select("group_id, member_points, team_points, total_points")
+        .in("group_id", myGroups.map((g) => g.id));
+      setTeamScores(
+        Object.fromEntries(
+          (scores ?? []).map((s) => [
+            s.group_id as string,
+            {
+              member: s.member_points as number,
+              team: s.team_points as number,
+              total: s.total_points as number,
+            },
+          ]),
+        ),
+      );
+    }
 
     if (userId) {
       const { data: notes } = await supabase
@@ -233,12 +254,19 @@ export default function GroupsScreen() {
               }
               style={[styles.groupItem, { backgroundColor: c.backgroundElement }]}
             >
-              <View style={styles.groupNameRow}>
-                <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
-                {unread[item.id] ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{unread[item.id]}</Text>
-                  </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <View style={styles.groupNameRow}>
+                  <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
+                  {unread[item.id] ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>{unread[item.id]}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                {teamScores[item.id] ? (
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    🛡 {teamScores[item.id].total} teampoäng
+                  </Text>
                 ) : null}
               </View>
               {item.owner_id === userId ? (
