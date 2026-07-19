@@ -6,20 +6,52 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   Share,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import type { NativeSyntheticEvent, TextInputKeyPressEventData } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
+import {
+  BACKGROUND_OPTIONS,
+  COLOR_OPTIONS,
+  DEFAULT_CHAT_SETTINGS,
+  loadChatSettings,
+  saveChatSettings,
+} from "@/lib/chatSettings";
+import type { ChatSettings } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
 import type { Group, Message, MessageWithAuthor } from "@/lib/types";
 import { useColors } from "@/lib/ui";
+
+function playMessageSound() {
+  if (Platform.OS !== "web" || typeof window === "undefined") return;
+  try {
+    const AudioCtx =
+      (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.frequency.value = 880;
+    gain.gain.value = 0.08;
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  } catch {
+    // Ljud är en trevlig detalj, inte kritiskt — ignorera fel tyst.
+  }
+}
 
 const PAGE = 30;
 const MISSING = "00000000-0000-0000-0000-000000000000";
@@ -39,7 +71,11 @@ export default function GroupChatScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const namesRef = useRef<Record<string, string>>({});
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
 
   const nameFor = useCallback(async (uid: string): Promise<string> => {
     if (namesRef.current[uid]) return namesRef.current[uid];
@@ -103,6 +139,25 @@ export default function GroupChatScreen() {
     };
   }, [groupId, router]);
 
+  // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
+  useEffect(() => {
+    if (!groupId) return;
+    let active = true;
+    void loadChatSettings(groupId).then((s) => {
+      if (active) setSettings(s);
+    });
+    return () => {
+      active = false;
+    };
+  }, [groupId]);
+
+  async function updateSettings(patch: Partial<ChatSettings>) {
+    if (!groupId) return;
+    const next = { ...settingsRef.current, ...patch };
+    setSettings(next);
+    await saveChatSettings(groupId, next);
+  }
+
   // Realtime.
   useEffect(() => {
     if (!groupId) return;
@@ -118,6 +173,9 @@ export default function GroupChatScreen() {
         },
         (payload) => {
           const m = payload.new as Message;
+          if (m.user_id !== userId && settingsRef.current.soundEnabled) {
+            playMessageSound();
+          }
           setMessages((prev) =>
             prev.some((x) => x.id === m.id)
               ? prev
@@ -141,13 +199,15 @@ export default function GroupChatScreen() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [groupId, nameFor]);
+  }, [groupId, nameFor, userId]);
 
-  function handleKeyPress(e: { nativeEvent: KeyboardEvent }) {
+  function handleKeyPress(e: NativeSyntheticEvent<TextInputKeyPressEventData>) {
     if (Platform.OS !== "web") return;
-    const { key, shiftKey } = e.nativeEvent;
-    if (key === "Enter" && !shiftKey) {
-      e.nativeEvent.preventDefault();
+    // På webben förmedlar react-native-web den riktiga DOM-KeyboardEvent här,
+    // med fler fält (shiftKey, preventDefault) än RN:s officiella typ medger.
+    const native = e.nativeEvent as unknown as KeyboardEvent;
+    if (native.key === "Enter" && !native.shiftKey) {
+      native.preventDefault();
       void send();
     }
   }
@@ -222,6 +282,9 @@ export default function GroupChatScreen() {
         <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
           {group?.name ?? ""}
         </Text>
+        <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>⚙️</Text>
+        </Pressable>
         <Pressable onPress={invite} hitSlop={8}>
           <Text style={{ color: c.brand, fontWeight: "700" }}>
             {linkCopied ? "Länk kopierad!" : "Bjud in"}
@@ -230,7 +293,7 @@ export default function GroupChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        style={styles.flex}
+        style={[styles.flex, settings.background ? { backgroundColor: settings.background } : null]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
@@ -265,7 +328,7 @@ export default function GroupChatScreen() {
                     style={[
                       styles.bubble,
                       mine
-                        ? { backgroundColor: c.brand, borderBottomRightRadius: 4 }
+                        ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
                         : {
                             backgroundColor: c.backgroundElement,
                             borderBottomLeftRadius: 4,
@@ -301,7 +364,7 @@ export default function GroupChatScreen() {
             style={[
               styles.sendBtn,
               {
-                backgroundColor: c.brand,
+                backgroundColor: settings.color,
                 opacity: sending || text.trim().length === 0 ? 0.4 : 1,
               },
             ]}
@@ -310,6 +373,74 @@ export default function GroupChatScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={settingsOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSettingsOpen(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setSettingsOpen(false)}
+        />
+        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>
+            Inställningar för chatten
+          </Text>
+
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Färg</Text>
+          <View style={styles.swatchRow}>
+            {COLOR_OPTIONS.map((color) => (
+              <Pressable
+                key={color}
+                onPress={() => updateSettings({ color })}
+                style={[
+                  styles.swatch,
+                  { backgroundColor: color },
+                  settings.color === color ? styles.swatchSelected : null,
+                ]}
+              />
+            ))}
+          </View>
+
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Bakgrund</Text>
+          <View style={styles.swatchRow}>
+            {BACKGROUND_OPTIONS.map((bg) => (
+              <Pressable
+                key={bg.label}
+                onPress={() => updateSettings({ background: bg.value })}
+                style={[
+                  styles.swatch,
+                  {
+                    backgroundColor: bg.value || c.backgroundElement,
+                    borderWidth: 1,
+                    borderColor: c.backgroundSelected,
+                  },
+                  settings.background === bg.value ? styles.swatchSelected : null,
+                ]}
+              />
+            ))}
+          </View>
+
+          <View style={styles.soundRow}>
+            <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
+              Ljud vid nya meddelanden
+            </Text>
+            <Switch
+              value={settings.soundEnabled}
+              onValueChange={(v) => updateSettings({ soundEnabled: v })}
+            />
+          </View>
+
+          <Pressable
+            onPress={() => setSettingsOpen(false)}
+            style={[styles.closeBtn, { backgroundColor: settings.color }]}
+          >
+            <Text style={styles.sendText}>Klart</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -326,6 +457,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   back: { paddingHorizontal: 4 },
+  gear: { paddingHorizontal: 4 },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: "700" },
   listContent: { padding: 12, gap: 8 },
   empty: { textAlign: "center", marginTop: 40, transform: [{ scaleY: -1 }] },
@@ -357,4 +489,39 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   sendText: { color: "#fff", fontWeight: "700" },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: 32,
+    gap: 4,
+  },
+  sheetTitle: { fontSize: 18, fontWeight: "800", marginBottom: 8 },
+  sheetLabel: { fontSize: 13, fontWeight: "600", marginTop: 14, marginBottom: 8 },
+  swatchRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  swatch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  swatchSelected: {
+    borderWidth: 3,
+    borderColor: "#94a3b8",
+  },
+  soundRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+  },
+  closeBtn: {
+    marginTop: 24,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
 });
