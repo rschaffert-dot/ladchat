@@ -1,10 +1,44 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type Currency =
+  | "Douchepoints"
+  | "Ass points"
+  | "Dick sticks"
+  | "Fanny farts";
+
+export const CURRENCY_OPTIONS: Currency[] = [
+  "Douchepoints",
+  "Ass points",
+  "Dick sticks",
+  "Fanny farts",
+];
+
+// 15-minutersintervaller. Kortare tidsgräns = svårare utmaning = högre belöning.
+export const BEER_DURATION_OPTIONS = [15, 30, 45, 60, 75, 90, 105, 120];
+
+export const BEER_DURATION_REWARDS: Record<number, number> = {
+  15: 25,
+  30: 12,
+  45: 8,
+  60: 5,
+  75: 4,
+  90: 3,
+  105: 2,
+  120: 1,
+};
+
 export type ChatSettings = {
   color: string;
   background: string;
   backgroundImage: string;
   beerMode: boolean;
+  beerDurationMinutes: number;
+  // Epoch ms för när innevarande öl-mode-runda startade, eller null om ingen runda pågår.
+  beerStartedAt: number | null;
+  // Totala meddelandeantalet i chatten när rundan startade, för att räkna "från det att den aktiveras".
+  beerBaselineCount: number;
+  currency: Currency;
+  currencyPoints: number;
   soundEnabled: boolean;
 };
 
@@ -13,6 +47,11 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   background: "",
   backgroundImage: "",
   beerMode: false,
+  beerDurationMinutes: 15,
+  beerStartedAt: null,
+  beerBaselineCount: 0,
+  currency: "Douchepoints",
+  currencyPoints: 0,
   soundEnabled: true,
 };
 

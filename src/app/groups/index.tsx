@@ -12,6 +12,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
+import {
+  CURRENCY_OPTIONS,
+  DEFAULT_CHAT_SETTINGS,
+  saveChatSettings,
+} from "@/lib/chatSettings";
+import type { Currency } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
 import { useColors } from "@/lib/ui";
@@ -25,6 +31,7 @@ export default function GroupsScreen() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [currency, setCurrency] = useState<Currency>(CURRENCY_OPTIONS[0]);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,8 +64,10 @@ export default function GroupsScreen() {
       setError(rpcError.message);
       return;
     }
+    const newGroupId = data as string;
+    await saveChatSettings(newGroupId, { ...DEFAULT_CHAT_SETTINGS, currency });
     setName("");
-    router.push({ pathname: "/groups/[id]", params: { id: data as string } });
+    router.push({ pathname: "/groups/[id]", params: { id: newGroupId } });
   }
 
   async function joinGroup() {
@@ -105,6 +114,31 @@ export default function GroupsScreen() {
           >
             <Text style={styles.btnText}>Skapa</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.currencyRow}>
+          {CURRENCY_OPTIONS.map((option) => (
+            <Pressable
+              key={option}
+              onPress={() => setCurrency(option)}
+              style={[
+                styles.chip,
+                { borderColor: c.backgroundSelected },
+                currency === option
+                  ? { backgroundColor: c.brand, borderColor: c.brand }
+                  : null,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  { color: currency === option ? "#fff" : c.text },
+                ]}
+              >
+                {option}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         <View style={styles.row}>
@@ -173,6 +207,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: "800" },
   forms: { paddingHorizontal: 20, gap: 10, paddingBottom: 8 },
   row: { flexDirection: "row", gap: 8 },
+  currencyRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipText: { fontSize: 13, fontWeight: "600" },
   input: {
     flex: 1,
     borderWidth: 1,

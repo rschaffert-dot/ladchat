@@ -30,7 +30,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/lib/auth";
 import {
   BACKGROUND_OPTIONS,
+  BEER_DURATION_OPTIONS,
+  BEER_DURATION_REWARDS,
   COLOR_OPTIONS,
+  CURRENCY_OPTIONS,
   DEFAULT_CHAT_SETTINGS,
   loadChatSettings,
   saveChatSettings,
@@ -82,17 +85,35 @@ function ChatBackground({
   return <View style={[style, color ? { backgroundColor: color } : null]}>{children}</View>;
 }
 
+function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 function BeerGlassBackground({
   percent,
+  remainingMs,
   style,
   children,
 }: {
   percent: number;
+  remainingMs: number;
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
   return (
     <View style={[style, styles.beerBackdrop]}>
+      <View style={styles.beerCountdownWrap} pointerEvents="none">
+        <Text
+          style={styles.beerCountdownBig}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
+          {formatCountdown(remainingMs)}
+        </Text>
+      </View>
       <View style={styles.beerGlassWrap} pointerEvents="none">
         <Text style={styles.beerLabel}>{percent}% fullt 🍺</Text>
         <View style={styles.beerGlass}>
@@ -110,6 +131,7 @@ function BeerGlassBackground({
 function BeerGlassOrChatBackground({
   beerMode,
   beerPercent,
+  beerRemainingMs,
   image,
   color,
   style,
@@ -117,6 +139,7 @@ function BeerGlassOrChatBackground({
 }: {
   beerMode: boolean;
   beerPercent: number;
+  beerRemainingMs: number;
   image: string;
   color: string;
   style: StyleProp<ViewStyle>;
@@ -124,7 +147,7 @@ function BeerGlassOrChatBackground({
 }) {
   if (beerMode) {
     return (
-      <BeerGlassBackground percent={beerPercent} style={style}>
+      <BeerGlassBackground percent={beerPercent} remainingMs={beerRemainingMs} style={style}>
         {children}
       </BeerGlassBackground>
     );
@@ -157,9 +180,69 @@ export default function GroupChatScreen() {
   const [messageCount, setMessageCount] = useState(0);
   const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
   const namesRef = useRef<Record<string, string>>({});
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
+  const awardedForRoundRef = useRef<number | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const beerPercent = settings.beerMode
+    ? Math.max(0, Math.min(100, messageCount - settings.beerBaselineCount))
+    : 0;
+  const beerRemainingMs = settings.beerMode && settings.beerStartedAt
+    ? Math.max(0, settings.beerStartedAt + settings.beerDurationMinutes * 60_000 - nowTick)
+    : 0;
+
+  function showToast(message: string) {
+    setToast(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+  }
+
+  // Öl-mode-klockan tickar en gång i sekunden så nedräkningen syns live.
+  useEffect(() => {
+    if (!settings.beerMode) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [settings.beerMode]);
+
+  // Belöna med valuta när glaset blir fullt, och starta en ny runda automatiskt.
+  useEffect(() => {
+    if (!settings.beerMode || beerPercent < 100) return;
+    if (awardedForRoundRef.current === settings.beerStartedAt) return;
+    awardedForRoundRef.current = settings.beerStartedAt;
+    const reward = BEER_DURATION_REWARDS[settings.beerDurationMinutes] ?? 1;
+    showToast(`🍺 Glaset fullt! +${reward} ${settings.currency}`);
+    void updateSettings({
+      currencyPoints: settingsRef.current.currencyPoints + reward,
+      beerBaselineCount: messageCount,
+      beerStartedAt: Date.now(),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beerPercent, settings.beerMode, settings.beerStartedAt]);
+
+  function toggleBeerMode(on: boolean) {
+    if (on) {
+      void updateSettings({
+        beerMode: true,
+        beerStartedAt: Date.now(),
+        beerBaselineCount: messageCount,
+      });
+    } else {
+      void updateSettings({ beerMode: false });
+    }
+  }
+
+  function selectBeerDuration(minutes: number) {
+    void updateSettings({
+      beerMode: true,
+      beerDurationMinutes: minutes,
+      beerStartedAt: Date.now(),
+      beerBaselineCount: messageCount,
+    });
+  }
 
   const nameFor = useCallback(async (uid: string): Promise<string> => {
     if (namesRef.current[uid]) return namesRef.current[uid];
@@ -400,6 +483,12 @@ export default function GroupChatScreen() {
         </Pressable>
       </View>
 
+      {toast ? (
+        <View style={[styles.toast, { backgroundColor: settings.color }]}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
+
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -407,7 +496,8 @@ export default function GroupChatScreen() {
       >
         <BeerGlassOrChatBackground
           beerMode={settings.beerMode}
-          beerPercent={Math.min(messageCount, 100)}
+          beerPercent={beerPercent}
+          beerRemainingMs={beerRemainingMs}
           image={settings.backgroundImage}
           color={settings.background}
           style={styles.flex}
@@ -565,15 +655,83 @@ export default function GroupChatScreen() {
             ) : null}
           </View>
 
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Valuta</Text>
+          <View style={styles.swatchRow}>
+            {CURRENCY_OPTIONS.map((currency) => (
+              <Pressable
+                key={currency}
+                onPress={() => updateSettings({ currency })}
+                style={[
+                  styles.chip,
+                  { borderColor: c.backgroundSelected },
+                  settings.currency === currency
+                    ? { backgroundColor: settings.color, borderColor: settings.color }
+                    : null,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: settings.currency === currency ? "#fff" : c.text },
+                  ]}
+                >
+                  {currency}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={[styles.pointsText, { color: c.textSecondary }]}>
+            Du har {settings.currencyPoints} {settings.currency}
+          </Text>
+
           <View style={styles.soundRow}>
             <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
               Öl-mode 🍺 (bakgrunden fylls på 1% per meddelande)
             </Text>
             <Switch
               value={settings.beerMode}
-              onValueChange={(v) => updateSettings({ beerMode: v })}
+              onValueChange={toggleBeerMode}
             />
           </View>
+
+          {settings.beerMode ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Tid (nollställer och startar om rundan)
+              </Text>
+              <View style={styles.swatchRow}>
+                {BEER_DURATION_OPTIONS.map((minutes) => (
+                  <Pressable
+                    key={minutes}
+                    onPress={() => selectBeerDuration(minutes)}
+                    style={[
+                      styles.chip,
+                      { borderColor: c.backgroundSelected },
+                      settings.beerDurationMinutes === minutes
+                        ? { backgroundColor: settings.color, borderColor: settings.color }
+                        : null,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color:
+                            settings.beerDurationMinutes === minutes ? "#fff" : c.text,
+                        },
+                      ]}
+                    >
+                      {minutes} min
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+              <Text style={[styles.pointsText, { color: c.textSecondary }]}>
+                Belöning: {BEER_DURATION_REWARDS[settings.beerDurationMinutes] ?? 1}{" "}
+                {settings.currency} när glaset blir fullt
+              </Text>
+            </>
+          ) : null}
 
           <View style={styles.soundRow}>
             <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
@@ -669,6 +827,42 @@ const styles = StyleSheet.create({
   beerLiquidColumn: { width: "100%" },
   beerFoam: { width: "100%", height: 10, backgroundColor: "#fff8e1" },
   beerLiquid: { flex: 1, width: "100%", backgroundColor: "#f2a916" },
+  beerCountdownWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  beerCountdownBig: {
+    width: "70%",
+    textAlign: "center",
+    color: "rgba(255,255,255,0.16)",
+    fontSize: 140,
+    fontWeight: "900",
+  },
+  toast: {
+    position: "absolute",
+    top: 8,
+    left: 16,
+    right: 16,
+    zIndex: 20,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  toastText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  chipText: { fontSize: 13, fontWeight: "600" },
+  pointsText: { fontSize: 12, marginTop: 6 },
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
