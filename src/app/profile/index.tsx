@@ -2,7 +2,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -43,6 +43,8 @@ export default function ProfileScreen() {
   const [catalog, setCatalog] = useState<Achievement[]>([]);
   const [earned, setEarned] = useState<UserAchievement[]>([]);
   const [ladbook, setLadbook] = useState<LadBookEntry[]>([]);
+  const [ladbookOpen, setLadbookOpen] = useState(true);
+  const [expanded, setExpanded] = useState<LadBookEntry | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -234,10 +236,15 @@ export default function ProfileScreen() {
           })}
         </View>
 
-        <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>
-          🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
-        </Text>
-        {ladbook.length === 0 ? (
+        <Pressable onPress={() => setLadbookOpen((v) => !v)} style={styles.ladHeader}>
+          <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 0, marginBottom: 0 }]}>
+            🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
+          </Text>
+          <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+            {ladbookOpen ? "▾" : "▸"}
+          </Text>
+        </Pressable>
+        {!ladbookOpen ? null : ladbook.length === 0 ? (
           <Pressable onPress={() => router.push("/hunt")}>
             <Text style={{ color: c.textSecondary, fontSize: 13 }}>
               Inga kort insamlade än — ge dig ut på{" "}
@@ -246,61 +253,103 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
         ) : (
-          ladbook.map(({ completion, challenge, proofUrl, proofIsVideo }) => {
-            const t = TIERS[challenge.tier];
-            return (
-              <View key={completion.id} style={styles.ladbookRow}>
-                {/* Utmaningskortet */}
+          <View style={styles.ladGrid}>
+            {ladbook.map((entry) => {
+              const { completion, challenge, proofUrl, proofIsVideo } = entry;
+              const t = TIERS[challenge.tier];
+              return (
                 <Pressable
-                  onPress={() => router.push("/hunt")}
-                  style={[styles.ladCard, { borderColor: t.frame, backgroundColor: t.face }]}
+                  key={completion.id}
+                  onPress={() => setExpanded(entry)}
+                  style={[styles.ladMini, { borderColor: t.frame, backgroundColor: t.face }]}
                 >
-                  <View style={[styles.ladCardInner, { borderColor: t.frameDark }]}>
-                    <Text style={styles.ladCorner}>{t.symbol}</Text>
-                    <Text style={styles.ladCornerRight}>
-                      {CATEGORIES[challenge.category]?.emoji}
-                    </Text>
-                    <Text style={[styles.ladCardName, { color: t.text }]} numberOfLines={3}>
-                      {challenge.name.toUpperCase()}
-                    </Text>
-                    <Text style={[styles.ladCardMeta, { color: t.frameDark }]}>
-                      {t.label} · {completion.status === "confirmed"
-                        ? `+${completion.points_awarded}p`
-                        : `${challenge.points}p`}
-                    </Text>
-                    {completion.status === "pending" ? (
-                      <Text style={styles.ladPending}>⏳ väntar på vittne</Text>
-                    ) : null}
-                  </View>
+                  {proofUrl && !proofIsVideo ? (
+                    <Image source={{ uri: proofUrl }} style={styles.ladMiniImg} />
+                  ) : (
+                    <Text style={{ fontSize: 16 }}>{proofUrl ? "🎬" : t.symbol}</Text>
+                  )}
+                  <Text style={[styles.ladMiniName, { color: t.text }]} numberOfLines={1}>
+                    {challenge.name}
+                  </Text>
+                  {completion.status === "pending" ? (
+                    <Text style={styles.ladMiniBadge}>⏳</Text>
+                  ) : null}
                 </Pressable>
-
-                {/* Beviskortet */}
-                <Pressable
-                  onPress={() => proofUrl && Linking.openURL(proofUrl)}
-                  disabled={!proofUrl}
-                  style={[styles.ladCard, { borderColor: t.frame, backgroundColor: "#14100d" }]}
-                >
-                  <View style={[styles.ladCardInner, { borderColor: t.frameDark, padding: 0 }]}>
-                    {proofUrl && !proofIsVideo ? (
-                      <Image source={{ uri: proofUrl }} style={styles.ladProofImg} />
-                    ) : (
-                      <View style={styles.ladProofEmpty}>
-                        <Text style={{ fontSize: 30 }}>{proofUrl ? "🎬" : "🕳"}</Text>
-                        <Text style={styles.ladProofEmptyText}>
-                          {proofUrl ? "Visa videobevis" : "Bevis saknas"}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.ladProofBadge}>
-                      <Text style={styles.ladProofBadgeText}>BEVIS</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              </View>
-            );
-          })
+              );
+            })}
+          </View>
         )}
       </ScrollView>
+
+      {/* Uppslaget kortpar: utmaningskortet + beviset i full storlek */}
+      <Modal
+        visible={!!expanded}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExpanded(null)}
+      >
+        <View style={styles.ladModalDim}>
+          <ScrollView contentContainerStyle={styles.ladModalScroll}>
+            {expanded ? (() => {
+              const { completion, challenge, proofUrl, proofIsVideo } = expanded;
+              const t = TIERS[challenge.tier];
+              return (
+                <>
+                  <View style={[styles.ladBigCard, { borderColor: t.frame, backgroundColor: t.face }]}>
+                    <View style={[styles.ladBigInner, { borderColor: t.frameDark }]}>
+                      <View style={styles.ladBigTop}>
+                        <Text style={{ fontSize: 20 }}>{t.symbol}</Text>
+                        <Text style={[styles.ladBigTier, { color: t.frameDark }]}>{t.label}</Text>
+                        <Text style={{ fontSize: 20 }}>
+                          {CATEGORIES[challenge.category]?.emoji}
+                        </Text>
+                      </View>
+                      <Text style={[styles.ladBigName, { color: t.text }]}>
+                        {challenge.name.toUpperCase()}
+                      </Text>
+                      <Text style={[styles.ladBigOrnament, { color: t.frame }]}>✦ ─────── ✦</Text>
+                      <Text style={[styles.ladBigDesc, { color: t.text }]}>
+                        {challenge.description}
+                      </Text>
+                      <Text style={[styles.ladBigPoints, { color: t.text }]}>
+                        {completion.status === "confirmed"
+                          ? `⭐ Klarad — +${completion.points_awarded}p`
+                          : `⏳ Väntar på vittnets bekräftelse (${challenge.points}p)`}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Pressable
+                    onPress={() => proofUrl && Linking.openURL(proofUrl)}
+                    disabled={!proofUrl}
+                    style={[styles.ladBigCard, { borderColor: t.frame, backgroundColor: "#14100d" }]}
+                  >
+                    <View style={[styles.ladBigInner, { borderColor: t.frameDark, padding: 0, overflow: "hidden" }]}>
+                      {proofUrl && !proofIsVideo ? (
+                        <Image source={{ uri: proofUrl }} style={styles.ladBigProofImg} />
+                      ) : (
+                        <View style={styles.ladProofEmpty}>
+                          <Text style={{ fontSize: 40 }}>{proofUrl ? "🎬" : "🕳"}</Text>
+                          <Text style={styles.ladProofEmptyText}>
+                            {proofUrl ? "Tryck för att visa videobeviset" : "Bevis saknas"}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.ladProofBadge}>
+                        <Text style={styles.ladProofBadgeText}>BEVIS</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+
+                  <Pressable onPress={() => setExpanded(null)} style={styles.ladCloseBtn}>
+                    <Text style={{ color: "#fff", fontWeight: "800" }}>Stäng</Text>
+                  </Pressable>
+                </>
+              );
+            })() : null}
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -346,38 +395,59 @@ const styles = StyleSheet.create({
   },
   trophyName: { fontSize: 13, fontWeight: "700" },
   trophyDesc: { fontSize: 11, textAlign: "center" },
-  ladbookRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  ladCard: {
-    flex: 1,
-    aspectRatio: 0.68,
-    borderRadius: 12,
-    borderWidth: 3,
-    padding: 4,
-    overflow: "hidden",
+  ladHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+    marginBottom: 6,
   },
-  ladCardInner: {
-    flex: 1,
-    borderWidth: 1,
+  ladGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  ladMini: {
+    width: 64,
+    aspectRatio: 0.68,
     borderRadius: 8,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
-    padding: 6,
-    gap: 6,
+    padding: 3,
+    gap: 3,
     overflow: "hidden",
   },
-  ladCorner: { position: "absolute", top: 4, left: 6, fontSize: 13 },
-  ladCornerRight: { position: "absolute", top: 4, right: 6, fontSize: 12 },
-  ladCardName: {
-    fontFamily: HUNT_SERIF,
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-    letterSpacing: 0.5,
+  ladMiniImg: { width: "100%", flex: 1, borderRadius: 4 },
+  ladMiniName: { fontFamily: HUNT_SERIF, fontSize: 8, fontWeight: "700", textAlign: "center" },
+  ladMiniBadge: { position: "absolute", top: 2, right: 3, fontSize: 10 },
+  ladModalDim: { flex: 1, backgroundColor: "rgba(10,6,18,0.92)" },
+  ladModalScroll: {
+    padding: 20,
+    paddingTop: 48,
+    alignItems: "center",
+    gap: 14,
+    paddingBottom: 60,
   },
-  ladCardMeta: { fontSize: 11, fontWeight: "700", position: "absolute", bottom: 6 },
-  ladPending: { fontSize: 11, color: "#7c4a1e", fontWeight: "600" },
-  ladProofImg: { width: "100%", height: "100%" },
-  ladProofEmpty: { alignItems: "center", gap: 6 },
+  ladBigCard: {
+    width: "100%",
+    maxWidth: 340,
+    borderRadius: 16,
+    borderWidth: 4,
+    padding: 6,
+    overflow: "hidden",
+  },
+  ladBigInner: { borderWidth: 1.5, borderRadius: 10, padding: 14, gap: 8 },
+  ladBigTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  ladBigTier: { fontFamily: HUNT_SERIF, fontSize: 13, fontWeight: "700", letterSpacing: 3 },
+  ladBigName: {
+    fontFamily: HUNT_SERIF,
+    fontSize: 22,
+    fontWeight: "800",
+    textAlign: "center",
+    letterSpacing: 1,
+  },
+  ladBigOrnament: { textAlign: "center", fontSize: 11 },
+  ladBigDesc: { fontFamily: HUNT_SERIF, fontSize: 15, lineHeight: 21, textAlign: "center" },
+  ladBigPoints: { fontSize: 15, fontWeight: "800", textAlign: "center" },
+  ladBigProofImg: { width: "100%", aspectRatio: 0.75 },
+  ladProofEmpty: { alignItems: "center", gap: 6, paddingVertical: 40 },
   ladProofEmptyText: { color: "#b9a97f", fontSize: 12, fontWeight: "600" },
   ladProofBadge: {
     position: "absolute",
@@ -389,4 +459,10 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   ladProofBadgeText: { color: "#e9dcb8", fontWeight: "900", fontSize: 10, letterSpacing: 2 },
+  ladCloseBtn: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+  },
 });
