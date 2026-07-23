@@ -15,6 +15,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   Share,
   StyleSheet,
   Switch,
@@ -1435,6 +1436,123 @@ export default function GroupChatScreen() {
       snap: true,
     });
   }
+
+  // 📖 Dagens story: 24h-bilder som ringar överst i chatten.
+  type Story = { id: string; user_id: string; media_path: string; created_at: string };
+  const [stories, setStories] = useState<Story[]>([]);
+  const [storySeen, setStorySeen] = useState<Record<string, true>>({});
+  const [storyViewer, setStoryViewer] = useState<{ userId: string; idx: number } | null>(null);
+  const [storyUrl, setStoryUrl] = useState<string | null>(null);
+  const loadStories = useCallback(async () => {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("stories")
+      .select("id, user_id, media_path, created_at")
+      .eq("group_id", groupId)
+      .gt("created_at", new Date(Date.now() - 24 * 3_600_000).toISOString())
+      .order("created_at");
+    setStories((data ?? []) as Story[]);
+    const raw = await AsyncStorage.getItem(`storyseen:${groupId}`);
+    if (raw) {
+      try {
+        setStorySeen(JSON.parse(raw) as Record<string, true>);
+      } catch {
+        // trasig cache
+      }
+    }
+  }, [groupId]);
+  useEffect(() => {
+    void loadStories();
+  }, [loadStories]);
+  const storyUsers = [...new Set(stories.map((s) => s.user_id))];
+  function storiesFor(uid: string) {
+    return stories.filter((s) => s.user_id === uid);
+  }
+  async function postStory() {
+    if (!groupId || !userId) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    const path = await uploadChatMedia(groupId, userId, asset.uri, asset.mimeType ?? "image/jpeg");
+    await supabase.from("stories").insert({ group_id: groupId, user_id: userId, media_path: path });
+    toast("📖 Din story är uppe i 24 timmar!");
+    void loadStories();
+  }
+  useEffect(() => {
+    if (!storyViewer) {
+      setStoryUrl(null);
+      return;
+    }
+    const list = storiesFor(storyViewer.userId);
+    const s = list[storyViewer.idx];
+    if (!s) {
+      setStoryViewer(null);
+      return;
+    }
+    let active = true;
+    void getChatMediaUrl(s.media_path).then((u) => active && setStoryUrl(u));
+    setStorySeen((prev) => {
+      if (prev[s.id]) return prev;
+      const next = { ...prev, [s.id]: true as const };
+      void AsyncStorage.setItem(`storyseen:${groupId}`, JSON.stringify(next));
+      return next;
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyViewer, groupId]);
+  function advanceStory() {
+    if (!storyViewer) return;
+    const list = storiesFor(storyViewer.userId);
+    if (storyViewer.idx + 1 < list.length) {
+      setStoryViewer({ ...storyViewer, idx: storyViewer.idx + 1 });
+    } else {
+      const ui = storyUsers.indexOf(storyViewer.userId);
+      if (ui >= 0 && ui + 1 < storyUsers.length) {
+        setStoryViewer({ userId: storyUsers[ui + 1], idx: 0 });
+      } else {
+        setStoryViewer(null);
+      }
+    }
+  }
+
+  // 🧵 Trådar: sidodiskussion kring ett meddelande.
+  const [threadRoot, setThreadRoot] = useState<LocalMsg | null>(null);
+  const [threadText, setThreadText] = useState("");
+  const threadMsgs = threadRoot
+    ? messages
+        .filter((m) => m.id === threadRoot.id || m.reply_to_id === threadRoot.id)
+        .sort((a, b) => a.created_at.localeCompare(b.created_at))
+    : [];
+  function sendThreadReply() {
+    const content = threadText.trim();
+    if (!content || !threadRoot || !userId || !groupId) return;
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const temp: LocalMsg = {
+      id: tempId,
+      group_id: groupId,
+      user_id: userId,
+      content,
+      kind: "user",
+      metadata: {},
+      reply_to_id: threadRoot.id,
+      created_at: new Date().toISOString(),
+      author_name: namesRef.current[userId] ?? "Jag",
+      pending: true,
+    } as LocalMsg;
+    setMessages((prev) => [temp as MessageWithAuthor, ...prev]);
+    setThreadText("");
+    void deliver(tempId, content, threadRoot.id);
+  }
+
+  // 👁 Läsinfo: vem har läst fram till ett visst meddelande.
+  const [readInfoMsg, setReadInfoMsg] = useState<LocalMsg | null>(null);
 
   // ⬇️ Exportera hela chatten som textfil (webb) eller delningsark (native).
   async function exportChat() {
@@ -3135,6 +3253,48 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
+      {/* 📖 Stories: 24h-ringar. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={styles.storyRow}
+      >
+        <Pressable onPress={() => void postStory()} style={styles.storyItem}>
+          <View style={[styles.storyRing, { borderColor: c.backgroundSelected }]}>
+            <Text style={{ fontSize: 18, color: c.textSecondary }}>＋</Text>
+          </View>
+          <Text style={[styles.storyName, { color: c.textSecondary }]}>Din story</Text>
+        </Pressable>
+        {storyUsers.map((uid) => {
+          const unseen = storiesFor(uid).some((s) => !storySeen[s.id]);
+          const prof = memberProfiles.find((m) => m.id === uid);
+          return (
+            <Pressable
+              key={uid}
+              onPress={() => setStoryViewer({ userId: uid, idx: 0 })}
+              style={styles.storyItem}
+            >
+              <View
+                style={[
+                  styles.storyRing,
+                  { borderColor: unseen ? settings.color : c.backgroundSelected },
+                ]}
+              >
+                {prof?.avatar ? (
+                  <Image source={{ uri: prof.avatar }} style={styles.storyAvatar} />
+                ) : (
+                  <Text style={{ fontSize: 16 }}>👤</Text>
+                )}
+              </View>
+              <Text style={[styles.storyName, { color: c.text }]} numberOfLines={1}>
+                {prof?.name?.split(" ")[0] ?? "?"}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       {/* Gemensam energibar: fylls av aktivitet, sjunker vid tystnad. */}
       <Pressable
         accessibilityLabel="Energibar — tryck för förklaring"
@@ -3452,6 +3612,145 @@ export default function GroupChatScreen() {
           </ChatBackground>
         )}
       </KeyboardAvoidingView>
+
+      {/* 📖 Storyvisare. */}
+      <Modal
+        visible={!!storyViewer}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setStoryViewer(null)}
+      >
+        <Pressable style={styles.lightbox} onPress={advanceStory}>
+          {storyUrl ? (
+            <Image source={{ uri: storyUrl }} style={styles.lightboxImage} resizeMode="contain" />
+          ) : (
+            <ActivityIndicator color="#fff" />
+          )}
+          {storyViewer ? (
+            <View style={styles.storyMeta}>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>
+                {memberProfiles.find((m) => m.id === storyViewer.userId)?.name ?? "?"} ·{" "}
+                {storyViewer.idx + 1}/{storiesFor(storyViewer.userId).length}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>
+                Tryck för nästa · försvinner efter 24 h
+              </Text>
+            </View>
+          ) : null}
+          <Pressable onPress={() => setStoryViewer(null)} style={styles.lightboxClose} hitSlop={16}>
+            <Text style={{ color: "#fff", fontSize: 28, fontWeight: "700" }}>×</Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 🧵 Tråd. */}
+      <Modal
+        visible={!!threadRoot}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setThreadRoot(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setThreadRoot(null)}>
+          <View style={{ flex: 1 }} />
+          <Pressable
+            style={[styles.starSheet, { backgroundColor: c.background, maxHeight: "75%" }]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.starTitle, { color: c.text }]}>🧵 Tråd</Text>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {threadMsgs.map((m) => (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.threadMsg,
+                    { backgroundColor: c.backgroundElement },
+                    m.id === threadRoot?.id ? { borderLeftWidth: 3, borderLeftColor: settings.color } : null,
+                  ]}
+                >
+                  <Text style={{ color: c.brand, fontSize: 11, fontWeight: "700" }}>
+                    {m.author_name}
+                  </Text>
+                  <Text style={{ color: c.text, fontSize: 14 }}>{m.content}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+              <TextInput
+                value={threadText}
+                onChangeText={setThreadText}
+                placeholder="Svara i tråden…"
+                placeholderTextColor={c.textSecondary}
+                style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
+              />
+              <Pressable
+                onPress={sendThreadReply}
+                disabled={!threadText.trim()}
+                style={[
+                  styles.sendCircle,
+                  { backgroundColor: settings.color, opacity: threadText.trim() ? 1 : 0.4 },
+                ]}
+              >
+                <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>↑</Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 👁 Läsinfo. */}
+      <Modal
+        visible={!!readInfoMsg}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setReadInfoMsg(null)}
+      >
+        <Pressable style={styles.ctxBackdrop} onPress={() => setReadInfoMsg(null)}>
+          {readInfoMsg ? (
+            <Pressable
+              style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 10 }]}
+              onPress={() => {}}
+            >
+              <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
+                👁 Vem har läst?
+              </Text>
+              {memberProfiles
+                .filter((m) => m.id !== readInfoMsg.user_id)
+                .map((m) => {
+                  const readAt = reads[m.id];
+                  const hasRead = Boolean(readAt && readAt >= readInfoMsg.created_at);
+                  return (
+                    <View
+                      key={m.id}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+                    >
+                      {m.avatar ? (
+                        <Image source={{ uri: m.avatar }} style={styles.typingAvatar} />
+                      ) : (
+                        <Text style={{ fontSize: 13 }}>👤</Text>
+                      )}
+                      <Text style={{ color: c.text, fontSize: 14, flex: 1 }}>{m.name}</Text>
+                      <Text
+                        style={{
+                          color: hasRead ? "#3b82f6" : c.textSecondary,
+                          fontSize: 12,
+                          fontWeight: "700",
+                        }}
+                      >
+                        {hasRead
+                          ? "✓✓ " +
+                            new Date(readAt!).toLocaleTimeString("sv-SE", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })
+                          : "Oläst"}
+                      </Text>
+                    </View>
+                  );
+                })}
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Modal>
 
       {/* Kontaktkort. */}
       <Modal
@@ -3813,6 +4112,31 @@ export default function GroupChatScreen() {
                   <Text style={[styles.ctxActionText, { color: c.text }]}>
                     {starred.some((s) => s.id === menuMsg.id) ? "⭐ Ta bort stjärna" : "⭐ Spara"}
                   </Text>
+                </Pressable>
+              ) : null}
+              {!menuMsg.pending && !menuMsg.failed ? (
+                <Pressable
+                  onPress={() => {
+                    const root = menuMsg.reply_to_id
+                      ? ((messages.find((m) => m.id === menuMsg.reply_to_id) as LocalMsg) ?? menuMsg)
+                      : menuMsg;
+                    setThreadRoot(root);
+                    setMenuMsg(null);
+                  }}
+                  style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
+                >
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>🧵 Öppna tråd</Text>
+                </Pressable>
+              ) : null}
+              {menuMsg.user_id === userId && !menuMsg.pending && !menuMsg.failed ? (
+                <Pressable
+                  onPress={() => {
+                    setReadInfoMsg(menuMsg);
+                    setMenuMsg(null);
+                  }}
+                  style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
+                >
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>👁 Läsinfo</Text>
                 </Pressable>
               ) : null}
               {!menuMsg.pending && !menuMsg.failed ? (
@@ -4922,6 +5246,26 @@ const styles = StyleSheet.create({
   },
   mentionChip: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   typingAvatar: { width: 18, height: 18, borderRadius: 9 },
+  storyRow: { flexDirection: "row", gap: 12, paddingHorizontal: 12, paddingVertical: 6 },
+  storyItem: { alignItems: "center", gap: 3, width: 56 },
+  storyRing: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2.5,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  storyAvatar: { width: 42, height: 42, borderRadius: 21 },
+  storyName: { fontSize: 10, fontWeight: "600" },
+  storyMeta: { position: "absolute", top: 46, left: 20, gap: 2 },
+  threadMsg: {
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 6,
+    gap: 2,
+  },
   jumpBtn: {
     position: "absolute",
     bottom: 14,

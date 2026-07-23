@@ -52,6 +52,7 @@ export default function GroupsScreen() {
   >({});
   const [showArchived, setShowArchived] = useState(false);
   const [previews, setPreviews] = useState<Record<string, { text: string; at: string }>>({});
+  const [folder, setFolder] = useState<"alla" | "olasta" | "nalade">("alla");
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -215,6 +216,13 @@ export default function GroupsScreen() {
   const visible = groups
     .filter((g) => (q ? g.name.toLowerCase().includes(q) : true))
     .filter((g) => (showArchived ? true : !prefs[g.id]?.archived))
+    .filter((g) =>
+      folder === "olasta"
+        ? (unread[g.id] ?? 0) > 0
+        : folder === "nalade"
+          ? Boolean(prefs[g.id]?.pinnedAt)
+          : true,
+    )
     .sort((a, b) => {
       const pa = prefs[a.id]?.pinnedAt;
       const pb = prefs[b.id]?.pinnedAt;
@@ -293,6 +301,32 @@ export default function GroupsScreen() {
           placeholderTextColor={c.textSecondary}
           style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
         />
+
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          {(
+            [
+              ["alla", "Alla"],
+              ["olasta", "Olästa"],
+              ["nalade", "📌 Nålade"],
+            ] as ["alla" | "olasta" | "nalade", string][]
+          ).map(([key, label]) => (
+            <Pressable
+              key={key}
+              onPress={() => setFolder(key)}
+              style={[
+                styles.chip,
+                { borderColor: c.backgroundSelected },
+                folder === key ? { backgroundColor: c.brand, borderColor: c.brand } : null,
+              ]}
+            >
+              <Text
+                style={[styles.chipText, { color: folder === key ? "#fff" : c.text }]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       {loading ? (
