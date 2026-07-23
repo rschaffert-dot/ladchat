@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
@@ -266,6 +267,32 @@ export default function GroupChatScreen() {
   const [streak, setStreak] = useState<Streak | null>(null);
   const [quest, setQuest] = useState<{ quest_id: number; title: string; bonus: number } | null>(null);
   const [questDone, setQuestDone] = useState(false);
+
+  // Stängda bannrar ("notisen är läst"): per grupp och enhet. Nycklarna
+  // innehåller id/datum så en NY duell/aktivering/uppdrag syns igen.
+  const [dismissed, setDismissed] = useState<Record<string, true>>({});
+  useEffect(() => {
+    if (!groupId) return;
+    AsyncStorage.getItem(`dismissedBanners:${groupId}`).then((raw) => {
+      if (raw) {
+        try {
+          setDismissed(JSON.parse(raw) as Record<string, true>);
+        } catch {
+          // Trasig cache — börja om tom.
+        }
+      }
+    });
+  }, [groupId]);
+  function dismissBanner(key: string) {
+    setDismissed((prev) => {
+      const next: Record<string, true> = { ...prev, [key]: true };
+      // Håll listan kort: äldsta ryker när det blir fler än 50.
+      const keys = Object.keys(next);
+      if (keys.length > 50) delete next[keys[0]];
+      void AsyncStorage.setItem(`dismissedBanners:${groupId}`, JSON.stringify(next));
+      return next;
+    });
+  }
   const [duel, setDuel] = useState<Duel | null>(null);
   const [duelVotes, setDuelVotes] = useState<{ ch: number; op: number; mine: string | null }>({
     ch: 0,
@@ -1649,46 +1676,72 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
-      {powerHourActive ? (
-        <View style={styles.powerHourBanner}>
-          <Text style={styles.powerHourText}>
+      {powerHourActive && !dismissed[`ph:${powerHourEndsAt}`] ? (
+        <View style={[styles.powerHourBanner, styles.bannerRow]}>
+          <Text style={[styles.powerHourText, { flex: 1 }]}>
             ⚡ POWER HOUR — dubbel XP! {formatCountdown(powerHourRemainingMs)} kvar
           </Text>
+          <Pressable onPress={() => dismissBanner(`ph:${powerHourEndsAt}`)} hitSlop={10}>
+            <Text style={[styles.bannerClose, { color: "#2a1a10" }]}>×</Text>
+          </Pressable>
         </View>
       ) : null}
 
       {streak &&
       streak.current_streak > 0 &&
-      streak.last_checkin !== new Date().toISOString().slice(0, 10) ? (
-        <Pressable onPress={checkin} style={styles.streakWarning}>
-          <Text style={styles.streakWarningText}>
-            🔥 Din {streak.current_streak}-dagarsstreak ryker om du inte checkar in idag — tryck här!
-          </Text>
-        </Pressable>
+      streak.last_checkin !== new Date().toISOString().slice(0, 10) &&
+      !dismissed[`streak:${new Date().toISOString().slice(0, 10)}`] ? (
+        <View style={[styles.streakWarning, styles.bannerRow]}>
+          <Pressable onPress={checkin} style={{ flex: 1 }}>
+            <Text style={styles.streakWarningText}>
+              🔥 Din {streak.current_streak}-dagarsstreak ryker om du inte checkar in idag — tryck
+              här!
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => dismissBanner(`streak:${new Date().toISOString().slice(0, 10)}`)}
+            hitSlop={10}
+          >
+            <Text style={styles.bannerClose}>×</Text>
+          </Pressable>
+        </View>
       ) : null}
 
-      {quest ? (
+      {quest && !questDone && !dismissed[`quest:${new Date().toISOString().slice(0, 10)}:${quest.quest_id}`] ? (
         <View style={[styles.questStrip, { backgroundColor: c.backgroundElement }]}>
           <Text style={[styles.questText, { color: c.text }]} numberOfLines={1}>
             🎯 {quest.title}
           </Text>
           <Pressable
             onPress={completeQuest}
-            disabled={questDone}
-            style={[
-              styles.questBtn,
-              { backgroundColor: questDone ? c.backgroundSelected : settings.color },
-            ]}
+            style={[styles.questBtn, { backgroundColor: settings.color }]}
           >
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>
-              {questDone ? "✔ Klar" : `Klar +${quest.bonus}p`}
+              Klar +{quest.bonus}p
             </Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              dismissBanner(`quest:${new Date().toISOString().slice(0, 10)}:${quest.quest_id}`)
+            }
+            hitSlop={10}
+          >
+            <Text style={[styles.bannerClose, { color: c.textSecondary }]}>×</Text>
           </Pressable>
         </View>
       ) : null}
 
-      {duel ? (
+      {duel && !dismissed[`duel:${duel.id}:${duel.status}`] ? (
         <View style={[styles.duelBanner, { backgroundColor: "#7c2d12" }]}>
+          {!(duel.status === "pending" && duel.opponent_id === userId) ? (
+            <Pressable
+              onPress={() => dismissBanner(`duel:${duel.id}:${duel.status}`)}
+              hitSlop={10}
+              style={styles.bannerCloseCorner}
+            >
+              <Text style={styles.bannerClose}>×</Text>
+            </Pressable>
+          ) : null}
           {duel.status === "pending" ? (
             <>
               <Text style={styles.duelText}>
@@ -1751,13 +1804,16 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
-      {activation ? (
+      {activation && !dismissed[`act:${activation.id}`] ? (
         <View style={[styles.activationCard, { backgroundColor: c.brand }]}>
           <View style={styles.activationTop}>
             <Text style={styles.activationTitle} numberOfLines={1}>
               {ACTIVATION_KINDS[activation.kind]?.emoji} {activation.name}
             </Text>
             <Text style={styles.activationTimer}>⏳ {formatRemaining(activationRemainingMs)}</Text>
+            <Pressable onPress={() => dismissBanner(`act:${activation.id}`)} hitSlop={10}>
+              <Text style={styles.bannerClose}>×</Text>
+            </Pressable>
           </View>
           <Text style={styles.activationBlurb}>
             {ACTIVATION_KINDS[activation.kind]?.blurb}
@@ -2292,6 +2348,9 @@ const styles = StyleSheet.create({
   },
   energyTrack: { height: 5, width: "100%" },
   energyFill: { height: 5 },
+  bannerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  bannerClose: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "700", lineHeight: 22 },
+  bannerCloseCorner: { position: "absolute", top: 6, right: 10, zIndex: 1 },
   powerHourBanner: { backgroundColor: "#f2a916", paddingHorizontal: 16, paddingVertical: 8 },
   powerHourText: { color: "#2a1a10", fontWeight: "900", textAlign: "center", fontSize: 13 },
   streakWarning: { backgroundColor: "#7f1d1d", paddingHorizontal: 16, paddingVertical: 8 },
