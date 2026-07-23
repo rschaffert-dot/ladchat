@@ -454,7 +454,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
         onPress={() => challengeId && act.openChallenge(challengeId)}
         style={[styles.systemPill, { backgroundColor: c.backgroundElement }]}
       >
-        <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+        <Text
+          style={{ color: c.textSecondary, fontWeight: "600", fontSize: 12, textAlign: "center" }}
+        >
           {item.content} {challengeId ? "→" : ""}
         </Text>
       </Pressable>
@@ -2375,29 +2377,26 @@ export default function GroupChatScreen() {
           <View style={styles.composerRow}>
             <Pressable
               onPress={() => {
+                setAttachOpen((v) => !v);
+                setEmojiOpen(false);
+              }}
+              hitSlop={6}
+              style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
+            >
+              <Text style={{ color: c.text, fontSize: 22, fontWeight: "400", lineHeight: 24 }}>
+                {attachOpen ? "×" : "+"}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
                 setStarOpen(true);
                 setAttachOpen(false);
                 setEmojiOpen(false);
               }}
               hitSlop={6}
-              style={styles.composerBtn}
+              style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text style={{ color: settings.color, fontSize: 22, fontWeight: "700" }}>✦</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setAttachOpen((v) => !v);
-                setEmojiOpen(false);
-              }}
-              hitSlop={6}
-              style={styles.composerBtn}
-            >
-              <Text style={{ color: settings.color, fontSize: 24, fontWeight: "700" }}>
-                {attachOpen ? "×" : "＋"}
-              </Text>
-            </Pressable>
-            <Pressable onPress={toggleRecording} hitSlop={6} style={styles.composerBtn}>
-              <Text style={{ fontSize: 20 }}>{recording ? "⏹" : "🎤"}</Text>
+              <Text style={{ color: settings.color, fontSize: 18 }}>✦</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -2405,14 +2404,22 @@ export default function GroupChatScreen() {
                 setAttachOpen(false);
               }}
               hitSlop={6}
-              style={styles.composerBtn}
+              style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text style={{ fontSize: 20 }}>😊</Text>
+              <Text style={{ fontSize: 18 }}>😊</Text>
             </Pressable>
             <View style={styles.flex} />
-            {uploadingMedia ? (
-              <ActivityIndicator style={{ marginRight: 6 }} />
-            ) : null}
+            {uploadingMedia ? <ActivityIndicator style={{ marginRight: 6 }} /> : null}
+            <Pressable
+              onPress={toggleRecording}
+              hitSlop={6}
+              style={[
+                styles.composerBtn,
+                { backgroundColor: recording ? "#dc2626" : c.backgroundSelected },
+              ]}
+            >
+              <Text style={{ fontSize: 18 }}>{recording ? "⏹" : "🎤"}</Text>
+            </Pressable>
             <Pressable
               onPress={send}
               disabled={sending || text.trim().length === 0}
@@ -3458,10 +3465,11 @@ const styles = StyleSheet.create({
   msgRow: { maxWidth: "82%" },
   systemPill: {
     alignSelf: "center",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginVertical: 4,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginVertical: 2,
+    maxWidth: "88%",
   },
   mine: { alignSelf: "flex-end", alignItems: "flex-end" },
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
@@ -3670,30 +3678,32 @@ const styles = StyleSheet.create({
   },
   composerWrap: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 10 },
   composer: {
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingTop: 14,
+    paddingBottom: 10,
+    gap: 10,
   },
   composerInput: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 22,
     padding: 0,
+    paddingHorizontal: 6,
     textAlignVertical: "top",
   },
-  composerRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  composerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   composerBtn: {
-    minWidth: 40,
-    minHeight: 40,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   sendCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3763,11 +3773,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   celebrationText: { color: "#2a1a10", fontWeight: "800", textAlign: "center" },
-  activationCard: { paddingHorizontal: 16, paddingVertical: 12, gap: 8 },
+  activationCard: { paddingHorizontal: 14, paddingVertical: 8, gap: 5 },
   activationTop: { flexDirection: "row", alignItems: "center", gap: 8 },
-  activationTitle: { flex: 1, color: "#fff", fontWeight: "800", fontSize: 15 },
-  activationTimer: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  activationBlurb: { color: "#eef", fontSize: 13 },
+  activationTitle: { flex: 1, color: "#fff", fontWeight: "800", fontSize: 14 },
+  activationTimer: { color: "#fff", fontWeight: "700", fontSize: 12 },
+  activationBlurb: { color: "#eef", fontSize: 12 },
   activationActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   activationBtn: {
     backgroundColor: "#fff",
