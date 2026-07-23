@@ -3,7 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
@@ -309,6 +309,264 @@ function AudioBubble({
     </Pressable>
   );
 }
+
+type PollView = {
+  question: string;
+  options: { id: string; label: string; votes: number }[];
+  total: number;
+  mine: string | null;
+};
+
+type RowActions = {
+  openMenu: (m: LocalMsg) => void;
+  tap: (m: LocalMsg, mine: boolean) => void;
+  reply: (m: LocalMsg) => void;
+  toggleReaction: (id: string, key: ReactionKey) => void;
+  votePoll: (pid: string, oid: string) => void;
+  retry: (m: LocalMsg) => void;
+  removeLocal: (id: string) => void;
+  openChallenge: (cid: string) => void;
+};
+
+/** En meddelanderad, memoiserad: sekundtick, tangenttryck och andra
+ *  skärmuppdateringar rör inte raderna om deras egna props är oförändrade —
+ *  det är det som håller svep/gester/modaler mjuka i långa chattar. */
+const ChatMessageRow = memo(function ChatMessageRow({
+  item,
+  mine,
+  authorName,
+  authorTitle,
+  parentAuthor,
+  parentContent,
+  bubbleColor,
+  c,
+  bucket,
+  isLatestOwn,
+  readUpTo,
+  poll,
+  act,
+}: {
+  item: LocalMsg;
+  mine: boolean;
+  authorName: string | null;
+  authorTitle: string | null;
+  parentAuthor: string | null;
+  parentContent: string | null;
+  bubbleColor: string;
+  c: ReturnType<typeof useColors>;
+  bucket: ReactionBucket | undefined;
+  isLatestOwn: boolean;
+  readUpTo: string | null;
+  poll: PollView | null;
+  act: RowActions;
+}) {
+  if (item.kind === "system") {
+    const challengeId = item.metadata?.challenge_id as string | undefined;
+    return (
+      <Pressable
+        onPress={() => challengeId && act.openChallenge(challengeId)}
+        style={[styles.systemPill, { backgroundColor: c.backgroundElement }]}
+      >
+        <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+          {item.content} {challengeId ? "→" : ""}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  let swipeRef: Swipeable | null = null;
+  return (
+    <Swipeable
+      ref={(r) => {
+        swipeRef = r;
+      }}
+      friction={2}
+      leftThreshold={48}
+      overshootLeft={false}
+      renderLeftActions={() => (
+        <View style={styles.swipeReply}>
+          <Text style={{ fontSize: 20, color: c.textSecondary }}>↩︎</Text>
+        </View>
+      )}
+      onSwipeableWillOpen={(direction) => {
+        if (direction === "left" && !item.pending) {
+          buzz(8);
+          act.reply(item);
+        }
+        swipeRef?.close();
+      }}
+    >
+      <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
+        {authorName ? (
+          <Text style={[styles.author, { color: c.textSecondary }]}>
+            {authorName} · <Text style={{ fontWeight: "700" }}>{authorTitle}</Text>
+          </Text>
+        ) : null}
+        <Pressable
+          onLongPress={() => act.openMenu(item)}
+          delayLongPress={350}
+          onPress={() => act.tap(item, mine)}
+          style={[
+            styles.bubble,
+            mine
+              ? { backgroundColor: bubbleColor, borderBottomRightRadius: 4 }
+              : { backgroundColor: c.backgroundElement, borderBottomLeftRadius: 4 },
+            item.pending ? { opacity: 0.55 } : null,
+          ]}
+        >
+          {item.reply_to_id ? (
+            <View style={styles.quoteBox}>
+              <Text style={styles.quoteAuthor} numberOfLines={1}>
+                {parentAuthor ?? "Svar"}
+              </Text>
+              <Text style={styles.quoteContent} numberOfLines={2}>
+                {parentContent ?? "…"}
+              </Text>
+            </View>
+          ) : null}
+          {item.kind === "image" && item.metadata?.media_path ? (
+            <ChatImage path={item.metadata.media_path as string} />
+          ) : item.kind === "audio" && item.metadata?.media_path ? (
+            <AudioBubble
+              path={item.metadata.media_path as string}
+              durationMs={(item.metadata.duration_ms as number) ?? null}
+              tint={mine ? "#fff" : c.text}
+            />
+          ) : item.kind === "poll" && item.metadata?.poll_id ? (
+            !poll ? (
+              <ActivityIndicator style={{ margin: 12 }} />
+            ) : (
+              <View style={styles.pollBox}>
+                <Text
+                  style={{
+                    color: mine ? "#fff" : c.text,
+                    fontWeight: "800",
+                    fontSize: 15,
+                    marginBottom: 6,
+                  }}
+                >
+                  📊 {poll.question}
+                </Text>
+                {poll.options.map((o) => {
+                  const pct = poll.total ? Math.round((o.votes / poll.total) * 100) : 0;
+                  const isMine = poll.mine === o.id;
+                  return (
+                    <Pressable
+                      key={o.id}
+                      onPress={() => act.votePoll(item.metadata.poll_id as string, o.id)}
+                      style={[styles.pollOption, isMine ? styles.pollOptionMine : null]}
+                    >
+                      <View style={[styles.pollFill, { width: `${pct}%` }]} />
+                      <View style={styles.pollOptionRow}>
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontSize: 13,
+                            fontWeight: isMine ? "800" : "600",
+                            flex: 1,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {isMine ? "✓ " : ""}
+                          {o.label}
+                        </Text>
+                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                          {o.votes} ({pct}%)
+                        </Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+                <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                  {poll.total} {poll.total === 1 ? "röst" : "röster"} — tryck för att rösta
+                </Text>
+              </View>
+            )
+          ) : (
+            <>
+              {item.metadata?.forwarded ? (
+                <Text
+                  style={{
+                    color: mine ? "#e0e0ff" : c.textSecondary,
+                    fontSize: 11,
+                    fontStyle: "italic",
+                  }}
+                >
+                  ↪️ Vidarebefordrat
+                </Text>
+              ) : null}
+              <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
+                {item.content}
+                {item.edited_at ? (
+                  <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                    {"  (redigerad)"}
+                  </Text>
+                ) : null}
+              </Text>
+            </>
+          )}
+        </Pressable>
+        {mine && isLatestOwn && !item.pending && !item.failed ? (
+          <Text
+            style={[
+              styles.msgStatus,
+              {
+                color:
+                  readUpTo && item.created_at <= readUpTo ? "#3b82f6" : c.textSecondary,
+              },
+            ]}
+          >
+            {readUpTo && item.created_at <= readUpTo ? "✓✓ Läst" : "✓ Skickat"}
+          </Text>
+        ) : null}
+        {item.pending ? (
+          <Text style={[styles.msgStatus, { color: c.textSecondary }]}>🕒 Skickar…</Text>
+        ) : null}
+        {item.failed ? (
+          <View style={styles.failedRow}>
+            <Text style={{ color: "#dc2626", fontSize: 12, fontWeight: "700" }}>
+              ⚠️ Kunde inte skickas
+            </Text>
+            <Pressable onPress={() => act.retry(item)} hitSlop={8}>
+              <Text style={{ color: c.brand, fontSize: 12, fontWeight: "700" }}>Försök igen</Text>
+            </Pressable>
+            <Pressable onPress={() => act.removeLocal(item.id)} hitSlop={8}>
+              <Text style={{ color: c.textSecondary, fontSize: 12 }}>Ta bort</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        {(() => {
+          const active = REACTION_ORDER.filter((key) => (bucket?.[key]?.count ?? 0) > 0);
+          if (active.length === 0) return null;
+          return (
+            <View style={styles.reactionRow}>
+              {active.map((key) => {
+                const entry = bucket?.[key];
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => !mine && act.toggleReaction(item.id, key)}
+                    style={[
+                      styles.reactionChip,
+                      { backgroundColor: c.backgroundElement },
+                      entry?.mine
+                        ? { backgroundColor: bubbleColor, borderColor: bubbleColor }
+                        : null,
+                    ]}
+                  >
+                    <Text style={{ fontSize: 13 }}>
+                      {REACTIONS[key].emoji} {entry?.count ?? 0}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          );
+        })()}
+      </View>
+    </Swipeable>
+  );
+});
 
 export default function GroupChatScreen() {
   const c = useColors();
@@ -617,13 +875,6 @@ export default function GroupChatScreen() {
         )
       : 0;
 
-  // Klockan tickar en gång i sekunden — driver öl-/aktiverings-/duell-nedräkning
-  // och energibarens förfall.
-  useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, []);
-
   // Energin förfaller med 1 per 2:e tyst minut — beräknas klient-side ur
   // senaste server-värdet så baren sjunker live utan extra anrop.
   const energyNow = group
@@ -641,6 +892,20 @@ export default function GroupChatScreen() {
     duel?.status === "active" && duel.ends_at
       ? Math.max(0, new Date(duel.ends_at).getTime() - nowTick)
       : 0;
+
+  // Klockan driver nedräkningarna — men en sekundtick re-renderar hela
+  // skärmen, vilket hackar sönder gester och modalanimationer. Därför
+  // tickar vi bara varje sekund när en nedräkning faktiskt syns; annars
+  // räcker varje minut (energibarens upplösning är 2 min).
+  const needsFastTick =
+    Boolean(activation) ||
+    Boolean(group?.beer_round_started_at && group?.beer_duration_minutes) ||
+    powerHourActive ||
+    duel?.status === "active";
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), needsFastTick ? 1000 : 60_000);
+    return () => clearInterval(id);
+  }, [needsFastTick]);
 
   const loadActivation = useCallback(async () => {
     if (!groupId) return;
@@ -1692,6 +1957,34 @@ export default function GroupChatScreen() {
   // Läsbockar visas bara på ditt senaste meddelande (Messenger-stil).
   const latestOwnId = messages.find((m) => m.user_id === userId && m.kind === "user")?.id;
 
+  // Stabil åtgärdsyta för de memoiserade raderna: identiteten ändras aldrig,
+  // men anropen går alltid till senaste renderns färska closures via ref.
+  const rowActionsLiveRef = useRef<RowActions>(null as unknown as RowActions);
+  rowActionsLiveRef.current = {
+    openMenu: (m) => {
+      buzz(12);
+      setMenuMsg(m);
+    },
+    tap: onBubbleTap,
+    reply: (m) => setReplyTo(m),
+    toggleReaction: (id, key) => void toggleReaction(id, key),
+    votePoll: (pid, oid) => void votePoll(pid, oid),
+    retry: retryMessage,
+    removeLocal: removeLocalMessage,
+    openChallenge: (cid) =>
+      router.push({ pathname: "/challenges/[id]", params: { id: cid } }),
+  };
+  const rowActions = useRef<RowActions>({
+    openMenu: (m) => rowActionsLiveRef.current.openMenu(m),
+    tap: (m, mine) => rowActionsLiveRef.current.tap(m, mine),
+    reply: (m) => rowActionsLiveRef.current.reply(m),
+    toggleReaction: (id, key) => rowActionsLiveRef.current.toggleReaction(id, key),
+    votePoll: (pid, oid) => rowActionsLiveRef.current.votePoll(pid, oid),
+    retry: (m) => rowActionsLiveRef.current.retry(m),
+    removeLocal: (id) => rowActionsLiveRef.current.removeLocal(id),
+    openChallenge: (cid) => rowActionsLiveRef.current.openChallenge(cid),
+  }).current;
+
   const chatBody = (
     <>
       {loading ? (
@@ -1702,6 +1995,10 @@ export default function GroupChatScreen() {
           inverted
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
+          initialNumToRender={18}
+          maxToRenderPerBatch={12}
+          windowSize={9}
+          removeClippedSubviews={Platform.OS !== "web"}
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.listContent}
           onEndReached={hasMore ? loadOlder : undefined}
@@ -1715,252 +2012,34 @@ export default function GroupChatScreen() {
             </Text>
           }
           renderItem={({ item }) => {
-            if (item.kind === "system") {
-              const challengeId = item.metadata?.challenge_id as string | undefined;
-              return (
-                <Pressable
-                  onPress={() =>
-                    challengeId &&
-                    router.push({ pathname: "/challenges/[id]", params: { id: challengeId } })
-                  }
-                  style={[styles.systemPill, { backgroundColor: c.backgroundElement }]}
-                >
-                  <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
-                    {item.content} {challengeId ? "→" : ""}
-                  </Text>
-                </Pressable>
-              );
-            }
             const mine = item.user_id === userId;
             const parent = item.reply_to_id
               ? messages.find((m) => m.id === item.reply_to_id)
               : undefined;
-            let swipeRef: Swipeable | null = null;
             return (
-              <Swipeable
-                ref={(r) => {
-                  swipeRef = r;
-                }}
-                friction={2}
-                leftThreshold={48}
-                overshootLeft={false}
-                renderLeftActions={() => (
-                  <View style={styles.swipeReply}>
-                    <Text style={{ fontSize: 20, color: c.textSecondary }}>↩︎</Text>
-                  </View>
-                )}
-                onSwipeableWillOpen={(direction) => {
-                  if (direction === "left" && !(item as LocalMsg).pending) {
-                    buzz(8);
-                    setReplyTo(item);
-                  }
-                  swipeRef?.close();
-                }}
-              >
-              <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
-                {!mine ? (
-                  <Text style={[styles.author, { color: c.textSecondary }]}>
-                    {item.author_name} ·{" "}
-                    <Text style={{ fontWeight: "700" }}>
-                      {titleForPoints(memberPoints[item.user_id] ?? 0)}
-                    </Text>
-                  </Text>
-                ) : null}
-                <Pressable
-                  onLongPress={() => {
-                    buzz(12);
-                    setMenuMsg(item as LocalMsg);
-                  }}
-                  delayLongPress={350}
-                  onPress={() => onBubbleTap(item as LocalMsg, mine)}
-                  style={[
-                    styles.bubble,
-                    mine
-                      ? { backgroundColor: settings.color, borderBottomRightRadius: 4 }
-                      : {
-                          backgroundColor: c.backgroundElement,
-                          borderBottomLeftRadius: 4,
-                        },
-                    (item as LocalMsg).pending ? { opacity: 0.55 } : null,
-                  ]}
-                >
-                  {item.reply_to_id ? (
-                    <View style={styles.quoteBox}>
-                      <Text style={styles.quoteAuthor} numberOfLines={1}>
-                        {parent?.author_name ?? "Svar"}
-                      </Text>
-                      <Text style={styles.quoteContent} numberOfLines={2}>
-                        {parent?.content ?? "…"}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {item.kind === "image" && item.metadata?.media_path ? (
-                    <ChatImage path={item.metadata.media_path as string} />
-                  ) : item.kind === "audio" && item.metadata?.media_path ? (
-                    <AudioBubble
-                      path={item.metadata.media_path as string}
-                      durationMs={(item.metadata.duration_ms as number) ?? null}
-                      tint={mine ? "#fff" : c.text}
-                    />
-                  ) : item.kind === "poll" && item.metadata?.poll_id ? (
-                    (() => {
-                      const poll = polls[item.metadata.poll_id as string];
-                      if (!poll) return <ActivityIndicator style={{ margin: 12 }} />;
-                      return (
-                        <View style={styles.pollBox}>
-                          <Text
-                            style={{
-                              color: mine ? "#fff" : c.text,
-                              fontWeight: "800",
-                              fontSize: 15,
-                              marginBottom: 6,
-                            }}
-                          >
-                            📊 {poll.question}
-                          </Text>
-                          {poll.options.map((o) => {
-                            const pct = poll.total
-                              ? Math.round((o.votes / poll.total) * 100)
-                              : 0;
-                            const isMine = poll.mine === o.id;
-                            return (
-                              <Pressable
-                                key={o.id}
-                                onPress={() =>
-                                  votePoll(item.metadata.poll_id as string, o.id)
-                                }
-                                style={[
-                                  styles.pollOption,
-                                  isMine ? styles.pollOptionMine : null,
-                                ]}
-                              >
-                                <View
-                                  style={[styles.pollFill, { width: `${pct}%` }]}
-                                />
-                                <View style={styles.pollOptionRow}>
-                                  <Text
-                                    style={{
-                                      color: "#fff",
-                                      fontSize: 13,
-                                      fontWeight: isMine ? "800" : "600",
-                                      flex: 1,
-                                    }}
-                                    numberOfLines={1}
-                                  >
-                                    {isMine ? "✓ " : ""}
-                                    {o.label}
-                                  </Text>
-                                  <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
-                                    {o.votes} ({pct}%)
-                                  </Text>
-                                </View>
-                              </Pressable>
-                            );
-                          })}
-                          <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
-                            {poll.total} {poll.total === 1 ? "röst" : "röster"} — tryck för att rösta
-                          </Text>
-                        </View>
-                      );
-                    })()
-                  ) : (
-                    <>
-                      {item.metadata?.forwarded ? (
-                        <Text
-                          style={{
-                            color: mine ? "#e0e0ff" : c.textSecondary,
-                            fontSize: 11,
-                            fontStyle: "italic",
-                          }}
-                        >
-                          ↪️ Vidarebefordrat
-                        </Text>
-                      ) : null}
-                      <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                        {item.content}
-                        {item.edited_at ? (
-                          <Text
-                            style={{
-                              color: mine ? "#e0e0ff" : c.textSecondary,
-                              fontSize: 11,
-                            }}
-                          >
-                            {"  (redigerad)"}
-                          </Text>
-                        ) : null}
-                      </Text>
-                    </>
-                  )}
-                </Pressable>
-                {mine &&
-                item.id === latestOwnId &&
-                !(item as LocalMsg).pending &&
-                !(item as LocalMsg).failed ? (
-                  <Text
-                    style={[
-                      styles.msgStatus,
-                      {
-                        color:
-                          othersReadUpTo && item.created_at <= othersReadUpTo
-                            ? "#3b82f6"
-                            : c.textSecondary,
-                      },
-                    ]}
-                  >
-                    {othersReadUpTo && item.created_at <= othersReadUpTo ? "✓✓ Läst" : "✓ Skickat"}
-                  </Text>
-                ) : null}
-                {(item as LocalMsg).pending ? (
-                  <Text style={[styles.msgStatus, { color: c.textSecondary }]}>🕒 Skickar…</Text>
-                ) : null}
-                {(item as LocalMsg).failed ? (
-                  <View style={styles.failedRow}>
-                    <Text style={{ color: "#dc2626", fontSize: 12, fontWeight: "700" }}>
-                      ⚠️ Kunde inte skickas
-                    </Text>
-                    <Pressable onPress={() => retryMessage(item as LocalMsg)} hitSlop={8}>
-                      <Text style={{ color: c.brand, fontSize: 12, fontWeight: "700" }}>
-                        Försök igen
-                      </Text>
-                    </Pressable>
-                    <Pressable onPress={() => removeLocalMessage(item.id)} hitSlop={8}>
-                      <Text style={{ color: c.textSecondary, fontSize: 12 }}>Ta bort</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-                {(() => {
-                  // Bara reaktioner som faktiskt finns visas — resten bor i långtrycksmenyn.
-                  const active = REACTION_ORDER.filter(
-                    (key) => (reactions[item.id]?.[key]?.count ?? 0) > 0,
-                  );
-                  if (active.length === 0) return null;
-                  return (
-                    <View style={styles.reactionRow}>
-                      {active.map((key) => {
-                        const entry = reactions[item.id]?.[key];
-                        return (
-                          <Pressable
-                            key={key}
-                            onPress={() => !mine && toggleReaction(item.id, key)}
-                            style={[
-                              styles.reactionChip,
-                              { backgroundColor: c.backgroundElement },
-                              entry?.mine
-                                ? { backgroundColor: settings.color, borderColor: settings.color }
-                                : null,
-                            ]}
-                          >
-                            <Text style={{ fontSize: 13 }}>
-                              {REACTIONS[key].emoji} {entry?.count ?? 0}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                })()}
-              </View>
-              </Swipeable>
+              <ChatMessageRow
+                item={item as LocalMsg}
+                mine={mine}
+                authorName={!mine && item.kind !== "system" ? item.author_name : null}
+                authorTitle={
+                  !mine && item.kind !== "system"
+                    ? titleForPoints(memberPoints[item.user_id] ?? 0)
+                    : null
+                }
+                parentAuthor={parent?.author_name ?? null}
+                parentContent={parent?.content ?? null}
+                bubbleColor={settings.color}
+                c={c}
+                bucket={reactions[item.id]}
+                isLatestOwn={item.id === latestOwnId}
+                readUpTo={othersReadUpTo}
+                poll={
+                  item.kind === "poll" && item.metadata?.poll_id
+                    ? (polls[item.metadata.poll_id as string] ?? null)
+                    : null
+                }
+                act={rowActions}
+              />
             );
           }}
         />
