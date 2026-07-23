@@ -23,7 +23,7 @@ export type ChatSettings = {
 };
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
-  color: "#4f46e5",
+  color: "#D97757",
   background: "",
   backgroundImage: "",
   currency: "Douchepoints",
@@ -31,6 +31,7 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
 };
 
 export const COLOR_OPTIONS = [
+  "#D97757",
   "#4f46e5",
   "#dc2626",
   "#059669",

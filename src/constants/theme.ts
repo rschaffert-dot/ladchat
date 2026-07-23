@@ -7,20 +7,21 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
+/** Claude-inspirerad palett: varm cremevit ljus, varm mörkgrå mörk. */
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1F1E1D',
+    background: '#FAF9F5',
+    backgroundElement: '#F0EEE6',
+    backgroundSelected: '#E8E5DB',
+    textSecondary: '#73706A',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
-    textSecondary: '#B0B4BA',
+    text: '#F5F4EE',
+    background: '#262624',
+    backgroundElement: '#30302E',
+    backgroundSelected: '#3D3D3B',
+    textSecondary: '#A6A39B',
   },
 } as const;
 

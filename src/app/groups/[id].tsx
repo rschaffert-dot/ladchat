@@ -376,7 +376,7 @@ function LinkifiedText({
 }) {
   const parts = content.split(URL_RE);
   return (
-    <Text style={{ color, fontSize: 15 }}>
+    <Text style={{ color, fontSize: 15, lineHeight: 21 }}>
       {parts.map((part, i) =>
         /^https?:\/\//.test(part) ? (
           <Text
@@ -3372,7 +3372,11 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   starLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
-  headerTitle: { fontSize: 17, fontWeight: "700" },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "Georgia" }),
+  },
   msgStatus: { fontSize: 11, marginTop: 2 },
   swipeReply: { justifyContent: "center", paddingHorizontal: 18 },
   failedRow: { flexDirection: "row", gap: 10, marginTop: 3, alignItems: "center" },
@@ -3421,7 +3425,7 @@ const styles = StyleSheet.create({
   mine: { alignSelf: "flex-end", alignItems: "flex-end" },
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
-  bubble: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 9 },
+  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   reactionRow: { flexDirection: "row", gap: 4, marginTop: 4, flexWrap: "wrap" },
   reactionChip: {
     borderWidth: 1,

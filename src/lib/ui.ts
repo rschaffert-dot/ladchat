@@ -1,7 +1,7 @@
 import { useColorScheme } from "react-native";
 import { Colors } from "@/constants/theme";
 
-export const BRAND = "#4f46e5";
+export const BRAND = "#D97757";
 export const DANGER = "#dc2626";
 
 /** Aktuell temapalett + brand-färg. */
