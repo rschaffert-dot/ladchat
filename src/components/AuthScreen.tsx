@@ -15,7 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { NEEDS_AVATAR_KEY } from "@/lib/avatar";
 import { svAuthError } from "@/lib/errors";
-import { signInWithGoogle } from "@/lib/oauth";
+import { signInWithProvider } from "@/lib/oauth";
+import type { OAuthProvider } from "@/lib/oauth";
 import { supabase } from "@/lib/supabase";
 import { useColors } from "@/lib/ui";
 
@@ -100,12 +101,12 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
     }
   }
 
-  async function google() {
+  async function oauth(provider: OAuthProvider) {
     if (busy) return;
     setError(null);
     setBusy(true);
     try {
-      await signInWithGoogle();
+      await signInWithProvider(provider);
     } catch (e) {
       setError(svAuthError(e instanceof Error ? e.message : String(e)));
     } finally {
@@ -130,18 +131,25 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
             {isLogin ? "Logga in för att fortsätta" : "Skapa ett konto"}
           </Text>
 
-          <Pressable
-            onPress={google}
-            disabled={busy}
-            style={[
-              styles.googleBtn,
-              { borderColor: c.backgroundSelected, opacity: busy ? 0.6 : 1 },
-            ]}
-          >
-            <Text style={[styles.googleText, { color: c.text }]}>
-              Fortsätt med Google
-            </Text>
-          </Pressable>
+          {(
+            [
+              { provider: "google", label: "Fortsätt med Google" },
+              { provider: "apple", label: " Fortsätt med Apple" },
+              { provider: "facebook", label: "ⓕ Fortsätt med Facebook" },
+            ] as { provider: OAuthProvider; label: string }[]
+          ).map(({ provider, label }) => (
+            <Pressable
+              key={provider}
+              onPress={() => oauth(provider)}
+              disabled={busy}
+              style={[
+                styles.googleBtn,
+                { borderColor: c.backgroundSelected, opacity: busy ? 0.6 : 1 },
+              ]}
+            >
+              <Text style={[styles.googleText, { color: c.text }]}>{label}</Text>
+            </Pressable>
+          ))}
 
           <View style={styles.dividerRow}>
             <View style={[styles.divider, { backgroundColor: c.backgroundSelected }]} />

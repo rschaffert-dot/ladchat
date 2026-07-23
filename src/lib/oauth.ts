@@ -4,15 +4,17 @@ import { Platform } from "react-native";
 
 import { supabase } from "@/lib/supabase";
 
+export type OAuthProvider = "google" | "apple" | "facebook";
+
 /**
- * Loggar in med Google. På web sker det via redirect (Supabase slutför
- * sessionen när användaren kommer tillbaka). På native öppnar vi ett
- * auth-fönster och byter den returnerade koden/token mot en session.
+ * Loggar in med en OAuth-leverantör. På web sker det via redirect
+ * (Supabase slutför sessionen när användaren kommer tillbaka). På
+ * native öppnar vi ett auth-fönster och byter koden/token mot session.
  *
- * Kräver att Google-providern är konfigurerad i Supabase-dashboarden
- * (Authentication → Providers → Google) — annars ger anropet ett fel.
+ * Kräver att respektive provider är konfigurerad i Supabase-dashboarden
+ * (Authentication → Providers) — annars ger anropet ett fel.
  */
-export async function signInWithGoogle(): Promise<void> {
+export async function signInWithProvider(provider: OAuthProvider): Promise<void> {
   const redirectTo =
     Platform.OS === "web"
       ? typeof window !== "undefined"
@@ -21,7 +23,7 @@ export async function signInWithGoogle(): Promise<void> {
       : Linking.createURL("/");
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider,
     options: { redirectTo, skipBrowserRedirect: Platform.OS !== "web" },
   });
   if (error) throw error;
@@ -45,3 +47,7 @@ export async function signInWithGoogle(): Promise<void> {
     await supabase.auth.exchangeCodeForSession(code);
   }
 }
+
+export const signInWithGoogle = () => signInWithProvider("google");
+export const signInWithApple = () => signInWithProvider("apple");
+export const signInWithFacebook = () => signInWithProvider("facebook");
