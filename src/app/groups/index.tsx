@@ -65,7 +65,7 @@ export default function GroupsScreen() {
     const { data } = await supabase
       .from("groups")
       .select(
-        "id,name,owner_id,created_at,group_members!inner(user_id,pinned_at,muted,archived)",
+        "id,name,owner_id,created_at,msg_streak,msg_streak_date,group_members!inner(user_id,pinned_at,muted,archived)",
       )
       .eq("group_members.user_id", userId)
       .order("created_at", { ascending: false });
@@ -386,6 +386,14 @@ export default function GroupsScreen() {
                     <View style={styles.groupNameRow}>
                       {p?.pinnedAt ? <Text style={{ fontSize: 12 }}>📌</Text> : null}
                       <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
+                      {(item.msg_streak ?? 0) > 1 ? (
+                        <Text style={{ fontSize: 12, color: c.textSecondary }}>
+                          🔥{item.msg_streak}
+                          {item.msg_streak_date !== new Date().toISOString().slice(0, 10)
+                            ? "⌛"
+                            : ""}
+                        </Text>
+                      ) : null}
                       {p?.muted ? <Text style={{ fontSize: 12 }}>🔕</Text> : null}
                       {unread[item.id] && !p?.muted ? (
                         <View style={styles.badge}>

@@ -28,6 +28,8 @@ export interface Group {
   energy_updated_at: string;
   goal_points?: number | null;
   goal_deadline?: string | null;
+  msg_streak?: number;
+  msg_streak_date?: string | null;
 }
 
 export interface Message {

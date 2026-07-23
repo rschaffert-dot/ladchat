@@ -280,6 +280,51 @@ function ChatImage({ path }: { path: string }) {
   );
 }
 
+/** 🔥 Snap: bilden kan bara ses en gång per enhet, i 10 sekunder. */
+function SnapImage({ id, path, tint }: { id: string; path: string; tint: string }) {
+  const [burned, setBurned] = useState<boolean | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [viewing, setViewing] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(`snapviewed:${id}`).then((v) => setBurned(Boolean(v)));
+  }, [id]);
+  async function view() {
+    const u = await getChatMediaUrl(path);
+    if (!u) return;
+    setUrl(u);
+    setViewing(true);
+    void AsyncStorage.setItem(`snapviewed:${id}`, "1");
+    setTimeout(() => {
+      setViewing(false);
+      setBurned(true);
+    }, 10_000);
+  }
+  if (burned === null) return <ActivityIndicator style={{ margin: 12 }} />;
+  if (viewing && url) {
+    return (
+      <Modal visible transparent animationType="fade" onRequestClose={() => setViewing(false)}>
+        <Pressable
+          style={styles.lightbox}
+          onPress={() => {
+            setViewing(false);
+            setBurned(true);
+          }}
+        >
+          <Image source={{ uri: url }} style={styles.lightboxImage} resizeMode="contain" />
+          <Text style={styles.snapCountdown}>🔥 Bilden brinner upp om 10 s — tryck för att stänga</Text>
+        </Pressable>
+      </Modal>
+    );
+  }
+  return burned ? (
+    <Text style={{ color: tint, fontSize: 14, fontStyle: "italic" }}>🔥 Snapen är bränd</Text>
+  ) : (
+    <Pressable onPress={view} style={styles.snapButton}>
+      <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🔥 Visa snap (en gång)</Text>
+    </Pressable>
+  );
+}
+
 const AUDIO_SPEEDS = [1, 1.5, 2] as const;
 
 function AudioBubble({
@@ -428,6 +473,8 @@ type RowActions = {
   retry: (m: LocalMsg) => void;
   removeLocal: (id: string) => void;
   openChallenge: (cid: string) => void;
+  openProfile: (uid: string) => void;
+  showOriginal: (m: LocalMsg) => void;
 };
 
 /** En meddelanderad, memoiserad: sekundtick, tangenttryck och andra
@@ -535,12 +582,20 @@ const ChatMessageRow = memo(function ChatMessageRow({
         {!mine ? (
           grouped ? (
             <View style={{ width: 26 }} />
-          ) : avatar ? (
-            <Image source={{ uri: avatar }} style={styles.msgAvatar} />
           ) : (
-            <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
-              <Text style={{ fontSize: 12 }}>👤</Text>
-            </View>
+            <Pressable
+              onPress={() => act.openProfile(item.user_id)}
+              accessibilityLabel="Visa medlemskort"
+              hitSlop={6}
+            >
+              {avatar ? (
+                <Image source={{ uri: avatar }} style={styles.msgAvatar} />
+              ) : (
+                <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
+                  <Text style={{ fontSize: 12 }}>👤</Text>
+                </View>
+              )}
+            </Pressable>
           )
         ) : null}
         <Pressable
@@ -578,7 +633,11 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </View>
           ) : null}
           {item.kind === "image" && item.metadata?.media_path ? (
-            <ChatImage path={item.metadata.media_path as string} />
+            item.metadata?.snap ? (
+              <SnapImage id={item.id} path={item.metadata.media_path as string} tint={mine ? "#fff" : c.text} />
+            ) : (
+              <ChatImage path={item.metadata.media_path as string} />
+            )
           ) : item.kind === "audio" && item.metadata?.media_path ? (
             <AudioBubble
               path={item.metadata.media_path as string}
@@ -654,7 +713,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 linkColor={mine ? "#bfdbfe" : c.brand}
                 suffix={
                   item.edited_at ? (
-                    <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                    <Text
+                      onPress={() => act.showOriginal(item)}
+                      style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}
+                    >
                       {"  (redigerad)"}
                     </Text>
                   ) : null
@@ -867,6 +929,7 @@ export default function GroupChatScreen() {
 
   // Skriver-indikator via broadcast: throttlad sändning, 3s självdöende.
   const [typingName, setTypingName] = useState<string | null>(null);
+  const [typingUserId, setTypingUserId] = useState<string | null>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingExpireRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingLastSentRef = useRef(0);
@@ -877,6 +940,7 @@ export default function GroupChatScreen() {
       .on("broadcast", { event: "typing" }, ({ payload }) => {
         const p = payload as { user_id?: string; name?: string };
         if (!p.user_id || p.user_id === userId) return;
+        setTypingUserId(p.user_id);
         setTypingName(p.name ?? "Någon");
         if (typingExpireRef.current) clearTimeout(typingExpireRef.current);
         typingExpireRef.current = setTimeout(() => setTypingName(null), 3000);
@@ -1151,6 +1215,310 @@ export default function GroupChatScreen() {
     }
     await checkin();
     toast("🧊 Streaken räddad! Frysen är förbrukad för denna månad.", 4000);
+  }
+
+  // 🤝 Vadslagning.
+  type Bet = {
+    id: string;
+    creator_id: string;
+    acceptor_id: string | null;
+    claim: string;
+    stake: number;
+    status: string;
+  };
+  const [bets, setBets] = useState<Bet[]>([]);
+  const [betModalOpen, setBetModalOpen] = useState(false);
+  const [betClaim, setBetClaim] = useState("");
+  const [betStake, setBetStake] = useState(20);
+  const loadBets = useCallback(async () => {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("bets")
+      .select("id, creator_id, acceptor_id, claim, stake, status")
+      .eq("group_id", groupId)
+      .in("status", ["open", "active"])
+      .order("created_at", { ascending: false })
+      .limit(3);
+    setBets((data ?? []) as Bet[]);
+  }, [groupId]);
+  useEffect(() => {
+    void loadBets();
+  }, [loadBets]);
+  async function submitBet() {
+    if (!groupId || !betClaim.trim()) return;
+    const { error } = await supabase.rpc("create_bet", {
+      gid: groupId,
+      claim_text: betClaim.trim(),
+      stake_amount: betStake,
+    });
+    if (error) toast("🤝 Kunde inte skapa vadet: " + error.message);
+    setBetModalOpen(false);
+    setBetClaim("");
+    void loadBets();
+  }
+  async function betAction(fn: "accept_bet" | "cancel_bet", bid: string) {
+    const { error } = await supabase.rpc(fn, { bid });
+    if (error) toast("🤝 " + error.message);
+    void loadBets();
+  }
+  async function settleBet(bid: string, winner: string) {
+    const { error } = await supabase.rpc("settle_bet", { bid, winner });
+    if (error) toast("🤝 " + error.message);
+    void loadBets();
+  }
+
+  async function buyLottery() {
+    if (!groupId) return;
+    const { error } = await supabase.rpc("buy_lottery_ticket", { gid: groupId });
+    toast(
+      error
+        ? "🎟 " + (error.message.includes("already") ? "Du är redan med denna vecka!" : error.message)
+        : "🎟 Lott köpt! Dragning söndag kväll. Lycka till!",
+    );
+  }
+
+  async function startFyllekollen() {
+    if (!groupId) return;
+    await supabase.rpc("create_poll", {
+      gid: groupId,
+      question: "🍺 Fyllekollen — hur packad är du just nu?",
+      options: ["1 — Spiknykter", "2 — Salongs", "3 — Rundgång", "4 — Dimma", "5 — Blackout"],
+    });
+  }
+
+  async function remindMe(msg: LocalMsg, whenLabel: "1h" | "ikväll" | "imorgon") {
+    if (!groupId) return;
+    const at = new Date();
+    if (whenLabel === "1h") at.setHours(at.getHours() + 1);
+    if (whenLabel === "ikväll") {
+      at.setHours(20, 0, 0, 0);
+      if (at.getTime() < Date.now()) at.setDate(at.getDate() + 1);
+    }
+    if (whenLabel === "imorgon") {
+      at.setDate(at.getDate() + 1);
+      at.setHours(9, 0, 0, 0);
+    }
+    const { error } = await supabase.rpc("set_reminder", {
+      gid: groupId,
+      txt: msg.content.slice(0, 120),
+      at_time: at.toISOString(),
+    });
+    toast(error ? "⏰ " + error.message : "⏰ Påminnelse satt!");
+  }
+
+  // Schemalagda meddelanden: långtryck på skicka-knappen.
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  async function scheduleSend(whenLabel: "1h" | "ikväll" | "imorgon") {
+    if (!groupId || !text.trim()) return;
+    const at = new Date();
+    if (whenLabel === "1h") at.setHours(at.getHours() + 1);
+    if (whenLabel === "ikväll") {
+      at.setHours(20, 0, 0, 0);
+      if (at.getTime() < Date.now()) at.setDate(at.getDate() + 1);
+    }
+    if (whenLabel === "imorgon") {
+      at.setDate(at.getDate() + 1);
+      at.setHours(9, 0, 0, 0);
+    }
+    const { error } = await supabase.rpc("schedule_message", {
+      gid: groupId,
+      txt: text.trim(),
+      at_time: at.toISOString(),
+    });
+    setScheduleOpen(false);
+    if (!error) {
+      setText("");
+      toast("🕐 Meddelandet skickas " + (whenLabel === "1h" ? "om en timme" : whenLabel) + "!");
+    } else {
+      toast("🕐 " + error.message);
+    }
+  }
+
+  // Kontaktkort: tryck på en avatar.
+  const [memberCard, setMemberCard] = useState<{
+    id: string;
+    name: string;
+    avatar: string | null;
+    points: number | null;
+    streak: number | null;
+    wins: number;
+    losses: number;
+  } | null>(null);
+  async function openMemberCard(uid: string) {
+    const prof = memberProfiles.find((m) => m.id === uid);
+    if (!prof || !groupId) return;
+    setMemberCard({
+      id: uid,
+      name: prof.name,
+      avatar: prof.avatar,
+      points: null,
+      streak: null,
+      wins: 0,
+      losses: 0,
+    });
+    const [{ data: gm }, { data: st }, { data: ds }] = await Promise.all([
+      supabase
+        .from("group_members")
+        .select("points")
+        .eq("group_id", groupId)
+        .eq("user_id", uid)
+        .maybeSingle(),
+      supabase
+        .from("streaks")
+        .select("current_streak")
+        .eq("group_id", groupId)
+        .eq("user_id", uid)
+        .maybeSingle(),
+      supabase
+        .from("duels")
+        .select("challenger_id, opponent_id, winner_id")
+        .eq("group_id", groupId)
+        .eq("status", "finished")
+        .or(`challenger_id.eq.${uid},opponent_id.eq.${uid}`),
+    ]);
+    let wins = 0;
+    let losses = 0;
+    for (const d of ds ?? []) {
+      const involvesMe = d.challenger_id === userId || d.opponent_id === userId;
+      if (!involvesMe || !d.winner_id) continue;
+      if (d.winner_id === uid) wins++;
+      else if (d.winner_id === userId) losses++;
+    }
+    setMemberCard((prev) =>
+      prev && prev.id === uid
+        ? {
+            ...prev,
+            points: (gm?.points as number) ?? 0,
+            streak: (st?.current_streak as number) ?? 0,
+            wins,
+            losses,
+          }
+        : prev,
+    );
+  }
+
+  // ⭐ Sparade meddelanden (lokalt per grupp).
+  const [starred, setStarred] = useState<{ id: string; author: string; content: string }[]>([]);
+  const [starredOpen, setStarredOpen] = useState(false);
+  useEffect(() => {
+    if (!groupId) return;
+    AsyncStorage.getItem(`starred:${groupId}`).then((raw) => {
+      if (raw) {
+        try {
+          setStarred(JSON.parse(raw));
+        } catch {
+          // trasig cache
+        }
+      }
+    });
+  }, [groupId]);
+  function starMessage(msg: LocalMsg) {
+    setStarred((prev) => {
+      const next = prev.some((s) => s.id === msg.id)
+        ? prev.filter((s) => s.id !== msg.id)
+        : [...prev, { id: msg.id, author: msg.author_name, content: msg.content }].slice(-50);
+      void AsyncStorage.setItem(`starred:${groupId}`, JSON.stringify(next));
+      return next;
+    });
+    toast("⭐ Sparat! Hitta det under 💪 → Sparade meddelanden");
+  }
+
+  // 🔥 Snap: bild som bara kan ses en gång per enhet.
+  async function sendSnap() {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.7 });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setAttachOpen(false);
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "🔥 Snap", {
+      snap: true,
+    });
+  }
+
+  // ⬇️ Exportera hela chatten som textfil (webb) eller delningsark (native).
+  async function exportChat() {
+    if (!groupId) return;
+    const { data } = await supabase
+      .from("messages")
+      .select("created_at, user_id, content, kind")
+      .eq("group_id", groupId)
+      .order("created_at")
+      .limit(2000);
+    const lines = (data ?? []).map(
+      (m) =>
+        `[${new Date(m.created_at as string).toLocaleString("sv-SE")}] ${
+          m.kind === "system"
+            ? "SYSTEM"
+            : (memberProfiles.find((p) => p.id === m.user_id)?.name ?? "?")
+        }: ${m.content}`,
+    );
+    const txt = lines.join("\n");
+    if (Platform.OS === "web" && typeof document !== "undefined") {
+      const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${group?.name ?? "ladchat"}.txt`;
+      a.click();
+    } else {
+      await Share.share({ message: txt.slice(0, 100_000) });
+    }
+  }
+
+  // Slash-kommandon: /hjul /party /duell /vad /lotteri /fylla /snap
+  function handleSlash(raw: string): boolean {
+    if (!raw.startsWith("/")) return false;
+    const [cmd, ...rest] = raw.slice(1).split(" ");
+    switch (cmd.toLowerCase()) {
+      case "hjul":
+        setWheelOpen(true);
+        setWheelIdx(null);
+        setWheelDone(false);
+        break;
+      case "party":
+        void startPartyMode();
+        break;
+      case "duell":
+        setDuelModalOpen(true);
+        break;
+      case "lotteri":
+        void buyLottery();
+        break;
+      case "fylla":
+        void startFyllekollen();
+        break;
+      case "snap":
+        void sendSnap();
+        break;
+      case "vad": {
+        const maybeStake = parseInt(rest[rest.length - 1] ?? "", 10);
+        if (rest.length >= 2 && !Number.isNaN(maybeStake)) {
+          setBetClaim(rest.slice(0, -1).join(" "));
+          setBetStake(maybeStake);
+        }
+        setBetModalOpen(true);
+        break;
+      }
+      default:
+        toast("Okänt kommando. Prova /hjul /party /duell /vad /lotteri /fylla /snap");
+    }
+    setText("");
+    return true;
+  }
+
+  // @-autocomplete: sista ordet börjar med @.
+  const mentionQuery = (() => {
+    const m = text.match(/@([\p{L}\w]*)$/u);
+    return m ? m[1].toLowerCase() : null;
+  })();
+  const mentionSuggestions =
+    mentionQuery !== null
+      ? memberProfiles
+          .filter((m) => m.id !== userId && m.name.toLowerCase().startsWith(mentionQuery))
+          .slice(0, 4)
+      : [];
+  function applyMention(name: string) {
+    setText((t) => t.replace(/@[\p{L}\w]*$/u, `@${name} `));
   }
   useEffect(() => {
     if (!groupId || !userId) return;
@@ -2060,6 +2428,7 @@ export default function GroupChatScreen() {
     }
     const content = text.trim();
     if (!content || !userId || !groupId) return;
+    if (handleSlash(content)) return;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const replyToId = replyTo?.id ?? null;
     const temp: LocalMsg = {
@@ -2356,6 +2725,11 @@ export default function GroupChatScreen() {
     removeLocal: removeLocalMessage,
     openChallenge: (cid) =>
       router.push({ pathname: "/challenges/[id]", params: { id: cid } }),
+    openProfile: (uid) => void openMemberCard(uid),
+    showOriginal: (m) => {
+      const orig = m.metadata?.original_content as string | undefined;
+      if (orig) toast(`✏️ Original: "${orig}"`, 5000);
+    },
   };
   const rowActions = useRef<RowActions>({
     openMenu: (m) => rowActionsLiveRef.current.openMenu(m),
@@ -2366,6 +2740,8 @@ export default function GroupChatScreen() {
     retry: (m) => rowActionsLiveRef.current.retry(m),
     removeLocal: (id) => rowActionsLiveRef.current.removeLocal(id),
     openChallenge: (cid) => rowActionsLiveRef.current.openChallenge(cid),
+    openProfile: (uid) => rowActionsLiveRef.current.openProfile(uid),
+    showOriginal: (m) => rowActionsLiveRef.current.showOriginal(m),
   }).current;
 
   sendMediaRef.current = sendMediaMessage;
@@ -2473,6 +2849,9 @@ export default function GroupChatScreen() {
 
       {typingName ? (
         <View style={[styles.typingRow, { flexDirection: "row", alignItems: "center", gap: 6 }]}>
+          {typingUserId && avatarsMap[typingUserId] ? (
+            <Image source={{ uri: avatarsMap[typingUserId]! }} style={styles.typingAvatar} />
+          ) : null}
           <Text style={{ color: c.textSecondary, fontSize: 12, fontStyle: "italic" }}>
             {typingName} skriver
           </Text>
@@ -2522,6 +2901,10 @@ export default function GroupChatScreen() {
             <Text style={styles.attachEmoji}>🖼️</Text>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Bild</Text>
           </Pressable>
+          <Pressable onPress={() => void sendSnap()} style={styles.attachBtn} disabled={uploadingMedia}>
+            <Text style={styles.attachEmoji}>🔥</Text>
+            <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Snap</Text>
+          </Pressable>
           <Pressable onPress={() => setPollModalOpen(true)} style={styles.attachBtn}>
             <Text style={styles.attachEmoji}>📊</Text>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Omröstning</Text>
@@ -2547,6 +2930,20 @@ export default function GroupChatScreen() {
           <Pressable onPress={cancelRecording} hitSlop={12}>
             <Text style={{ fontSize: 18 }}>🗑</Text>
           </Pressable>
+        </View>
+      ) : null}
+
+      {mentionSuggestions.length > 0 ? (
+        <View style={[styles.mentionRow, { backgroundColor: c.backgroundElement }]}>
+          {mentionSuggestions.map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={() => applyMention(m.name)}
+              style={[styles.mentionChip, { backgroundColor: c.backgroundSelected }]}
+            >
+              <Text style={{ color: c.text, fontWeight: "700", fontSize: 13 }}>@{m.name}</Text>
+            </Pressable>
+          ))}
         </View>
       ) : null}
 
@@ -2634,6 +3031,9 @@ export default function GroupChatScreen() {
             </Pressable>
             <Pressable
               onPress={send}
+              onLongPress={() => text.trim().length > 0 && setScheduleOpen(true)}
+              delayLongPress={400}
+              accessibilityLabel="Skicka (håll in för att schemalägga)"
               disabled={sending || text.trim().length === 0}
               style={[
                 styles.sendCircle,
@@ -2674,6 +3074,13 @@ export default function GroupChatScreen() {
         <Pressable onPress={() => setSettingsOpen(true)} style={styles.headerTitleZone}>
           <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
             {group?.name ?? ""}
+            {(group?.msg_streak ?? 0) > 1 ? (
+              <Text style={{ fontSize: 13 }}>
+                {"  🔥"}
+                {group?.msg_streak}
+                {group?.msg_streak_date !== new Date().toISOString().slice(0, 10) ? "⌛" : ""}
+              </Text>
+            ) : null}
           </Text>
           {typingName ? (
             <Text style={{ color: c.textSecondary, fontSize: 11 }} numberOfLines={1}>
@@ -2778,6 +3185,41 @@ export default function GroupChatScreen() {
           </Pressable>
         </View>
       ) : null}
+
+      {bets.map((b) => (
+        <View key={b.id} style={[styles.goalBanner, { backgroundColor: c.backgroundElement }]}>
+          <Text style={{ color: c.text, fontSize: 12, flex: 1 }} numberOfLines={2}>
+            🤝 {namesRef.current[b.creator_id] ?? memberProfiles.find((m) => m.id === b.creator_id)?.name ?? "?"}
+            {": "}
+            {"”"}
+            {b.claim}
+            {"”"} · {b.stake}p{b.status === "active" ? " · pott " + b.stake * 2 + "p" : ""}
+          </Text>
+          {b.status === "open" && b.creator_id !== userId ? (
+            <Pressable onPress={() => void betAction("accept_bet", b.id)} hitSlop={8}>
+              <Text style={{ color: settings.color, fontWeight: "800", fontSize: 12 }}>ANTA</Text>
+            </Pressable>
+          ) : null}
+          {b.status === "open" && b.creator_id === userId ? (
+            <Pressable onPress={() => void betAction("cancel_bet", b.id)} hitSlop={8}>
+              <Text style={{ color: c.textSecondary, fontSize: 12 }}>Avbryt</Text>
+            </Pressable>
+          ) : null}
+          {b.status === "active" && userId !== b.creator_id && userId !== b.acceptor_id ? (
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              {[b.creator_id, b.acceptor_id].map((pid) =>
+                pid ? (
+                  <Pressable key={pid} onPress={() => void settleBet(b.id, pid)} hitSlop={6}>
+                    <Text style={{ color: settings.color, fontWeight: "700", fontSize: 11 }}>
+                      🏆 {memberProfiles.find((m) => m.id === pid)?.name?.split(" ")[0] ?? "?"}
+                    </Text>
+                  </Pressable>
+                ) : null,
+              )}
+            </View>
+          ) : null}
+        </View>
+      ))}
 
       {celebration ? (
         <View style={styles.celebrationBanner}>
@@ -3011,6 +3453,191 @@ export default function GroupChatScreen() {
         )}
       </KeyboardAvoidingView>
 
+      {/* Kontaktkort. */}
+      <Modal
+        visible={!!memberCard}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMemberCard(null)}
+      >
+        <Pressable style={styles.ctxBackdrop} onPress={() => setMemberCard(null)}>
+          {memberCard ? (
+            <Pressable
+              style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 12, alignItems: "center" }]}
+              onPress={() => {}}
+            >
+              {memberCard.avatar ? (
+                <Image source={{ uri: memberCard.avatar }} style={styles.cardAvatar} />
+              ) : (
+                <View style={[styles.cardAvatar, { backgroundColor: c.backgroundSelected, alignItems: "center", justifyContent: "center" }]}>
+                  <Text style={{ fontSize: 30 }}>👤</Text>
+                </View>
+              )}
+              <Text style={{ color: c.text, fontSize: 20, fontWeight: "800" }}>
+                {levelForPoints(memberCard.points ?? 0) >= 5 ? "👑 " : ""}
+                {memberCard.name}
+              </Text>
+              <Text style={{ color: c.textSecondary, fontSize: 14 }}>
+                {memberCard.points !== null
+                  ? `${titleForPoints(memberCard.points)} · ${memberCard.points} ${CURRENCY_META[settings.currency].emoji}`
+                  : "Laddar…"}
+              </Text>
+              <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+                🔥 {memberCard.streak ?? 0} dagars streak
+                {memberCard.wins + memberCard.losses > 0
+                  ? ` · ⚔️ mot dig: ${memberCard.losses}–${memberCard.wins}`
+                  : ""}
+              </Text>
+              {memberCard.id !== userId ? (
+                <Pressable
+                  onPress={() => {
+                    setMemberCard(null);
+                    setDuelModalOpen(true);
+                  }}
+                  style={[styles.claimBtnLike, { backgroundColor: settings.color, alignSelf: "stretch" }]}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "800" }}>⚔️ Utmana på duell</Text>
+                </Pressable>
+              ) : null}
+            </Pressable>
+          ) : null}
+        </Pressable>
+      </Modal>
+
+      {/* 🤝 Nytt vad. */}
+      <Modal
+        visible={betModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setBetModalOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setBetModalOpen(false)}>
+          <View style={{ flex: 1 }} />
+          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <Text style={[styles.starTitle, { color: c.text }]}>🤝 Slå vad</Text>
+            <TextInput
+              value={betClaim}
+              onChangeText={setBetClaim}
+              placeholder="Vad handlar vadet om? (t.ex. AIK vinner ikväll)"
+              placeholderTextColor={c.textSecondary}
+              style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
+            />
+            <View style={styles.swatchRow}>
+              {[10, 20, 50, 100].map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setBetStake(s)}
+                  style={[
+                    styles.currencyChip,
+                    { borderColor: betStake === s ? settings.color : c.backgroundSelected },
+                  ]}
+                >
+                  <Text style={{ color: c.text, fontWeight: "700", fontSize: 13 }}>{s}p</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              onPress={() => void submitBet()}
+              disabled={!betClaim.trim()}
+              style={[
+                styles.claimBtnLike,
+                { backgroundColor: settings.color, opacity: betClaim.trim() ? 1 : 0.4 },
+              ]}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Lägg vadet ({betStake}p)</Text>
+            </Pressable>
+            <Text style={{ color: c.textSecondary, fontSize: 11, textAlign: "center" }}>
+              Poängen dras när någon antar. En neutral polare i gruppen avgör vinnaren.
+            </Text>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* ⭐ Sparade meddelanden. */}
+      <Modal
+        visible={starredOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStarredOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setStarredOpen(false)}>
+          <View style={{ flex: 1 }} />
+          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <Text style={[styles.starTitle, { color: c.text }]}>⭐ Sparade meddelanden</Text>
+            {starred.length === 0 ? (
+              <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
+                Inget sparat än — långtryck på ett meddelande och välj ⭐ Spara.
+              </Text>
+            ) : (
+              starred
+                .slice()
+                .reverse()
+                .map((s) => (
+                  <View key={s.id} style={[styles.starItem, { backgroundColor: c.backgroundElement }]}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: c.brand, fontSize: 11, fontWeight: "700" }}>
+                        {s.author}
+                      </Text>
+                      <Text style={{ color: c.text, fontSize: 14 }} numberOfLines={3}>
+                        {s.content}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() =>
+                        setStarred((prev) => {
+                          const next = prev.filter((x) => x.id !== s.id);
+                          void AsyncStorage.setItem(`starred:${groupId}`, JSON.stringify(next));
+                          return next;
+                        })
+                      }
+                      hitSlop={8}
+                    >
+                      <Text style={{ color: c.textSecondary, fontSize: 16 }}>×</Text>
+                    </Pressable>
+                  </View>
+                ))
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* 🕐 Schemalägg meddelande. */}
+      <Modal
+        visible={scheduleOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setScheduleOpen(false)}
+      >
+        <Pressable style={styles.ctxBackdrop} onPress={() => setScheduleOpen(false)}>
+          <Pressable
+            style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 10 }]}
+            onPress={() => {}}
+          >
+            <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
+              🕐 Skicka senare
+            </Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12 }} numberOfLines={2}>
+              {"”"}{text.trim()}{"”"}
+            </Text>
+            {(
+              [
+                ["1h", "Om en timme"],
+                ["ikväll", "Ikväll 20:00"],
+                ["imorgon", "Imorgon 09:00"],
+              ] as ["1h" | "ikväll" | "imorgon", string][]
+            ).map(([key, label]) => (
+              <Pressable
+                key={key}
+                onPress={() => void scheduleSend(key)}
+                style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
+              >
+                <Text style={[styles.starLabel, { color: c.text }]}>{label}</Text>
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Förstagångstips. */}
       <Modal
         visible={showOnboarding}
@@ -3175,6 +3802,51 @@ export default function GroupChatScreen() {
                   <Text style={[styles.ctxActionText, { color: c.text }]}>↪️ Vidarebefordra</Text>
                 </Pressable>
               ) : null}
+              {menuMsg.kind === "user" && !menuMsg.pending ? (
+                <Pressable
+                  onPress={() => {
+                    starMessage(menuMsg);
+                    setMenuMsg(null);
+                  }}
+                  style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
+                >
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>
+                    {starred.some((s) => s.id === menuMsg.id) ? "⭐ Ta bort stjärna" : "⭐ Spara"}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {!menuMsg.pending && !menuMsg.failed ? (
+                <View style={[styles.ctxAction, { borderTopColor: c.backgroundElement, flexDirection: "row", gap: 16 }]}>
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>⏰ Påminn:</Text>
+                  <Pressable
+                    onPress={() => {
+                      void remindMe(menuMsg, "1h");
+                      setMenuMsg(null);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={[styles.ctxActionText, { color: c.brand }]}>om 1 h</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      void remindMe(menuMsg, "ikväll");
+                      setMenuMsg(null);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={[styles.ctxActionText, { color: c.brand }]}>ikväll</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      void remindMe(menuMsg, "imorgon");
+                      setMenuMsg(null);
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text style={[styles.ctxActionText, { color: c.brand }]}>imorgon</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {menuMsg.user_id === userId &&
               menuMsg.kind === "user" &&
               !menuMsg.pending &&
@@ -3280,6 +3952,18 @@ export default function GroupChatScreen() {
                   emoji: "🎉",
                   label: "Partyläge — 2h dubbel XP",
                   action: () => void startPartyMode(),
+                },
+                { emoji: "🤝", label: "Slå vad om poäng", action: () => setBetModalOpen(true) },
+                {
+                  emoji: "🎟",
+                  label: "Veckans lotteri (10p/lott)",
+                  action: () => void buyLottery(),
+                },
+                { emoji: "🍺", label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
+                {
+                  emoji: "⭐",
+                  label: `Sparade meddelanden (${starred.length})`,
+                  action: () => setStarredOpen(true),
                 },
                 {
                   emoji: "🔗",
@@ -3591,13 +4275,20 @@ export default function GroupChatScreen() {
 
           {teamScore ? (
             <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
+              <Pressable onPress={() => void exportChat()} hitSlop={6}>
+            <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+              ⬇️ Exportera chatten som textfil
+            </Text>
+          </Pressable>
+
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
               <View style={styles.leaderboardRow}>
                 <Text style={{ color: c.text, fontSize: 15, fontWeight: "800" }}>
                   🛡 {teamScore.total} teampoäng
                 </Text>
                 <Text style={{ color: c.textSecondary, fontSize: 12 }}>
-                  {teamScore.member} individuellt + {teamScore.team} team
+                  {teamScore.member} individuellt + {teamScore.team} team · Gruppnivå{" "}
+                  {Math.min(10, 1 + Math.floor(teamScore.total / 250))}
                 </Text>
               </View>
             </>
@@ -3610,6 +4301,7 @@ export default function GroupChatScreen() {
                 {leaderboard.map((row) => (
                   <View key={row.userId} style={styles.leaderboardRow}>
                     <Text style={{ color: c.text, fontSize: 13 }}>
+                      {levelForPoints(row.points) >= 5 ? "👑 " : ""}
                       {row.name} · {titleForPoints(row.points)}
                     </Text>
                     <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
@@ -4205,6 +4897,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
+  snapButton: {
+    backgroundColor: "#b91c1c",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  snapCountdown: {
+    position: "absolute",
+    bottom: 40,
+    alignSelf: "center",
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  cardAvatar: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
+  mentionRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    flexWrap: "wrap",
+  },
+  mentionChip: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
+  typingAvatar: { width: 18, height: 18, borderRadius: 9 },
   jumpBtn: {
     position: "absolute",
     bottom: 14,
