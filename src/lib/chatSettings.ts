@@ -13,6 +13,14 @@ export const CURRENCY_OPTIONS: Currency[] = [
   "Fanny farts",
 ];
 
+/** Subtila symboler per valuta — antyder utan att skrika. */
+export const CURRENCY_META: Record<Currency, { emoji: string }> = {
+  Douchepoints: { emoji: "🚿" },
+  "Ass points": { emoji: "🍑" },
+  "Dick sticks": { emoji: "🌭" },
+  "Fanny farts": { emoji: "💨" },
+};
+
 export type ChatSettings = {
   color: string;
   background: string;

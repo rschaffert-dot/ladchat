@@ -241,31 +241,6 @@ export default function GroupsScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.currencyRow}>
-          {CURRENCY_OPTIONS.map((option) => (
-            <Pressable
-              key={option}
-              onPress={() => setCurrency(option)}
-              style={[
-                styles.chip,
-                { borderColor: c.backgroundSelected },
-                currency === option
-                  ? { backgroundColor: c.brand, borderColor: c.brand }
-                  : null,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: currency === option ? "#fff" : c.text },
-                ]}
-              >
-                {option}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
         <View style={styles.row}>
           <TextInput
             value={code}

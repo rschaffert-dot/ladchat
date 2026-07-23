@@ -37,6 +37,7 @@ import { BEER_DURATION_BONUS, BEER_DURATION_OPTIONS, BEER_GLASSES } from "@/lib/
 import {
   BACKGROUND_OPTIONS,
   COLOR_OPTIONS,
+  CURRENCY_META,
   CURRENCY_OPTIONS,
   DEFAULT_CHAT_SETTINGS,
   loadChatSettings,
@@ -2983,6 +2984,34 @@ export default function GroupChatScreen() {
             ))}
           </View>
 
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poängvaluta</Text>
+          <View style={styles.swatchRow}>
+            {CURRENCY_OPTIONS.map((cur) => (
+              <Pressable
+                key={cur}
+                onPress={() => updateSettings({ currency: cur })}
+                style={[
+                  styles.currencyChip,
+                  { borderColor: c.backgroundSelected },
+                  settings.currency === cur
+                    ? { borderColor: settings.color, backgroundColor: c.backgroundElement }
+                    : null,
+                ]}
+              >
+                <Text style={{ fontSize: 14 }}>{CURRENCY_META[cur].emoji}</Text>
+                <Text
+                  style={{
+                    color: settings.currency === cur ? c.text : c.textSecondary,
+                    fontSize: 12,
+                    fontWeight: "700",
+                  }}
+                >
+                  {cur}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Bakgrund</Text>
           <View style={styles.swatchRow}>
             {BACKGROUND_OPTIONS.map((bg) => (
@@ -3177,7 +3206,8 @@ export default function GroupChatScreen() {
                       {row.name} · {titleForPoints(row.points)}
                     </Text>
                     <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
-                      {row.points} {settings.currency}
+                      {row.points} {CURRENCY_META[settings.currency].emoji}{" "}
+                      {settings.currency}
                     </Text>
                   </View>
                 ))}
@@ -3874,6 +3904,15 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 18, fontWeight: "800", marginBottom: 8 },
   sheetLabel: { fontSize: 13, fontWeight: "600", marginTop: 14, marginBottom: 8 },
   swatchRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
+  currencyChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   swatch: {
     width: 36,
     height: 36,
