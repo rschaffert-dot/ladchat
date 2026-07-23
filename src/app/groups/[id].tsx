@@ -2396,7 +2396,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text style={{ color: settings.color, fontSize: 18 }}>✦</Text>
+              <Text style={{ fontSize: 24 }}>💪</Text>
             </Pressable>
             <Pressable
               onPress={() => {
