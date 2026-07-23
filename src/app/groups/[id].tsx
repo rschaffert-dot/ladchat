@@ -33,6 +33,8 @@ import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
+import { avatarUrl } from "@/lib/avatar";
+import { SkeletonBubbles } from "@/components/Skeleton";
 import { BEER_DURATION_BONUS, BEER_DURATION_OPTIONS, BEER_GLASSES } from "@/lib/beer";
 import {
   BACKGROUND_OPTIONS,
@@ -75,6 +77,20 @@ type LeaderboardRow = { userId: string; name: string; points: number };
 
 /** Lokala sändningstillstånd för optimistisk UI (finns aldrig i databasen). */
 type LocalMsg = MessageWithAuthor & { pending?: boolean; failed?: boolean };
+
+/** "Idag", "Igår" eller "måndag 21 juli" för datumavdelare i flödet. */
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return "Idag";
+  const yesterday = new Date(today.getTime() - 86_400_000);
+  if (d.toDateString() === yesterday.toDateString()) return "Igår";
+  return d.toLocaleDateString("sv-SE", { weekday: "long", day: "numeric", month: "long" });
+}
+
+function sameDay(a: string, b: string): boolean {
+  return new Date(a).toDateString() === new Date(b).toDateString();
+}
 
 /** Diskret haptik där plattformen stödjer det — tyst annars. */
 function buzz(ms = 10) {
@@ -431,6 +447,9 @@ const ChatMessageRow = memo(function ChatMessageRow({
   readUpTo,
   poll,
   highlighted,
+  avatar,
+  dateLabel,
+  grouped,
   act,
 }: {
   item: LocalMsg;
@@ -446,11 +465,22 @@ const ChatMessageRow = memo(function ChatMessageRow({
   readUpTo: string | null;
   poll: PollView | null;
   highlighted?: boolean;
+  avatar: string | null;
+  dateLabel: string | null;
+  grouped: boolean;
   act: RowActions;
 }) {
+  const dateSeparator = dateLabel ? (
+    <View style={styles.dateSep}>
+      <Text style={[styles.dateSepText, { color: c.textSecondary }]}>{dateLabel}</Text>
+    </View>
+  ) : null;
+
   if (item.kind === "system") {
     const challengeId = item.metadata?.challenge_id as string | undefined;
     return (
+      <>
+      {dateSeparator}
       <Pressable
         onPress={() => challengeId && act.openChallenge(challengeId)}
         style={[styles.systemPill, { backgroundColor: c.backgroundElement }]}
@@ -461,11 +491,14 @@ const ChatMessageRow = memo(function ChatMessageRow({
           {item.content} {challengeId ? "→" : ""}
         </Text>
       </Pressable>
+      </>
     );
   }
 
   let swipeRef: Swipeable | null = null;
   return (
+    <>
+    {dateSeparator}
     <Swipeable
       ref={(r) => {
         swipeRef = r;
@@ -486,11 +519,29 @@ const ChatMessageRow = memo(function ChatMessageRow({
         swipeRef?.close();
       }}
     >
-      <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
-        {authorName ? (
+      <View
+        style={[
+          styles.msgRow,
+          mine ? styles.mine : styles.theirs,
+          grouped ? { marginTop: -5 } : null,
+        ]}
+      >
+        {authorName && !grouped ? (
           <Text style={[styles.author, { color: c.textSecondary }]}>
             {authorName} · <Text style={{ fontWeight: "700" }}>{authorTitle}</Text>
           </Text>
+        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 6 }}>
+        {!mine ? (
+          grouped ? (
+            <View style={{ width: 26 }} />
+          ) : avatar ? (
+            <Image source={{ uri: avatar }} style={styles.msgAvatar} />
+          ) : (
+            <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
+              <Text style={{ fontSize: 12 }}>👤</Text>
+            </View>
+          )
         ) : null}
         <Pressable
           onLongPress={() => act.openMenu(item)}
@@ -506,11 +557,22 @@ const ChatMessageRow = memo(function ChatMessageRow({
           ]}
         >
           {item.reply_to_id ? (
-            <View style={styles.quoteBox}>
-              <Text style={styles.quoteAuthor} numberOfLines={1}>
+            <View
+              style={[
+                styles.quoteBox,
+                !mine ? { borderLeftColor: c.textSecondary } : null,
+              ]}
+            >
+              <Text
+                style={[styles.quoteAuthor, !mine ? { color: c.text } : null]}
+                numberOfLines={1}
+              >
                 {parentAuthor ?? "Svar"}
               </Text>
-              <Text style={styles.quoteContent} numberOfLines={2}>
+              <Text
+                style={[styles.quoteContent, !mine ? { color: c.textSecondary } : null]}
+                numberOfLines={2}
+              >
                 {parentContent ?? "…"}
               </Text>
             </View>
@@ -601,6 +663,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             </>
           )}
         </Pressable>
+        </View>
         {mine && isLatestOwn && !item.pending && !item.failed ? (
           <Text
             style={[
@@ -660,6 +723,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         })()}
       </View>
     </Swipeable>
+    </>
   );
 });
 
@@ -841,6 +905,11 @@ export default function GroupChatScreen() {
   // Läskvitton: ✓ = skickat, blå ✓✓ = alla andra medlemmar har läst.
   const [reads, setReads] = useState<Record<string, string>>({});
   const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [memberProfiles, setMemberProfiles] = useState<
+    { id: string; name: string; avatar: string | null }[]
+  >([]);
+  const avatarsMap = Object.fromEntries(memberProfiles.map((m) => [m.id, m.avatar]));
+  const [goalTotal, setGoalTotal] = useState<number | null>(null);
   useEffect(() => {
     if (!groupId || !userId) return;
     void supabase.rpc("mark_read", { gid: groupId });
@@ -848,7 +917,28 @@ export default function GroupChatScreen() {
       .from("group_members")
       .select("user_id")
       .eq("group_id", groupId)
-      .then(({ data }) => setMemberIds((data ?? []).map((m) => m.user_id as string)));
+      .then(async ({ data }) => {
+        const ids = (data ?? []).map((m) => m.user_id as string);
+        setMemberIds(ids);
+        if (ids.length === 0) return;
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id,display_name,email,avatar_path")
+          .in("id", ids);
+        setMemberProfiles(
+          (profs ?? []).map((p) => ({
+            id: p.id as string,
+            name: (p.display_name || p.email || "Okänd") as string,
+            avatar: avatarUrl(p.avatar_path as string | null),
+          })),
+        );
+      });
+    void supabase
+      .from("group_scores")
+      .select("total_points")
+      .eq("group_id", groupId)
+      .maybeSingle()
+      .then(({ data }) => setGoalTotal((data?.total_points as number) ?? null));
     void supabase
       .from("message_reads")
       .select("user_id, last_read_at")
@@ -947,9 +1037,36 @@ export default function GroupChatScreen() {
   async function copyMessage(msg: LocalMsg) {
     await Clipboard.setStringAsync(msg.content);
   }
-  async function deleteMessage(msg: LocalMsg) {
+  // Radering med ångra-fönster: bubblan försvinner direkt, servern raderar
+  // först efter 5 s — hinner man trycka Ångra återuppstår den orörd.
+  const pendingDeleteRef = useRef<{
+    msg: LocalMsg;
+    timer: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const [undoVisible, setUndoVisible] = useState(false);
+  function deleteMessage(msg: LocalMsg) {
+    if (pendingDeleteRef.current) {
+      clearTimeout(pendingDeleteRef.current.timer);
+      void supabase.from("messages").delete().eq("id", pendingDeleteRef.current.msg.id);
+    }
     setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-    await supabase.from("messages").delete().eq("id", msg.id);
+    const timer = setTimeout(() => {
+      void supabase.from("messages").delete().eq("id", msg.id);
+      pendingDeleteRef.current = null;
+      setUndoVisible(false);
+    }, 5000);
+    pendingDeleteRef.current = { msg, timer };
+    setUndoVisible(true);
+  }
+  function undoDelete() {
+    const p = pendingDeleteRef.current;
+    if (!p) return;
+    clearTimeout(p.timer);
+    pendingDeleteRef.current = null;
+    setUndoVisible(false);
+    setMessages((prev) =>
+      [...prev, p.msg].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    );
   }
   /** Dubbeltryck = snabbreaktion (💪), enkeltryck lämnas till innehållet. */
   function onBubbleTap(item: LocalMsg, mine: boolean) {
@@ -967,10 +1084,73 @@ export default function GroupChatScreen() {
   const [starOpen, setStarOpen] = useState(false);
   const [callNote, setCallNote] = useState<string | null>(null);
   const callNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function noteCall(video: boolean) {
+  function toast(text: string, ms = 2500) {
     if (callNoteTimer.current) clearTimeout(callNoteTimer.current);
-    setCallNote(video ? "🎥 Videosamtal kommer i en senare fas!" : "📞 Gruppsamtal kommer i en senare fas!");
-    callNoteTimer.current = setTimeout(() => setCallNote(null), 2500);
+    setCallNote(text);
+    callNoteTimer.current = setTimeout(() => setCallNote(null), ms);
+  }
+  function noteCall(video: boolean) {
+    toast(video ? "🎥 Videosamtal kommer i en senare fas!" : "📞 Gruppsamtal kommer i en senare fas!");
+  }
+
+  // Förstagångstips: tre snabba rader om chattens dolda krafter.
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem("onboarded:chat:v1").then((v) => {
+      if (!v) setShowOnboarding(true);
+    });
+  }, []);
+  function dismissOnboarding() {
+    setShowOnboarding(false);
+    void AsyncStorage.setItem("onboarded:chat:v1", "1");
+  }
+
+  // 🎡 Vem gör det? — snurra fram en syndabock ur medlemslistan.
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const [wheelIdx, setWheelIdx] = useState<number | null>(null);
+  const [wheelSpinning, setWheelSpinning] = useState(false);
+  const [wheelDone, setWheelDone] = useState(false);
+  const wheelTimeouts = useRef<ReturnType<typeof setTimeout>[]>([]);
+  useEffect(() => () => wheelTimeouts.current.forEach(clearTimeout), []);
+  function spinWheel() {
+    if (wheelSpinning || memberProfiles.length === 0) return;
+    setWheelSpinning(true);
+    setWheelDone(false);
+    const finalIdx = Math.floor(Math.random() * memberProfiles.length);
+    const steps = 16 + finalIdx + memberProfiles.length;
+    let delay = 0;
+    for (let s = 0; s <= steps; s++) {
+      delay += 55 + s * 12;
+      const idx = s % memberProfiles.length;
+      const t = setTimeout(() => {
+        setWheelIdx(idx);
+        if (s === steps) {
+          setWheelSpinning(false);
+          setWheelDone(true);
+          buzz(15);
+        }
+      }, delay);
+      wheelTimeouts.current.push(t);
+    }
+  }
+
+  async function startPartyMode() {
+    if (!groupId) return;
+    const { error } = await supabase.rpc("start_party_mode", { gid: groupId });
+    if (error) {
+      toast("🎉 Kunde inte starta — party/power hour pågår redan!");
+    }
+  }
+
+  async function freezeStreak() {
+    if (!groupId) return;
+    const { error } = await supabase.rpc("use_streak_freeze", { gid: groupId });
+    if (error) {
+      toast("🧊 Frysen gick inte att använda (redan använd denna månad?)");
+      return;
+    }
+    await checkin();
+    toast("🧊 Streaken räddad! Frysen är förbrukad för denna månad.", 4000);
   }
   useEffect(() => {
     if (!groupId || !userId) return;
@@ -2194,7 +2374,7 @@ export default function GroupChatScreen() {
     <>
       <View style={styles.flex}>
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 32 }} />
+        <SkeletonBubbles />
       ) : (
         <FlatList
           ref={listRef}
@@ -2230,15 +2410,33 @@ export default function GroupChatScreen() {
               Inga meddelanden än. Skriv det första!
             </Text>
           }
-          renderItem={({ item }) => {
+          renderItem={({ item, index }) => {
             const mine = item.user_id === userId;
             const parent = item.reply_to_id
               ? messages.find((m) => m.id === item.reply_to_id)
               : undefined;
+            // Inverterad lista: index+1 är det ÄLDRE grannmeddelandet.
+            const older = messages[index + 1];
+            const grouped = Boolean(
+              older &&
+                older.kind !== "system" &&
+                item.kind !== "system" &&
+                older.user_id === item.user_id &&
+                sameDay(older.created_at, item.created_at) &&
+                new Date(item.created_at).getTime() - new Date(older.created_at).getTime() <
+                  5 * 60_000,
+            );
+            const dateLabel =
+              !older || !sameDay(older.created_at, item.created_at)
+                ? dayLabel(item.created_at)
+                : null;
             return (
               <ChatMessageRow
                 item={item as LocalMsg}
                 mine={mine}
+                avatar={avatarsMap[item.user_id] ?? null}
+                dateLabel={dateLabel}
+                grouped={grouped}
                 authorName={!mine && item.kind !== "system" ? item.author_name : null}
                 authorTitle={
                   !mine && item.kind !== "system"
@@ -2352,6 +2550,15 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
+      {undoVisible ? (
+        <View style={styles.undoBar}>
+          <Text style={{ color: "#fff", flex: 1, fontSize: 13 }}>Meddelande borttaget</Text>
+          <Pressable onPress={undoDelete} hitSlop={10}>
+            <Text style={{ color: "#f2a916", fontWeight: "800", fontSize: 13 }}>ÅNGRA</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* Claude-lik komposer: textytan i full bredd överst, knapparna
           flytande i en rad under, och rutan växer med innehållet. */}
       <View style={styles.composerWrap}>
@@ -2382,6 +2589,7 @@ export default function GroupChatScreen() {
                 setEmojiOpen(false);
               }}
               hitSlop={6}
+              accessibilityLabel="Bifoga bild eller omröstning"
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
               <Text style={{ color: c.text, fontSize: 22, fontWeight: "400", lineHeight: 24 }}>
@@ -2397,7 +2605,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text style={{ fontSize: 24 }}>💪</Text>
+              <Text accessibilityLabel="Starta något — spel, dueller och mer" style={{ fontSize: 24 }}>💪</Text>
               <View style={[styles.moreBadge, { backgroundColor: settings.color }]}>
                 <Text style={styles.moreBadgeText}>+</Text>
               </View>
@@ -2477,13 +2685,13 @@ export default function GroupChatScreen() {
             </Text>
           ) : null}
         </Pressable>
-        <Pressable onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
+        <Pressable accessibilityLabel="Gruppsamtal" onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>📞</Text>
         </Pressable>
-        <Pressable onPress={() => noteCall(true)} hitSlop={8} style={styles.gear}>
+        <Pressable accessibilityLabel="Videosamtal" onPress={() => noteCall(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>🎥</Text>
         </Pressable>
-        <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
+        <Pressable accessibilityLabel="Chattinställningar" onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>⚙️</Text>
         </Pressable>
       </View>
@@ -2521,7 +2729,16 @@ export default function GroupChatScreen() {
       ) : null}
 
       {/* Gemensam energibar: fylls av aktivitet, sjunker vid tystnad. */}
-      <View style={[styles.energyTrack, { backgroundColor: c.backgroundElement }]}>
+      <Pressable
+        accessibilityLabel="Energibar — tryck för förklaring"
+        onPress={() =>
+          toast(
+            "⚡ Energibaren fylls när ni chattar och sjunker vid tystnad. Full bar startar Power Hour med dubbel XP! Syns ett ölglas i bakgrunden pågår en ölrunda — det fylls också av aktivitet.",
+            6000,
+          )
+        }
+        style={[styles.energyTrack, { backgroundColor: c.backgroundElement }]}
+      >
         <View
           style={[
             styles.energyFill,
@@ -2531,7 +2748,36 @@ export default function GroupChatScreen() {
             },
           ]}
         />
-      </View>
+      </Pressable>
+
+      {group?.goal_points && group.goal_deadline && !dismissed[`goal:${group.goal_points}`] ? (
+        <View style={[styles.goalBanner, { backgroundColor: c.backgroundElement }]}>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>
+              🎯 Gruppmål: {goalTotal ?? "…"}/{group.goal_points} teampoäng före{" "}
+              {new Date(group.goal_deadline).toLocaleDateString("sv-SE", {
+                day: "numeric",
+                month: "short",
+              })}
+              {goalTotal !== null && goalTotal >= group.goal_points ? " — I MÅL! 🏆" : ""}
+            </Text>
+            <View style={[styles.progressTrackThin, { backgroundColor: c.backgroundSelected }]}>
+              <View
+                style={[
+                  styles.progressFillThin,
+                  {
+                    backgroundColor: settings.color,
+                    width: `${Math.min(100, Math.round(((goalTotal ?? 0) / group.goal_points) * 100))}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+          <Pressable onPress={() => dismissBanner(`goal:${group.goal_points}`)} hitSlop={10}>
+            <Text style={[styles.bannerClose, { color: c.textSecondary }]}>×</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {celebration ? (
         <View style={styles.celebrationBanner}>
@@ -2567,6 +2813,12 @@ export default function GroupChatScreen() {
               här!
             </Text>
           </Pressable>
+          {streak.last_checkin &&
+          streak.last_checkin < new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) ? (
+            <Pressable onPress={() => void freezeStreak()} hitSlop={8}>
+              <Text style={{ fontSize: 16 }}>🧊</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() => dismissBanner(`streak:${new Date().toISOString().slice(0, 10)}`)}
             hitSlop={10}
@@ -2759,6 +3011,100 @@ export default function GroupChatScreen() {
         )}
       </KeyboardAvoidingView>
 
+      {/* Förstagångstips. */}
+      <Modal
+        visible={showOnboarding}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissOnboarding}
+      >
+        <View style={styles.ctxBackdrop}>
+          <View style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 14 }]}>
+            <Text style={{ color: c.text, fontSize: 18, fontWeight: "800", textAlign: "center" }}>
+              Välkommen till chatten! 👊
+            </Text>
+            <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
+              💪 Knappen med plustecknet startar spel, dueller, Poängjakten och mer.
+            </Text>
+            <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
+              ↩︎ Svep ett meddelande åt höger för att svara på det.
+            </Text>
+            <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
+              👆 Långtryck på en bubbla för reaktioner, kopiera, redigera och mer.
+            </Text>
+            <Pressable
+              onPress={dismissOnboarding}
+              style={[styles.claimBtnLike, { backgroundColor: settings.color }]}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Kör! 🍻</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🎡 Vem gör det? */}
+      <Modal
+        visible={wheelOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWheelOpen(false)}
+      >
+        <Pressable style={styles.ctxBackdrop} onPress={() => !wheelSpinning && setWheelOpen(false)}>
+          <Pressable
+            style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 14 }]}
+            onPress={() => {}}
+          >
+            <Text style={{ color: c.text, fontSize: 18, fontWeight: "800", textAlign: "center" }}>
+              🎡 Vem gör det?
+            </Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12, textAlign: "center" }}>
+              Vem hämtar nästa runda? Vem ringer taxin? Ödet avgör.
+            </Text>
+            <View style={styles.wheelGrid}>
+              {memberProfiles.map((m, i) => (
+                <View
+                  key={m.id}
+                  style={[
+                    styles.wheelChip,
+                    { backgroundColor: c.backgroundElement },
+                    wheelIdx === i
+                      ? { backgroundColor: settings.color, borderColor: settings.color }
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: wheelIdx === i ? "#fff" : c.text,
+                      fontWeight: "700",
+                      fontSize: 14,
+                    }}
+                  >
+                    {m.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {wheelDone && wheelIdx !== null ? (
+              <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
+                🎯 {memberProfiles[wheelIdx]?.name} gör det!
+              </Text>
+            ) : null}
+            <Pressable
+              onPress={spinWheel}
+              disabled={wheelSpinning}
+              style={[
+                styles.claimBtnLike,
+                { backgroundColor: settings.color, opacity: wheelSpinning ? 0.5 : 1 },
+              ]}
+            >
+              <Text style={{ color: "#fff", fontWeight: "800" }}>
+                {wheelSpinning ? "Snurrar…" : wheelDone ? "Snurra igen" : "🎰 Snurra"}
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Långtrycksmeny på meddelande: snabbreaktioner + åtgärder. */}
       <Modal
         visible={!!menuMsg}
@@ -2922,6 +3268,20 @@ export default function GroupChatScreen() {
                 { emoji: "🏆", label: "Turneringar & topplista", action: () => router.push("/feed") },
                 { emoji: "🔍", label: "Sök i chatten", action: () => setChatSearchOpen(true) },
                 {
+                  emoji: "🎡",
+                  label: "Vem gör det? (snurra hjulet)",
+                  action: () => {
+                    setWheelOpen(true);
+                    setWheelIdx(null);
+                    setWheelDone(false);
+                  },
+                },
+                {
+                  emoji: "🎉",
+                  label: "Partyläge — 2h dubbel XP",
+                  action: () => void startPartyMode(),
+                },
+                {
                   emoji: "🔗",
                   label: linkCopied ? "Länk kopierad!" : "Bjud in en polare",
                   action: invite,
@@ -2983,6 +3343,53 @@ export default function GroupChatScreen() {
               />
             ))}
           </View>
+
+          {group?.owner_id === userId ? (
+            <>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                Gruppmål (teampoäng, 30 dagar)
+              </Text>
+              <View style={styles.swatchRow}>
+                {[500, 1000, 2000].map((target) => (
+                  <Pressable
+                    key={target}
+                    onPress={() =>
+                      void supabase
+                        .rpc("set_group_goal", {
+                          gid: groupId,
+                          target,
+                          deadline: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+                        })
+                        .then(() => toast(`🎯 Mål satt: ${target} teampoäng!`))
+                    }
+                    style={[
+                      styles.currencyChip,
+                      { borderColor: c.backgroundSelected },
+                      group?.goal_points === target ? { borderColor: settings.color } : null,
+                    ]}
+                  >
+                    <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>
+                      {target}p
+                    </Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  onPress={() =>
+                    void supabase.rpc("set_group_goal", {
+                      gid: groupId,
+                      target: null,
+                      deadline: null,
+                    })
+                  }
+                  style={[styles.currencyChip, { borderColor: c.backgroundSelected }]}
+                >
+                  <Text style={{ color: c.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                    Ta bort
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          ) : null}
 
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poängvaluta</Text>
           <View style={styles.swatchRow}>
@@ -3755,6 +4162,48 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
     lineHeight: 14,
+  },
+  dateSep: { alignSelf: "center", paddingVertical: 6 },
+  dateSepText: { fontSize: 11, fontWeight: "700", textTransform: "capitalize" },
+  msgAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  goalBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  progressTrackThin: { height: 5, borderRadius: 3, overflow: "hidden" },
+  progressFillThin: { height: 5 },
+  undoBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#1F1E1D",
+    marginHorizontal: 10,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  claimBtnLike: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  wheelGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
+  wheelChip: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   jumpBtn: {
     position: "absolute",

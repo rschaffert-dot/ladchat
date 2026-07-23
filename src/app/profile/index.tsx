@@ -2,7 +2,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, Modal, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -43,6 +43,7 @@ export default function ProfileScreen() {
   const [catalog, setCatalog] = useState<Achievement[]>([]);
   const [earned, setEarned] = useState<UserAchievement[]>([]);
   const [ladbook, setLadbook] = useState<LadBookEntry[]>([]);
+  const [rivals, setRivals] = useState<{ name: string; wins: number; losses: number }[]>([]);
   const [ladbookOpen, setLadbookOpen] = useState(true);
   const [expanded, setExpanded] = useState<LadBookEntry | null>(null);
 
@@ -81,6 +82,42 @@ export default function ProfileScreen() {
     setStreaks((st ?? []) as Streak[]);
     setCatalog((all ?? []) as Achievement[]);
     setEarned((mine ?? []) as UserAchievement[]);
+
+    // Rivaler: vinst/förlust per motståndare ur avgjorda dueller.
+    const { data: myDuels } = await supabase
+      .from("duels")
+      .select("challenger_id, opponent_id, winner_id")
+      .eq("status", "finished")
+      .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`);
+    const tally = new Map<string, { wins: number; losses: number }>();
+    for (const d of myDuels ?? []) {
+      const opp = (d.challenger_id === userId ? d.opponent_id : d.challenger_id) as string;
+      if (!d.winner_id) continue;
+      const t = tally.get(opp) ?? { wins: 0, losses: 0 };
+      if (d.winner_id === userId) t.wins++;
+      else t.losses++;
+      tally.set(opp, t);
+    }
+    if (tally.size > 0) {
+      const { data: oppProfs } = await supabase
+        .from("profiles")
+        .select("id,display_name,email")
+        .in("id", [...tally.keys()]);
+      setRivals(
+        [...tally.entries()]
+          .map(([id, t]) => ({
+            name:
+              ((oppProfs ?? []).find((p) => p.id === id)?.display_name as string) ||
+              ((oppProfs ?? []).find((p) => p.id === id)?.email as string) ||
+              "Okänd",
+            ...t,
+          }))
+          .sort((a, b) => b.wins + b.losses - (a.wins + a.losses))
+          .slice(0, 3),
+      );
+    } else {
+      setRivals([]);
+    }
 
     // LadBook: klarade (och väntande) jaktutmaningar med bevismaterial.
     const { data: comps } = await supabase
@@ -236,6 +273,33 @@ export default function ProfileScreen() {
           })}
         </View>
 
+        {rivals.length > 0 ? (
+          <>
+            <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>
+              ⚔️ Rivaler{" "}
+              {rivals[0] ? (
+                <Text style={{ color: c.brand }}>— din ärkerival: {rivals[0].name}</Text>
+              ) : null}
+            </Text>
+            {rivals.map((r) => (
+              <View
+                key={r.name}
+                style={[
+                  styles.card,
+                  { backgroundColor: c.backgroundElement, flexDirection: "row", gap: 8 },
+                ]}
+              >
+                <Text style={{ color: c.text, fontSize: 14, fontWeight: "700", flex: 1 }}>
+                  vs {r.name}
+                </Text>
+                <Text style={{ color: r.wins >= r.losses ? "#16a34a" : "#dc2626", fontWeight: "800" }}>
+                  {r.wins}–{r.losses}
+                </Text>
+              </View>
+            ))}
+          </>
+        ) : null}
+
         <Pressable onPress={() => setLadbookOpen((v) => !v)} style={styles.ladHeader}>
           <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 0, marginBottom: 0 }]}>
             🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
@@ -348,9 +412,23 @@ export default function ProfileScreen() {
                     </View>
                   </Pressable>
 
-                  <Pressable onPress={() => setExpanded(null)} style={styles.ladCloseBtn}>
-                    <Text style={{ color: "#fff", fontWeight: "800" }}>Stäng</Text>
-                  </Pressable>
+                  <View style={{ flexDirection: "row", gap: 10 }}>
+                    {completion.status === "confirmed" ? (
+                      <Pressable
+                        onPress={() =>
+                          void Share.share({
+                            message: `💪 Jag klarade "${challenge.name}" i Poängjakten på LadChat — +${completion.points_awarded}p! 🃏 Vågar du?`,
+                          })
+                        }
+                        style={[styles.ladCloseBtn, { backgroundColor: "#D97757" }]}
+                      >
+                        <Text style={{ color: "#fff", fontWeight: "800" }}>↗ Dela</Text>
+                      </Pressable>
+                    ) : null}
+                    <Pressable onPress={() => setExpanded(null)} style={styles.ladCloseBtn}>
+                      <Text style={{ color: "#fff", fontWeight: "800" }}>Stäng</Text>
+                    </Pressable>
+                  </View>
                 </>
               );
             })() : null}

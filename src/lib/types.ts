@@ -26,6 +26,8 @@ export interface Group {
   beer_duration_minutes: number | null;
   energy: number;
   energy_updated_at: string;
+  goal_points?: number | null;
+  goal_deadline?: string | null;
 }
 
 export interface Message {

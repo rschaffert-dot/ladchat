@@ -12,6 +12,8 @@ import {
 import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { SkeletonListRow } from "@/components/Skeleton";
+
 import { useAuth } from "@/lib/auth";
 import {
   CURRENCY_OPTIONS,
@@ -49,6 +51,7 @@ export default function GroupsScreen() {
     Record<string, { pinnedAt: string | null; muted: boolean; archived: boolean }>
   >({});
   const [showArchived, setShowArchived] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, { text: string; at: string }>>({});
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -90,6 +93,20 @@ export default function GroupsScreen() {
     setLoading(false);
 
     if (myGroups.length > 0) {
+      // Förhandsvisning: senaste meddelandet per grupp ur en gemensam batch.
+      const { data: recent } = await supabase
+        .from("messages")
+        .select("group_id, content, created_at")
+        .in("group_id", myGroups.map((g) => g.id))
+        .order("created_at", { ascending: false })
+        .limit(80);
+      const pv: Record<string, { text: string; at: string }> = {};
+      for (const m of recent ?? []) {
+        const gid = m.group_id as string;
+        if (!pv[gid]) pv[gid] = { text: m.content as string, at: m.created_at as string };
+      }
+      setPreviews(pv);
+
       const { data: scores } = await supabase
         .from("group_scores")
         .select("group_id, member_points, team_points, total_points")
@@ -185,6 +202,14 @@ export default function GroupsScreen() {
     await load();
   }
 
+  function relTime(iso: string): string {
+    const diff = Date.now() - new Date(iso).getTime();
+    if (diff < 60_000) return "nu";
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} min`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} h`;
+    return `${Math.floor(diff / 86_400_000)} d`;
+  }
+
   // Sortering: nålade först, sedan senast skapade. Arkiverade göms bakom knappen.
   const q = search.trim().toLowerCase();
   const visible = groups
@@ -271,7 +296,12 @@ export default function GroupsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 32 }} />
+        <View style={{ paddingTop: 12 }}>
+          <SkeletonListRow />
+          <SkeletonListRow />
+          <SkeletonListRow />
+          <SkeletonListRow />
+        </View>
       ) : (
         <FlatList
           data={visible}
@@ -363,9 +393,18 @@ export default function GroupsScreen() {
                         </View>
                       ) : null}
                     </View>
+                    {previews[item.id] ? (
+                      <Text
+                        style={{ color: c.textSecondary, fontSize: 13 }}
+                        numberOfLines={1}
+                      >
+                        {previews[item.id].text}
+                      </Text>
+                    ) : null}
                     {teamScores[item.id] ? (
-                      <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                      <Text style={{ color: c.textSecondary, fontSize: 11 }}>
                         🛡 {teamScores[item.id].total} teampoäng
+                        {previews[item.id] ? ` · ${relTime(previews[item.id].at)}` : ""}
                       </Text>
                     ) : null}
                   </View>
