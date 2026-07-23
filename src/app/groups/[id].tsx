@@ -2349,72 +2349,85 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
-      <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
-        <Pressable
-          onPress={() => {
-            setStarOpen(true);
-            setAttachOpen(false);
-            setEmojiOpen(false);
-          }}
-          hitSlop={8}
-          style={styles.plusBtn}
-        >
-          <Text style={{ color: settings.color, fontSize: 24, fontWeight: "700" }}>✦</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            setAttachOpen((v) => !v);
-            setEmojiOpen(false);
-          }}
-          hitSlop={8}
-          style={styles.plusBtn}
-        >
-          <Text style={{ color: settings.color, fontSize: 26, fontWeight: "700" }}>
-            {attachOpen ? "×" : "＋"}
-          </Text>
-        </Pressable>
-        <Pressable onPress={toggleRecording} hitSlop={8} style={styles.plusBtn}>
-          <Text style={{ fontSize: 22 }}>{recording ? "⏹" : "🎤"}</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            setEmojiOpen((v) => !v);
-            setAttachOpen(false);
-          }}
-          hitSlop={8}
-          style={styles.plusBtn}
-        >
-          <Text style={{ fontSize: 22 }}>😊</Text>
-        </Pressable>
-        <TextInput
-          value={text}
-          onChangeText={onTypeText}
-          placeholder="Skriv ett meddelande…"
-          placeholderTextColor={c.textSecondary}
-          multiline
-          onKeyPress={handleKeyPress}
-          onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
+      {/* Claude-lik komposer: textytan i full bredd överst, knapparna
+          flytande i en rad under, och rutan växer med innehållet. */}
+      <View style={styles.composerWrap}>
+        <View
           style={[
-            styles.input,
-            { color: c.text, borderColor: c.backgroundSelected },
-            inputHeight > 0
-              ? { height: Math.min(120, Math.max(42, inputHeight + 20)) }
-              : null,
-          ]}
-        />
-        <Pressable
-          onPress={send}
-          disabled={sending || text.trim().length === 0}
-          style={[
-            styles.sendBtn,
-            {
-              backgroundColor: settings.color,
-              opacity: sending || text.trim().length === 0 ? 0.4 : 1,
-            },
+            styles.composer,
+            { backgroundColor: c.backgroundElement, borderColor: c.backgroundSelected },
           ]}
         >
-          <Text style={styles.sendText}>{uploadingMedia ? "Laddar…" : "Skicka"}</Text>
-        </Pressable>
+          <TextInput
+            value={text}
+            onChangeText={onTypeText}
+            placeholder="Skriv ett meddelande…"
+            placeholderTextColor={c.textSecondary}
+            multiline
+            onKeyPress={handleKeyPress}
+            onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
+            style={[
+              styles.composerInput,
+              { color: c.text },
+              { height: Math.min(200, Math.max(24, inputHeight)) },
+            ]}
+          />
+          <View style={styles.composerRow}>
+            <Pressable
+              onPress={() => {
+                setStarOpen(true);
+                setAttachOpen(false);
+                setEmojiOpen(false);
+              }}
+              hitSlop={6}
+              style={styles.composerBtn}
+            >
+              <Text style={{ color: settings.color, fontSize: 22, fontWeight: "700" }}>✦</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setAttachOpen((v) => !v);
+                setEmojiOpen(false);
+              }}
+              hitSlop={6}
+              style={styles.composerBtn}
+            >
+              <Text style={{ color: settings.color, fontSize: 24, fontWeight: "700" }}>
+                {attachOpen ? "×" : "＋"}
+              </Text>
+            </Pressable>
+            <Pressable onPress={toggleRecording} hitSlop={6} style={styles.composerBtn}>
+              <Text style={{ fontSize: 20 }}>{recording ? "⏹" : "🎤"}</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                setEmojiOpen((v) => !v);
+                setAttachOpen(false);
+              }}
+              hitSlop={6}
+              style={styles.composerBtn}
+            >
+              <Text style={{ fontSize: 20 }}>😊</Text>
+            </Pressable>
+            <View style={styles.flex} />
+            {uploadingMedia ? (
+              <ActivityIndicator style={{ marginRight: 6 }} />
+            ) : null}
+            <Pressable
+              onPress={send}
+              disabled={sending || text.trim().length === 0}
+              style={[
+                styles.sendCircle,
+                {
+                  backgroundColor: settings.color,
+                  opacity: sending || text.trim().length === 0 ? 0.35 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>↑</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </>
   );
@@ -3647,6 +3660,35 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.4)",
+  },
+  composerWrap: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 10 },
+  composer: {
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  composerInput: {
+    fontSize: 15,
+    lineHeight: 21,
+    padding: 0,
+    textAlignVertical: "top",
+  },
+  composerRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  composerBtn: {
+    minWidth: 40,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
   },
   jumpBtn: {
     position: "absolute",
