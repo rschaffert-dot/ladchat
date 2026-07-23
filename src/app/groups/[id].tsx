@@ -268,6 +268,28 @@ export default function GroupChatScreen() {
   const [quest, setQuest] = useState<{ quest_id: number; title: string; bonus: number } | null>(null);
   const [questDone, setQuestDone] = useState(false);
 
+  // Messenger-lik header/komposer: olästa i andra chattar, ✦-startmeny,
+  // samtalsknappar (samtal är inte byggt än — knapparna berättar det).
+  const [unreadOther, setUnreadOther] = useState(0);
+  const [starOpen, setStarOpen] = useState(false);
+  const [callNote, setCallNote] = useState<string | null>(null);
+  const callNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function noteCall(video: boolean) {
+    if (callNoteTimer.current) clearTimeout(callNoteTimer.current);
+    setCallNote(video ? "🎥 Videosamtal kommer i en senare fas!" : "📞 Gruppsamtal kommer i en senare fas!");
+    callNoteTimer.current = setTimeout(() => setCallNote(null), 2500);
+  }
+  useEffect(() => {
+    if (!groupId || !userId) return;
+    supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("read", false)
+      .neq("group_id", groupId)
+      .then(({ count }) => setUnreadOther(count ?? 0));
+  }, [groupId, userId]);
+
   // Stängda bannrar ("notisen är läst"): per grupp och enhet. Nycklarna
   // innehåller id/datum så en NY duell/aktivering/uppdrag syns igen.
   const [dismissed, setDismissed] = useState<Record<string, true>>({});
@@ -1541,12 +1563,6 @@ export default function GroupChatScreen() {
             <Text style={styles.attachEmoji}>🖼️</Text>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Bild</Text>
           </Pressable>
-          <Pressable onPress={toggleRecording} style={styles.attachBtn}>
-            <Text style={styles.attachEmoji}>{recording ? "⏹" : "🎤"}</Text>
-            <Text style={[styles.attachLabel, { color: recording ? "#dc2626" : c.textSecondary }]}>
-              {recording ? "Stoppa" : "Röstmemo"}
-            </Text>
-          </Pressable>
           <Pressable onPress={() => setPollModalOpen(true)} style={styles.attachBtn}>
             <Text style={styles.attachEmoji}>📊</Text>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Omröstning</Text>
@@ -1573,6 +1589,17 @@ export default function GroupChatScreen() {
       <View style={[styles.inputBar, { borderTopColor: c.backgroundElement }]}>
         <Pressable
           onPress={() => {
+            setStarOpen(true);
+            setAttachOpen(false);
+            setEmojiOpen(false);
+          }}
+          hitSlop={8}
+          style={styles.plusBtn}
+        >
+          <Text style={{ color: settings.color, fontSize: 24, fontWeight: "700" }}>✦</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
             setAttachOpen((v) => !v);
             setEmojiOpen(false);
           }}
@@ -1582,6 +1609,9 @@ export default function GroupChatScreen() {
           <Text style={{ color: settings.color, fontSize: 26, fontWeight: "700" }}>
             {attachOpen ? "×" : "＋"}
           </Text>
+        </Pressable>
+        <Pressable onPress={toggleRecording} hitSlop={8} style={styles.plusBtn}>
+          <Text style={{ fontSize: 22 }}>{recording ? "⏹" : "🎤"}</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -1625,41 +1655,24 @@ export default function GroupChatScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.back}>
-          <Text style={{ color: c.textSecondary, fontSize: 26 }}>‹</Text>
+          <Text style={{ color: settings.color, fontSize: 26 }}>‹</Text>
+          {unreadOther > 0 ? (
+            <View style={styles.backBadge}>
+              <Text style={styles.backBadgeText}>{unreadOther > 99 ? "99+" : unreadOther}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
           {group?.name ?? ""}
         </Text>
-        <Pressable onPress={checkin} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 15, fontWeight: "800", color: "#f2a916" }}>
-            🔥{streak?.current_streak ?? 0}
-          </Text>
+        <Pressable onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>📞</Text>
         </Pressable>
-        <Pressable onPress={() => setGameOpen(true)} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>🎮</Text>
-        </Pressable>
-        <Pressable
-          onPress={() =>
-            groupId && router.push({ pathname: "/hunt", params: { groupId } })
-          }
-          hitSlop={8}
-          style={styles.gear}
-        >
-          <Text style={{ fontSize: 20 }}>🃏</Text>
-        </Pressable>
-        <Pressable onPress={() => setDuelModalOpen(true)} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>⚔️</Text>
-        </Pressable>
-        <Pressable onPress={() => router.push("/feed")} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>🏆</Text>
+        <Pressable onPress={() => noteCall(true)} hitSlop={8} style={styles.gear}>
+          <Text style={{ fontSize: 20 }}>🎥</Text>
         </Pressable>
         <Pressable onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
           <Text style={{ fontSize: 20 }}>⚙️</Text>
-        </Pressable>
-        <Pressable onPress={invite} hitSlop={8}>
-          <Text style={{ color: c.brand, fontWeight: "700" }}>
-            {linkCopied ? "Länk kopierad!" : "Bjud in"}
-          </Text>
         </Pressable>
       </View>
 
@@ -1679,6 +1692,12 @@ export default function GroupChatScreen() {
       {celebration ? (
         <View style={styles.celebrationBanner}>
           <Text style={styles.celebrationText}>{celebration}</Text>
+        </View>
+      ) : null}
+
+      {callNote ? (
+        <View style={styles.celebrationBanner}>
+          <Text style={styles.celebrationText}>{callNote}</Text>
         </View>
       ) : null}
 
@@ -1895,6 +1914,58 @@ export default function GroupChatScreen() {
           </ChatBackground>
         )}
       </KeyboardAvoidingView>
+
+      {/* ✦ Startmenyn: allt man kan dra igång i gruppen, Messenger-stil. */}
+      <Modal
+        visible={starOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setStarOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setStarOpen(false)}>
+          <View style={{ flex: 1 }} />
+          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <Text style={[styles.starTitle, { color: c.text }]}>Starta något</Text>
+            {(
+              [
+                { emoji: "🎮", label: "Spel & lekar", action: () => setGameOpen(true) },
+                {
+                  emoji: "🃏",
+                  label: "Poängjakten",
+                  action: () =>
+                    groupId && router.push({ pathname: "/hunt", params: { groupId } }),
+                },
+                { emoji: "⚔️", label: "Utmana på duell", action: () => setDuelModalOpen(true) },
+                { emoji: "📊", label: "Omröstning", action: () => setPollModalOpen(true) },
+                {
+                  emoji: "🔥",
+                  label: `Checka in streak (${streak?.current_streak ?? 0} dagar)`,
+                  action: checkin,
+                },
+                { emoji: "🏆", label: "Turneringar & topplista", action: () => router.push("/feed") },
+                {
+                  emoji: "🔗",
+                  label: linkCopied ? "Länk kopierad!" : "Bjud in en polare",
+                  action: invite,
+                },
+              ] as { emoji: string; label: string; action: () => void }[]
+            ).map((item) => (
+              <Pressable
+                key={item.label}
+                onPress={() => {
+                  setStarOpen(false);
+                  item.action();
+                }}
+                style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
+              >
+                <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                <Text style={[styles.starLabel, { color: c.text }]}>{item.label}</Text>
+                <Text style={{ color: c.textSecondary, fontSize: 18 }}>›</Text>
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={settingsOpen}
@@ -2321,8 +2392,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  back: { paddingHorizontal: 4 },
+  back: { paddingHorizontal: 4, flexDirection: "row", alignItems: "center", gap: 2 },
+  backBadge: {
+    backgroundColor: "#dc2626",
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+  },
+  backBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   gear: { paddingHorizontal: 4 },
+  starSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    gap: 8,
+    paddingBottom: 28,
+  },
+  starTitle: { fontSize: 16, fontWeight: "800", marginBottom: 4, textAlign: "center" },
+  starItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  starLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
   headerTitle: { flex: 1, fontSize: 17, fontWeight: "700" },
   listContent: { padding: 12, gap: 8 },
   empty: { textAlign: "center", marginTop: 40, transform: [{ scaleY: -1 }] },
