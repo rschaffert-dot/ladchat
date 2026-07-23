@@ -2397,6 +2397,9 @@ export default function GroupChatScreen() {
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
               <Text style={{ fontSize: 24 }}>💪</Text>
+              <View style={[styles.moreBadge, { backgroundColor: settings.color }]}>
+                <Text style={styles.moreBadgeText}>+</Text>
+              </View>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -3706,6 +3709,22 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
+  },
+  moreBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moreBadgeText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "900",
+    lineHeight: 14,
   },
   jumpBtn: {
     position: "absolute",
