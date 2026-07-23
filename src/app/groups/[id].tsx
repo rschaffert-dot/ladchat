@@ -975,6 +975,12 @@ export default function GroupChatScreen() {
     void loadDuel();
   }
 
+  async function cancelDuel() {
+    if (!duel) return;
+    await supabase.rpc("cancel_duel", { did: duel.id });
+    void loadDuel();
+  }
+
   async function voteDuel(target: string) {
     if (!duel) return;
     await supabase.rpc("vote_duel", { did: duel.id, target });
@@ -1758,6 +1764,18 @@ export default function GroupChatScreen() {
                     style={[styles.duelBtn, { backgroundColor: "transparent" }]}
                   >
                     <Text style={[styles.duelBtnText, { color: "#fca5a5" }]}>Neka</Text>
+                  </Pressable>
+                </View>
+              ) : duel.challenger_id === userId ? (
+                <View style={styles.duelActions}>
+                  <Text style={styles.duelSub}>Väntar på svar…</Text>
+                  <Pressable
+                    onPress={cancelDuel}
+                    style={[styles.duelBtn, { backgroundColor: "transparent" }]}
+                  >
+                    <Text style={[styles.duelBtnText, { color: "#fca5a5" }]}>
+                      ↩️ Avbryt utmaningen
+                    </Text>
                   </Pressable>
                 </View>
               ) : (
