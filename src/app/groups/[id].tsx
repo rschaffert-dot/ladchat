@@ -2437,7 +2437,14 @@ export default function GroupChatScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
-        <Pressable onPress={() => router.back()} hitSlop={6} style={styles.back}>
+        <Pressable
+          // Alltid till chattöversikten — router.back() var ett no-op när
+          // chatten öppnats direkt (t.ex. efter omladdning på webben) och
+          // kunde annars hamna på andra skärmar ur historiken.
+          onPress={() => router.replace("/groups")}
+          hitSlop={6}
+          style={styles.back}
+        >
           <Text style={{ color: settings.color, fontSize: 28 }}>‹</Text>
           {unreadOther > 0 ? (
             <View style={styles.backBadge}>
