@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 import { NEEDS_AVATAR_KEY } from "@/lib/avatar";
 import { AuthProvider, useAuth } from "@/lib/auth";
@@ -47,14 +48,17 @@ function RootNavigator() {
     );
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  // fullScreenGestureEnabled: svep tillbaka från vänsterkant på hela ytan (iOS).
+  return <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }} />;
 }
 
 export default function RootLayout() {
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
       <StatusBar style="auto" />
       <RootNavigator />
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }

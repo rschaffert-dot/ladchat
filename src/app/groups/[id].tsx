@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
   ActivityIndicator,
+  Animated as RNAnimated,
   FlatList,
   Image,
   ImageBackground,
@@ -28,6 +29,7 @@ import type {
   TextInputKeyPressEventData,
   ViewStyle,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -80,6 +82,40 @@ function buzz(ms = 10) {
   } catch {
     // Ingen vibrationsmotor — lugnt.
   }
+}
+
+/** Messenger-lika bubblande punkter för skriver-indikatorn. */
+function TypingDots({ color }: { color: string }) {
+  const anim = useRef(new RNAnimated.Value(0)).current;
+  useEffect(() => {
+    const loop = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(anim, { toValue: 1, duration: 600, useNativeDriver: true }),
+        RNAnimated.timing(anim, { toValue: 0, duration: 600, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  return (
+    <View style={{ flexDirection: "row", gap: 3, alignItems: "center" }}>
+      {[0, 1, 2].map((i) => (
+        <RNAnimated.View
+          key={i}
+          style={{
+            width: 5,
+            height: 5,
+            borderRadius: 3,
+            backgroundColor: color,
+            opacity: anim.interpolate({
+              inputRange: [0, 0.5, 1],
+              outputRange: i === 0 ? [1, 0.3, 1] : i === 1 ? [0.3, 1, 0.3] : [0.6, 0.3, 1],
+            }),
+          }}
+        />
+      ))}
+    </View>
+  );
 }
 type ReactionBucket = Partial<Record<ReactionKey, { count: number; mine: boolean }>>;
 
@@ -340,6 +376,109 @@ export default function GroupChatScreen() {
         payload: { user_id: userId, name: namesRef.current[userId] ?? "Någon" },
       });
     }
+  }
+
+  // Läskvitton: ✓ = skickat, blå ✓✓ = alla andra medlemmar har läst.
+  const [reads, setReads] = useState<Record<string, string>>({});
+  const [memberIds, setMemberIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!groupId || !userId) return;
+    void supabase.rpc("mark_read", { gid: groupId });
+    void supabase
+      .from("group_members")
+      .select("user_id")
+      .eq("group_id", groupId)
+      .then(({ data }) => setMemberIds((data ?? []).map((m) => m.user_id as string)));
+    void supabase
+      .from("message_reads")
+      .select("user_id, last_read_at")
+      .eq("group_id", groupId)
+      .then(({ data }) =>
+        setReads(
+          Object.fromEntries(
+            (data ?? []).map((r) => [r.user_id as string, r.last_read_at as string]),
+          ),
+        ),
+      );
+    const channel = supabase
+      .channel(`reads:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "message_reads", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const r = payload.new as { user_id?: string; last_read_at?: string };
+          if (r?.user_id && r.last_read_at) {
+            setReads((prev) => ({ ...prev, [r.user_id!]: r.last_read_at! }));
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, userId]);
+  // Alla andra läst fram till denna tidpunkt (null = någon saknas/efter).
+  const othersReadUpTo = (() => {
+    const others = memberIds.filter((id) => id !== userId);
+    if (others.length === 0) return null;
+    let min: string | null = null;
+    for (const id of others) {
+      const at = reads[id];
+      if (!at) return null;
+      if (min === null || at < min) min = at;
+    }
+    return min;
+  })();
+
+  // Redigering & vidarebefordran.
+  const [editingMsg, setEditingMsg] = useState<LocalMsg | null>(null);
+  const [forwardMsg, setForwardMsg] = useState<LocalMsg | null>(null);
+  const [forwardGroups, setForwardGroups] = useState<{ id: string; name: string }[]>([]);
+  function startEdit(msg: LocalMsg) {
+    setEditingMsg(msg);
+    setReplyTo(null);
+    setText(msg.content);
+  }
+  function cancelEdit() {
+    setEditingMsg(null);
+    setText("");
+  }
+  async function saveEdit() {
+    if (!editingMsg) return;
+    const content = text.trim();
+    if (!content) return;
+    const mid = editingMsg.id;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === mid ? { ...m, content, edited_at: new Date().toISOString() } : m,
+      ),
+    );
+    setEditingMsg(null);
+    setText("");
+    await supabase.rpc("edit_message", { mid, new_content: content });
+  }
+  async function openForward(msg: LocalMsg) {
+    setForwardMsg(msg);
+    if (!userId) return;
+    const { data } = await supabase
+      .from("groups")
+      .select("id,name,group_members!inner(user_id)")
+      .eq("group_members.user_id", userId);
+    setForwardGroups(
+      ((data ?? []) as { id: string; name: string }[])
+        .map((g) => ({ id: g.id, name: g.name }))
+        .filter((g) => g.id !== groupId),
+    );
+  }
+  async function forwardTo(gid: string) {
+    if (!forwardMsg || !userId) return;
+    await supabase.from("messages").insert({
+      group_id: gid,
+      user_id: userId,
+      content: forwardMsg.content,
+      metadata: { forwarded: true },
+    });
+    setForwardMsg(null);
   }
 
   // Långtrycksmeny på meddelanden (reaktioner + åtgärder).
@@ -860,8 +999,12 @@ export default function GroupChatScreen() {
           if (m.user_id !== userId && settingsRef.current.soundEnabled) {
             playMessageSound();
           }
-          // Motparten skickade — då skriver hen inte längre.
-          if (m.user_id !== userId) setTypingName(null);
+          // Motparten skickade — då skriver personen inte längre, och vi
+          // läser ju detta nu: uppdatera läskvittot direkt.
+          if (m.user_id !== userId) {
+            setTypingName(null);
+            void supabase.rpc("mark_read", { gid: groupId });
+          }
           if (m.kind === "poll" && m.metadata?.poll_id) {
             void loadPolls([m.metadata.poll_id as string]);
           }
@@ -895,6 +1038,25 @@ export default function GroupChatScreen() {
         (payload) => {
           const oldId = (payload.old as { id?: string })?.id;
           if (oldId) setMessages((prev) => prev.filter((m) => m.id !== oldId));
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `group_id=eq.${groupId}`,
+        },
+        (payload) => {
+          const m = payload.new as Message;
+          setMessages((prev) =>
+            prev.map((x) =>
+              x.id === m.id
+                ? { ...x, content: m.content, metadata: m.metadata, edited_at: m.edited_at }
+                : x,
+            ),
+          );
         },
       )
       .subscribe();
@@ -1205,6 +1367,7 @@ export default function GroupChatScreen() {
     }
     if (native.key === "Escape") {
       setReplyTo(null);
+      if (editingMsg) cancelEdit();
     }
   }
 
@@ -1243,6 +1406,10 @@ export default function GroupChatScreen() {
   }
 
   function send() {
+    if (editingMsg) {
+      void saveEdit();
+      return;
+    }
     const content = text.trim();
     if (!content || !userId || !groupId) return;
     const tempId = `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -1522,6 +1689,9 @@ export default function GroupChatScreen() {
     }
   }
 
+  // Läsbockar visas bara på ditt senaste meddelande (Messenger-stil).
+  const latestOwnId = messages.find((m) => m.user_id === userId && m.kind === "user")?.id;
+
   const chatBody = (
     <>
       {loading ? (
@@ -1565,7 +1735,28 @@ export default function GroupChatScreen() {
             const parent = item.reply_to_id
               ? messages.find((m) => m.id === item.reply_to_id)
               : undefined;
+            let swipeRef: Swipeable | null = null;
             return (
+              <Swipeable
+                ref={(r) => {
+                  swipeRef = r;
+                }}
+                friction={2}
+                leftThreshold={48}
+                overshootLeft={false}
+                renderLeftActions={() => (
+                  <View style={styles.swipeReply}>
+                    <Text style={{ fontSize: 20, color: c.textSecondary }}>↩︎</Text>
+                  </View>
+                )}
+                onSwipeableWillOpen={(direction) => {
+                  if (direction === "left" && !(item as LocalMsg).pending) {
+                    buzz(8);
+                    setReplyTo(item);
+                  }
+                  swipeRef?.close();
+                }}
+              >
               <View style={[styles.msgRow, mine ? styles.mine : styles.theirs]}>
                 {!mine ? (
                   <Text style={[styles.author, { color: c.textSecondary }]}>
@@ -1673,11 +1864,52 @@ export default function GroupChatScreen() {
                       );
                     })()
                   ) : (
-                    <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                      {item.content}
-                    </Text>
+                    <>
+                      {item.metadata?.forwarded ? (
+                        <Text
+                          style={{
+                            color: mine ? "#e0e0ff" : c.textSecondary,
+                            fontSize: 11,
+                            fontStyle: "italic",
+                          }}
+                        >
+                          ↪️ Vidarebefordrat
+                        </Text>
+                      ) : null}
+                      <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
+                        {item.content}
+                        {item.edited_at ? (
+                          <Text
+                            style={{
+                              color: mine ? "#e0e0ff" : c.textSecondary,
+                              fontSize: 11,
+                            }}
+                          >
+                            {"  (redigerad)"}
+                          </Text>
+                        ) : null}
+                      </Text>
+                    </>
                   )}
                 </Pressable>
+                {mine &&
+                item.id === latestOwnId &&
+                !(item as LocalMsg).pending &&
+                !(item as LocalMsg).failed ? (
+                  <Text
+                    style={[
+                      styles.msgStatus,
+                      {
+                        color:
+                          othersReadUpTo && item.created_at <= othersReadUpTo
+                            ? "#3b82f6"
+                            : c.textSecondary,
+                      },
+                    ]}
+                  >
+                    {othersReadUpTo && item.created_at <= othersReadUpTo ? "✓✓ Läst" : "✓ Skickat"}
+                  </Text>
+                ) : null}
                 {(item as LocalMsg).pending ? (
                   <Text style={[styles.msgStatus, { color: c.textSecondary }]}>🕒 Skickar…</Text>
                 ) : null}
@@ -1728,16 +1960,34 @@ export default function GroupChatScreen() {
                   );
                 })()}
               </View>
+              </Swipeable>
             );
           }}
         />
       )}
 
       {typingName ? (
-        <View style={styles.typingRow}>
+        <View style={[styles.typingRow, { flexDirection: "row", alignItems: "center", gap: 6 }]}>
           <Text style={{ color: c.textSecondary, fontSize: 12, fontStyle: "italic" }}>
-            💬 {typingName} skriver…
+            {typingName} skriver
           </Text>
+          <TypingDots color={c.textSecondary} />
+        </View>
+      ) : null}
+
+      {editingMsg ? (
+        <View style={[styles.replyPreview, { backgroundColor: c.backgroundElement }]}>
+          <View style={styles.flex}>
+            <Text style={{ color: c.brand, fontWeight: "700", fontSize: 12 }}>
+              ✏️ Redigerar meddelande
+            </Text>
+            <Text style={{ color: c.textSecondary, fontSize: 12 }} numberOfLines={1}>
+              {editingMsg.content}
+            </Text>
+          </View>
+          <Pressable onPress={cancelEdit} hitSlop={12}>
+            <Text style={{ color: c.textSecondary, fontSize: 18 }}>×</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -2194,6 +2444,32 @@ export default function GroupChatScreen() {
               >
                 <Text style={[styles.ctxActionText, { color: c.text }]}>📋 Kopiera text</Text>
               </Pressable>
+              {menuMsg.kind === "user" && !menuMsg.pending && !menuMsg.failed ? (
+                <Pressable
+                  onPress={() => {
+                    void openForward(menuMsg);
+                    setMenuMsg(null);
+                  }}
+                  style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
+                >
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>↪️ Vidarebefordra</Text>
+                </Pressable>
+              ) : null}
+              {menuMsg.user_id === userId &&
+              menuMsg.kind === "user" &&
+              !menuMsg.pending &&
+              !menuMsg.failed &&
+              Date.now() - new Date(menuMsg.created_at).getTime() < 15 * 60_000 ? (
+                <Pressable
+                  onPress={() => {
+                    startEdit(menuMsg);
+                    setMenuMsg(null);
+                  }}
+                  style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
+                >
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>✏️ Redigera</Text>
+                </Pressable>
+              ) : null}
               {menuMsg.user_id === userId && !menuMsg.pending && !menuMsg.failed ? (
                 <Pressable
                   onPress={() => {
@@ -2207,6 +2483,38 @@ export default function GroupChatScreen() {
               ) : null}
             </Pressable>
           ) : null}
+        </Pressable>
+      </Modal>
+
+      {/* Vidarebefordra: välj grupp. */}
+      <Modal
+        visible={!!forwardMsg}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setForwardMsg(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setForwardMsg(null)}>
+          <View style={{ flex: 1 }} />
+          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <Text style={[styles.starTitle, { color: c.text }]}>↪️ Vidarebefordra till…</Text>
+            {forwardGroups.length === 0 ? (
+              <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
+                Du har inga andra grupper att skicka till.
+              </Text>
+            ) : (
+              forwardGroups.map((g) => (
+                <Pressable
+                  key={g.id}
+                  onPress={() => void forwardTo(g.id)}
+                  style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
+                >
+                  <Text style={{ fontSize: 20 }}>💬</Text>
+                  <Text style={[styles.starLabel, { color: c.text }]}>{g.name}</Text>
+                  <Text style={{ color: c.textSecondary, fontSize: 18 }}>›</Text>
+                </Pressable>
+              ))
+            )}
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -2718,6 +3026,7 @@ const styles = StyleSheet.create({
   starLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
   headerTitle: { fontSize: 17, fontWeight: "700" },
   msgStatus: { fontSize: 11, marginTop: 2 },
+  swipeReply: { justifyContent: "center", paddingHorizontal: 18 },
   failedRow: { flexDirection: "row", gap: 10, marginTop: 3, alignItems: "center" },
   typingRow: { paddingHorizontal: 16, paddingVertical: 4 },
   lightbox: {

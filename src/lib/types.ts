@@ -37,6 +37,7 @@ export interface Message {
   kind: "user" | "system" | "image" | "audio" | "poll";
   metadata: Record<string, unknown>;
   reply_to_id: string | null;
+  edited_at?: string | null;
 }
 
 export interface MessageWithAuthor extends Message {

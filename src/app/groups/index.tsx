@@ -9,6 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -42,6 +43,12 @@ export default function GroupsScreen() {
   const [teamScores, setTeamScores] = useState<
     Record<string, { member: number; team: number; total: number }>
   >({});
+  // Chattlistans Messenger-manér: sök, nålat/mute/arkiv per medlemskap.
+  const [search, setSearch] = useState("");
+  const [prefs, setPrefs] = useState<
+    Record<string, { pinnedAt: string | null; muted: boolean; archived: boolean }>
+  >({});
+  const [showArchived, setShowArchived] = useState(false);
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -54,12 +61,31 @@ export default function GroupsScreen() {
     // måste filtrera på medlemskap här — annars syns alla turneringsgrupper.)
     const { data } = await supabase
       .from("groups")
-      .select("id,name,owner_id,created_at,group_members!inner(user_id)")
+      .select(
+        "id,name,owner_id,created_at,group_members!inner(user_id,pinned_at,muted,archived)",
+      )
       .eq("group_members.user_id", userId)
       .order("created_at", { ascending: false });
-    const myGroups = ((data ?? []) as (Group & { group_members: unknown })[]).map(
-      ({ group_members: _gm, ...g }) => g,
+    type Row = Group & {
+      group_members: { user_id: string; pinned_at: string | null; muted: boolean; archived: boolean }[];
+    };
+    const rows = (data ?? []) as Row[];
+    setPrefs(
+      Object.fromEntries(
+        rows.map((g) => {
+          const gm = g.group_members[0];
+          return [
+            g.id,
+            {
+              pinnedAt: gm?.pinned_at ?? null,
+              muted: gm?.muted ?? false,
+              archived: gm?.archived ?? false,
+            },
+          ];
+        }),
+      ),
     );
+    const myGroups = rows.map(({ group_members: _gm, ...g }) => g);
     setGroups(myGroups);
     setLoading(false);
 
@@ -137,6 +163,41 @@ export default function GroupsScreen() {
     setCode("");
     router.push({ pathname: "/groups/[id]", params: { id: data as string } });
   }
+
+  async function setPref(gid: string, patch: { pin?: boolean; mute?: boolean; arch?: boolean }) {
+    await supabase.rpc("set_chat_prefs", {
+      gid,
+      pin: patch.pin ?? null,
+      mute: patch.mute ?? null,
+      arch: patch.arch ?? null,
+    });
+    await load();
+  }
+
+  async function markGroupRead(gid: string) {
+    if (!userId) return;
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", userId)
+      .eq("group_id", gid)
+      .eq("read", false);
+    await load();
+  }
+
+  // Sortering: nålade först, sedan senast skapade. Arkiverade göms bakom knappen.
+  const q = search.trim().toLowerCase();
+  const visible = groups
+    .filter((g) => (q ? g.name.toLowerCase().includes(q) : true))
+    .filter((g) => (showArchived ? true : !prefs[g.id]?.archived))
+    .sort((a, b) => {
+      const pa = prefs[a.id]?.pinnedAt;
+      const pb = prefs[b.id]?.pinnedAt;
+      if (!!pa !== !!pb) return pa ? -1 : 1;
+      if (pa && pb) return pb.localeCompare(pa);
+      return b.created_at.localeCompare(a.created_at);
+    });
+  const archivedCount = groups.filter((g) => prefs[g.id]?.archived).length;
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
@@ -224,49 +285,124 @@ export default function GroupsScreen() {
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
+
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="🔍 Sök bland dina chattar…"
+          placeholderTextColor={c.textSecondary}
+          style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
+        />
       </View>
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 32 }} />
       ) : (
         <FlatList
-          data={groups}
+          data={visible}
           keyExtractor={(g) => g.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <Text style={[styles.empty, { color: c.textSecondary }]}>
-              Du är inte med i någon grupp än. Skapa en ovan!
+              {q
+                ? "Inga chattar matchar sökningen."
+                : "Du är inte med i någon grupp än. Skapa en ovan!"}
             </Text>
           }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() =>
-                router.push({ pathname: "/groups/[id]", params: { id: item.id } })
-              }
-              style={[styles.groupItem, { backgroundColor: c.backgroundElement }]}
-            >
-              <View style={{ flex: 1, gap: 2 }}>
-                <View style={styles.groupNameRow}>
-                  <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
-                  {unread[item.id] ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>{unread[item.id]}</Text>
+          ListFooterComponent={
+            archivedCount > 0 ? (
+              <Pressable
+                onPress={() => setShowArchived((v) => !v)}
+                style={styles.archiveToggle}
+              >
+                <Text style={{ color: c.textSecondary, fontWeight: "600", fontSize: 13 }}>
+                  🗄 {showArchived ? "Dölj arkiverade" : `Visa arkiverade (${archivedCount})`}
+                </Text>
+              </Pressable>
+            ) : null
+          }
+          renderItem={({ item }) => {
+            const p = prefs[item.id];
+            return (
+              <Swipeable
+                friction={2}
+                overshootLeft={false}
+                overshootRight={false}
+                renderLeftActions={() => (
+                  <View style={styles.swipeActions}>
+                    <Pressable
+                      onPress={() => void setPref(item.id, { pin: !p?.pinnedAt })}
+                      style={[styles.swipeBtn, { backgroundColor: "#2563eb" }]}
+                    >
+                      <Text style={styles.swipeBtnText}>
+                        📌 {p?.pinnedAt ? "Lossa" : "Nåla"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void markGroupRead(item.id)}
+                      style={[styles.swipeBtn, { backgroundColor: "#16a34a" }]}
+                    >
+                      <Text style={styles.swipeBtnText}>✓ Läst</Text>
+                    </Pressable>
+                  </View>
+                )}
+                renderRightActions={() => (
+                  <View style={styles.swipeActions}>
+                    <Pressable
+                      onPress={() => void setPref(item.id, { mute: !p?.muted })}
+                      style={[styles.swipeBtn, { backgroundColor: "#6b7280" }]}
+                    >
+                      <Text style={styles.swipeBtnText}>
+                        {p?.muted ? "🔔 Ljud på" : "🔕 Ljudlös"}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => void setPref(item.id, { arch: !p?.archived })}
+                      style={[styles.swipeBtn, { backgroundColor: "#b45309" }]}
+                    >
+                      <Text style={styles.swipeBtnText}>
+                        🗄 {p?.archived ? "Återställ" : "Arkivera"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
+              >
+                <Pressable
+                  onPress={() =>
+                    router.push({ pathname: "/groups/[id]", params: { id: item.id } })
+                  }
+                  style={[
+                    styles.groupItem,
+                    { backgroundColor: c.backgroundElement },
+                    p?.archived ? { opacity: 0.55 } : null,
+                  ]}
+                >
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <View style={styles.groupNameRow}>
+                      {p?.pinnedAt ? <Text style={{ fontSize: 12 }}>📌</Text> : null}
+                      <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
+                      {p?.muted ? <Text style={{ fontSize: 12 }}>🔕</Text> : null}
+                      {unread[item.id] && !p?.muted ? (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{unread[item.id]}</Text>
+                        </View>
+                      ) : null}
                     </View>
-                  ) : null}
-                </View>
-                {teamScores[item.id] ? (
-                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
-                    🛡 {teamScores[item.id].total} teampoäng
-                  </Text>
-                ) : null}
-              </View>
-              {item.owner_id === userId ? (
-                <Text style={[styles.ownerTag, { color: c.brand }]}>Ägare</Text>
-              ) : (
-                <Text style={{ color: c.textSecondary }}>›</Text>
-              )}
-            </Pressable>
-          )}
+                    {teamScores[item.id] ? (
+                      <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                        🛡 {teamScores[item.id].total} teampoäng
+                      </Text>
+                    ) : null}
+                  </View>
+                  {item.owner_id === userId ? (
+                    <Text style={[styles.ownerTag, { color: c.brand }]}>Ägare</Text>
+                  ) : (
+                    <Text style={{ color: c.textSecondary }}>›</Text>
+                  )}
+                </Pressable>
+              </Swipeable>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -332,5 +468,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
   badgeText: { color: "#fff", fontSize: 11, fontWeight: "800" },
+  swipeActions: { flexDirection: "row" },
+  swipeBtn: {
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    minWidth: 84,
+  },
+  swipeBtnText: { color: "#fff", fontWeight: "700", fontSize: 12, textAlign: "center" },
+  archiveToggle: { alignItems: "center", paddingVertical: 14 },
   ownerTag: { fontSize: 12, fontWeight: "700" },
 });
