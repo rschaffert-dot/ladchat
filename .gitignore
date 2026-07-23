@@ -49,3 +49,5 @@ example
 
 # Supabase CLI local link state
 supabase/.temp/
+.vercel
+.env*
