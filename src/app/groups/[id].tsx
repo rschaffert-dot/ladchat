@@ -2424,19 +2424,15 @@ export default function GroupChatScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
-        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.back}>
-          <Text style={{ color: settings.color, fontSize: 26 }}>‹</Text>
+        <Pressable onPress={() => router.back()} hitSlop={6} style={styles.back}>
+          <Text style={{ color: settings.color, fontSize: 28 }}>‹</Text>
           {unreadOther > 0 ? (
             <View style={styles.backBadge}>
               <Text style={styles.backBadgeText}>{unreadOther > 99 ? "99+" : unreadOther}</Text>
             </View>
           ) : null}
         </Pressable>
-        <Pressable
-          onPress={() => setSettingsOpen(true)}
-          style={{ flex: 1 }}
-          hitSlop={4}
-        >
+        <Pressable onPress={() => setSettingsOpen(true)} style={styles.headerTitleZone}>
           <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
             {group?.name ?? ""}
           </Text>
@@ -2929,9 +2925,18 @@ export default function GroupChatScreen() {
           onPress={() => setSettingsOpen(false)}
         />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <Text style={[styles.sheetTitle, { color: c.text }]}>
-            Inställningar för chatten
-          </Text>
+          <View style={styles.sheetHeader}>
+            <Text style={[styles.sheetTitle, { color: c.text, flex: 1 }]}>
+              Inställningar för chatten
+            </Text>
+            <Pressable
+              onPress={() => setSettingsOpen(false)}
+              hitSlop={12}
+              style={styles.sheetCloseBtn}
+            >
+              <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
+            </Pressable>
+          </View>
 
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Färg</Text>
           <View style={styles.swatchRow}>
@@ -3343,7 +3348,23 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  back: { paddingHorizontal: 4, flexDirection: "row", alignItems: "center", gap: 2 },
+  back: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    minWidth: 44,
+    minHeight: 44,
+    paddingHorizontal: 6,
+    justifyContent: "flex-start",
+  },
+  headerTitleZone: { flex: 1, marginLeft: 10, justifyContent: "center", minHeight: 44 },
+  sheetHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  sheetCloseBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   backBadge: {
     backgroundColor: "#dc2626",
     borderRadius: 9,
