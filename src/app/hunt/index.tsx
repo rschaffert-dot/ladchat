@@ -47,7 +47,14 @@ type WitnessRequest = HuntCompletion & {
 type StatusFilter = "alla" | "oklarade" | "klarade";
 
 /** Gruppens senaste bekräftade bragder (visas när jakten öppnas från en grupp). */
-type GroupFeat = { id: string; name: string; challengeName: string; points: number };
+type GroupFeat = {
+  id: string;
+  name: string;
+  challengeName: string;
+  points: number;
+  proofUrl: string | null;
+  proofIsVideo: boolean;
+};
 
 function KlaradStamp({ small }: { small?: boolean }) {
   return (
@@ -82,6 +89,7 @@ export default function HuntScreen() {
   const { groupId: contextGroupId } = useLocalSearchParams<{ groupId?: string }>();
   const [contextGroupName, setContextGroupName] = useState<string | null>(null);
   const [groupFeats, setGroupFeats] = useState<GroupFeat[]>([]);
+  const [galleryFeat, setGalleryFeat] = useState<GroupFeat | null>(null);
   const [groupFeatCount, setGroupFeatCount] = useState(0);
   const [groupFeatPoints, setGroupFeatPoints] = useState(0);
 
@@ -158,7 +166,7 @@ export default function HuntScreen() {
         supabase.from("groups").select("name").eq("id", contextGroupId).maybeSingle(),
         supabase
           .from("hunt_completions")
-          .select("id, user_id, challenge_id, points_awarded")
+          .select("id, user_id, challenge_id, points_awarded, proof_url")
           .eq("group_id", contextGroupId)
           .eq("status", "confirmed")
           .order("responded_at", { ascending: false }),
@@ -169,6 +177,7 @@ export default function HuntScreen() {
         user_id: string;
         challenge_id: number;
         points_awarded: number;
+        proof_url: string | null;
       }[];
       setGroupFeatCount(rows.length);
       setGroupFeatPoints(rows.reduce((sum, r) => sum + r.points_awarded, 0));
@@ -187,12 +196,16 @@ export default function HuntScreen() {
         );
       }
       setGroupFeats(
-        rows.slice(0, 5).map((r) => ({
-          id: r.id,
-          name: featNames[r.user_id] ?? "Okänd",
-          challengeName: ch.find((x) => x.id === r.challenge_id)?.name ?? "?",
-          points: r.points_awarded,
-        })),
+        await Promise.all(
+          rows.slice(0, 12).map(async (r) => ({
+            id: r.id,
+            name: featNames[r.user_id] ?? "Okänd",
+            challengeName: ch.find((x) => x.id === r.challenge_id)?.name ?? "?",
+            points: r.points_awarded,
+            proofUrl: r.proof_url ? await getChatMediaUrl(r.proof_url) : null,
+            proofIsVideo: r.proof_url ? isVideoPath(r.proof_url) : false,
+          })),
+        ),
       );
     }
     setLoading(false);
@@ -389,11 +402,42 @@ export default function HuntScreen() {
                   <Text style={styles.progressDim}>
                     {groupFeatCount} bekräftade bragder · {groupFeatPoints} poäng till laget
                   </Text>
-                  {groupFeats.map((f) => (
+                  {groupFeats.slice(0, 4).map((f) => (
                     <Text key={f.id} style={styles.progressDim}>
                       🃏 {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
                     </Text>
                   ))}
+                  {groupFeats.some((f) => f.proofUrl) ? (
+                    <>
+                      <Text style={[styles.progressDim, { fontWeight: "800", marginTop: 4 }]}>
+                        🎞 Gruppens höjdpunkter
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          {groupFeats
+                            .filter((f) => f.proofUrl)
+                            .map((f) => (
+                              <Pressable
+                                key={f.id}
+                                onPress={() => setGalleryFeat(f)}
+                                style={styles.galleryThumbWrap}
+                              >
+                                {f.proofIsVideo ? (
+                                  <View style={styles.galleryThumbVideo}>
+                                    <Text style={{ fontSize: 24 }}>🎬</Text>
+                                  </View>
+                                ) : (
+                                  <Image
+                                    source={{ uri: f.proofUrl! }}
+                                    style={styles.galleryThumb}
+                                  />
+                                )}
+                              </Pressable>
+                            ))}
+                        </View>
+                      </ScrollView>
+                    </>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -715,6 +759,38 @@ export default function HuntScreen() {
           </ScrollView>
         </View>
       </Modal>
+      {/* 🎞 Bevisvisare för gruppens höjdpunkter. */}
+      <Modal
+        visible={!!galleryFeat}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGalleryFeat(null)}
+      >
+        <Pressable
+          style={styles.galleryLightbox}
+          onPress={() => setGalleryFeat(null)}
+        >
+          {galleryFeat?.proofIsVideo && galleryFeat.proofUrl ? (
+            <Pressable
+              onPress={() => void Linking.openURL(galleryFeat.proofUrl!)}
+              style={styles.confirmBtn}
+            >
+              <Text style={styles.btnText}>🎬 Öppna videobeviset</Text>
+            </Pressable>
+          ) : galleryFeat?.proofUrl ? (
+            <Image
+              source={{ uri: galleryFeat.proofUrl }}
+              style={{ width: "100%", height: "80%" }}
+              resizeMode="contain"
+            />
+          ) : null}
+          {galleryFeat ? (
+            <Text style={{ color: "#fff", fontWeight: "800", marginTop: 10 }}>
+              {galleryFeat.name} · {"”"}{galleryFeat.challengeName}{"”"} (+{galleryFeat.points}p)
+            </Text>
+          ) : null}
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -747,6 +823,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: 8, backgroundColor: "#d4af37" },
+  galleryThumbWrap: { borderRadius: 10, overflow: "hidden" },
+  galleryThumb: { width: 84, height: 84, borderRadius: 10 },
+  galleryThumbVideo: {
+    width: 84,
+    height: 84,
+    borderRadius: 10,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryLightbox: {
+    flex: 1,
+    backgroundColor: "rgba(10,6,18,0.96)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
   witnessBox: {
     backgroundColor: "rgba(212,175,55,0.12)",
     borderRadius: 16,

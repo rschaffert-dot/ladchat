@@ -30,6 +30,7 @@ export interface Group {
   goal_deadline?: string | null;
   msg_streak?: number;
   msg_streak_date?: string | null;
+  ephemeral_hours?: number | null;
 }
 
 export interface Message {

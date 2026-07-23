@@ -4355,6 +4355,39 @@ export default function GroupChatScreen() {
           {group?.owner_id === userId ? (
             <>
               <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                🫥 Försvinnande meddelanden
+              </Text>
+              <View style={styles.swatchRow}>
+                {(
+                  [
+                    [null, "Av"],
+                    [24, "24 timmar"],
+                    [168, "7 dagar"],
+                  ] as [number | null, string][]
+                ).map(([hours, label]) => (
+                  <Pressable
+                    key={label}
+                    onPress={() =>
+                      void supabase
+                        .rpc("set_ephemeral", { gid: groupId, hours })
+                        .then(({ error }) => error && toast("🫥 " + error.message))
+                    }
+                    style={[
+                      styles.currencyChip,
+                      {
+                        borderColor:
+                          (group?.ephemeral_hours ?? null) === hours
+                            ? settings.color
+                            : c.backgroundSelected,
+                      },
+                    ]}
+                  >
+                    <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
                 Gruppmål (teampoäng, 30 dagar)
               </Text>
               <View style={styles.swatchRow}>
