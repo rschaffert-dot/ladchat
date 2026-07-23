@@ -263,6 +263,8 @@ function ChatImage({ path }: { path: string }) {
   );
 }
 
+const AUDIO_SPEEDS = [1, 1.5, 2] as const;
+
 function AudioBubble({
   path,
   durationMs,
@@ -273,7 +275,17 @@ function AudioBubble({
   tint: string;
 }) {
   const [playing, setPlaying] = useState(false);
+  const [positionMs, setPositionMs] = useState(0);
+  const [speedIdx, setSpeedIdx] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pseudovågform: deterministiska staplar ur sökvägen (ingen ljudanalys
+  // behövs för känslan — mönstret är stabilt per memo).
+  const bars = (() => {
+    let h = 0;
+    for (let i = 0; i < path.length; i++) h = (h * 31 + path.charCodeAt(i)) >>> 0;
+    return Array.from({ length: 24 }, (_, i) => 5 + Math.abs(Math.sin(h + i * 7.3)) * 13);
+  })();
 
   useEffect(
     () => () => {
@@ -290,23 +302,96 @@ function AudioBubble({
       setPlaying(false);
       return;
     }
-    const url = await getChatMediaUrl(path);
-    if (!url) return;
     if (!audioRef.current) {
-      audioRef.current = new window.Audio(url);
-      audioRef.current.onended = () => setPlaying(false);
+      const url = await getChatMediaUrl(path);
+      if (!url) return;
+      const audio = new window.Audio(url);
+      audio.onended = () => {
+        setPlaying(false);
+        setPositionMs(0);
+      };
+      audio.ontimeupdate = () => setPositionMs(audio.currentTime * 1000);
+      audioRef.current = audio;
     }
+    audioRef.current.playbackRate = AUDIO_SPEEDS[speedIdx];
     void audioRef.current.play();
     setPlaying(true);
   }
 
+  function cycleSpeed() {
+    const next = (speedIdx + 1) % AUDIO_SPEEDS.length;
+    setSpeedIdx(next);
+    if (audioRef.current) audioRef.current.playbackRate = AUDIO_SPEEDS[next];
+  }
+
+  const progress = durationMs ? Math.min(1, positionMs / durationMs) : 0;
+
   return (
-    <Pressable onPress={toggle} style={styles.audioBubble}>
-      <Text style={{ color: tint, fontSize: 15, fontWeight: "700" }}>
-        {playing ? "⏸" : "▶️"} Röstmemo
-        {durationMs ? ` · ${formatCountdown(durationMs)}` : ""}
+    <View style={styles.audioBubble}>
+      <Pressable onPress={toggle} hitSlop={8}>
+        <Text style={{ color: tint, fontSize: 20 }}>{playing ? "⏸" : "▶️"}</Text>
+      </Pressable>
+      <View style={styles.waveform}>
+        {bars.map((h, i) => (
+          <View
+            key={i}
+            style={{
+              width: 3,
+              height: h,
+              borderRadius: 2,
+              backgroundColor: tint,
+              opacity: i / bars.length <= progress ? 1 : 0.35,
+            }}
+          />
+        ))}
+      </View>
+      <Text style={{ color: tint, fontSize: 11, fontWeight: "700", minWidth: 34 }}>
+        {playing || positionMs > 0
+          ? formatCountdown(positionMs)
+          : durationMs
+            ? formatCountdown(durationMs)
+            : "🎤"}
       </Text>
-    </Pressable>
+      <Pressable onPress={cycleSpeed} hitSlop={8} style={styles.speedChip}>
+        <Text style={{ color: tint, fontSize: 11, fontWeight: "800" }}>
+          {AUDIO_SPEEDS[speedIdx]}x
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** Gör URL:er i meddelandetext klickbara. */
+const URL_RE = /(https?:\/\/[^\s]+)/g;
+function LinkifiedText({
+  content,
+  color,
+  linkColor,
+  suffix,
+}: {
+  content: string;
+  color: string;
+  linkColor: string;
+  suffix?: ReactNode;
+}) {
+  const parts = content.split(URL_RE);
+  return (
+    <Text style={{ color, fontSize: 15 }}>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part) ? (
+          <Text
+            key={i}
+            style={{ color: linkColor, textDecorationLine: "underline" }}
+            onPress={() => void Linking.openURL(part)}
+          >
+            {part}
+          </Text>
+        ) : (
+          <Text key={i}>{part}</Text>
+        ),
+      )}
+      {suffix}
+    </Text>
   );
 }
 
@@ -344,6 +429,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   isLatestOwn,
   readUpTo,
   poll,
+  highlighted,
   act,
 }: {
   item: LocalMsg;
@@ -358,6 +444,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   isLatestOwn: boolean;
   readUpTo: string | null;
   poll: PollView | null;
+  highlighted?: boolean;
   act: RowActions;
 }) {
   if (item.kind === "system") {
@@ -412,6 +499,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               ? { backgroundColor: bubbleColor, borderBottomRightRadius: 4 }
               : { backgroundColor: c.backgroundElement, borderBottomLeftRadius: 4 },
             item.pending ? { opacity: 0.55 } : null,
+            highlighted ? { borderWidth: 2, borderColor: "#f2a916" } : null,
           ]}
         >
           {item.reply_to_id ? (
@@ -495,14 +583,18 @@ const ChatMessageRow = memo(function ChatMessageRow({
                   ↪️ Vidarebefordrat
                 </Text>
               ) : null}
-              <Text style={{ color: mine ? "#fff" : c.text, fontSize: 15 }}>
-                {item.content}
-                {item.edited_at ? (
-                  <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
-                    {"  (redigerad)"}
-                  </Text>
-                ) : null}
-              </Text>
+              <LinkifiedText
+                content={item.content}
+                color={mine ? "#fff" : c.text}
+                linkColor={mine ? "#bfdbfe" : c.brand}
+                suffix={
+                  item.edited_at ? (
+                    <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                      {"  (redigerad)"}
+                    </Text>
+                  ) : null
+                }
+              />
             </>
           )}
         </Pressable>
@@ -598,6 +690,113 @@ export default function GroupChatScreen() {
   const [streak, setStreak] = useState<Streak | null>(null);
   const [quest, setQuest] = useState<{ quest_id: number; title: string; bonus: number } | null>(null);
   const [questDone, setQuestDone] = useState(false);
+
+  // Utkast per chatt: texten överlever chattbyten och omstarter.
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!groupId) return;
+    draftLoadedRef.current = false;
+    AsyncStorage.getItem(`draft:${groupId}`).then((v) => {
+      if (v) setText(v);
+      draftLoadedRef.current = true;
+    });
+  }, [groupId]);
+  useEffect(() => {
+    if (!groupId || !draftLoadedRef.current) return;
+    const t = setTimeout(() => {
+      void AsyncStorage.setItem(`draft:${groupId}`, text);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [text, groupId]);
+
+  // Närvaro: vilka gruppmedlemmar har chatten öppen just nu.
+  const [onlineIds, setOnlineIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!groupId || !userId) return;
+    const ch = supabase.channel(`presence:${groupId}`, {
+      config: { presence: { key: userId } },
+    });
+    ch.on("presence", { event: "sync" }, () => {
+      setOnlineIds(Object.keys(ch.presenceState()));
+    }).subscribe((status) => {
+      if (status === "SUBSCRIBED") void ch.track({ at: Date.now() });
+    });
+    return () => {
+      void supabase.removeChannel(ch);
+    };
+  }, [groupId, userId]);
+  const onlineOthers = onlineIds.filter((id) => id !== userId).length;
+
+  // Hoppa-till-botten: syns när man skrollat upp, räknar nya under tiden.
+  const listRef = useRef<FlatList | null>(null);
+  const [awayFromBottom, setAwayFromBottom] = useState(false);
+  const awayRef = useRef(false);
+  const [newWhileAway, setNewWhileAway] = useState(0);
+  function jumpToBottom() {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true });
+    setNewWhileAway(0);
+  }
+
+  // Sök i chatten: träffar markeras och kan bläddras med ↑/↓.
+  const [chatSearchOpen, setChatSearchOpen] = useState(false);
+  const [chatSearch, setChatSearch] = useState("");
+  const [matchIdx, setMatchIdx] = useState(0);
+  const chatQuery = chatSearch.trim().toLowerCase();
+  const matchIndices = chatQuery
+    ? messages.reduce<number[]>((acc, m, i) => {
+        if (m.kind !== "system" && m.content.toLowerCase().includes(chatQuery)) acc.push(i);
+        return acc;
+      }, [])
+    : [];
+  const currentMatchId =
+    matchIndices.length > 0 ? messages[matchIndices[matchIdx % matchIndices.length]]?.id : null;
+  function gotoMatch(step: number) {
+    if (matchIndices.length === 0) return;
+    const next = (matchIdx + step + matchIndices.length) % matchIndices.length;
+    setMatchIdx(next);
+    listRef.current?.scrollToIndex({ index: matchIndices[next], viewPosition: 0.5 });
+  }
+  function closeChatSearch() {
+    setChatSearchOpen(false);
+    setChatSearch("");
+    setMatchIdx(0);
+  }
+
+  // Klistra in / släpp bilder direkt i chatten (webb).
+  const sendMediaRef = useRef<typeof sendMediaMessage | null>(null);
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const grab = (dt: DataTransfer | null): File | null => {
+      const f = Array.from(dt?.files ?? [])[0];
+      return f && f.type.startsWith("image/") ? f : null;
+    };
+    const onPaste = (e: ClipboardEvent) => {
+      const f = grab(e.clipboardData);
+      if (f) {
+        e.preventDefault();
+        void sendMediaRef.current?.("image", f, f.type, "📷 Bild");
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      const f = grab(e.dataTransfer);
+      if (f) {
+        e.preventDefault();
+        void sendMediaRef.current?.("image", f, f.type, "📷 Bild");
+      }
+    };
+    const onDragOver = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("paste", onPaste);
+    window.addEventListener("drop", onDrop);
+    window.addEventListener("dragover", onDragOver);
+    return () => {
+      window.removeEventListener("paste", onPaste);
+      window.removeEventListener("drop", onDrop);
+      window.removeEventListener("dragover", onDragOver);
+    };
+  }, []);
+
+  // Växande textfält: följer innehållet upp till ett tak, sedan skroll.
+  const [inputHeight, setInputHeight] = useState(0);
 
   // Skriver-indikator via broadcast: throttlad sändning, 3s självdöende.
   const [typingName, setTypingName] = useState<string | null>(null);
@@ -1269,6 +1468,7 @@ export default function GroupChatScreen() {
           if (m.user_id !== userId) {
             setTypingName(null);
             void supabase.rpc("mark_read", { gid: groupId });
+            if (awayRef.current) setNewWhileAway((n) => n + 1);
           }
           if (m.kind === "poll" && m.metadata?.poll_id) {
             void loadPolls([m.metadata.poll_id as string]);
@@ -1985,12 +2185,16 @@ export default function GroupChatScreen() {
     openChallenge: (cid) => rowActionsLiveRef.current.openChallenge(cid),
   }).current;
 
+  sendMediaRef.current = sendMediaMessage;
+
   const chatBody = (
     <>
+      <View style={styles.flex}>
       {loading ? (
         <ActivityIndicator style={{ marginTop: 32 }} />
       ) : (
         <FlatList
+          ref={listRef}
           data={messages}
           inverted
           keyboardDismissMode="interactive"
@@ -1999,6 +2203,18 @@ export default function GroupChatScreen() {
           maxToRenderPerBatch={12}
           windowSize={9}
           removeClippedSubviews={Platform.OS !== "web"}
+          scrollEventThrottle={100}
+          onScroll={(e) => {
+            const away = e.nativeEvent.contentOffset.y > 250;
+            awayRef.current = away;
+            if (away !== awayFromBottom) setAwayFromBottom(away);
+            if (!away && newWhileAway) setNewWhileAway(0);
+          }}
+          onScrollToIndexFailed={(info) => {
+            listRef.current?.scrollToOffset({
+              offset: info.averageItemLength * info.index,
+            });
+          }}
           keyExtractor={(m) => m.id}
           contentContainerStyle={styles.listContent}
           onEndReached={hasMore ? loadOlder : undefined}
@@ -2038,12 +2254,21 @@ export default function GroupChatScreen() {
                     ? (polls[item.metadata.poll_id as string] ?? null)
                     : null
                 }
+                highlighted={item.id === currentMatchId}
                 act={rowActions}
               />
             );
           }}
         />
       )}
+      {awayFromBottom ? (
+        <Pressable onPress={jumpToBottom} style={[styles.jumpBtn, { backgroundColor: settings.color }]}>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>
+            ↓{newWhileAway > 0 ? ` ${newWhileAway} ny${newWhileAway > 1 ? "a" : "tt"}` : ""}
+          </Text>
+        </Pressable>
+      ) : null}
+      </View>
 
       {typingName ? (
         <View style={[styles.typingRow, { flexDirection: "row", alignItems: "center", gap: 6 }]}>
@@ -2168,7 +2393,14 @@ export default function GroupChatScreen() {
           placeholderTextColor={c.textSecondary}
           multiline
           onKeyPress={handleKeyPress}
-          style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
+          onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
+          style={[
+            styles.input,
+            { color: c.text, borderColor: c.backgroundSelected },
+            inputHeight > 0
+              ? { height: Math.min(120, Math.max(42, inputHeight + 20)) }
+              : null,
+          ]}
         />
         <Pressable
           onPress={send}
@@ -2212,6 +2444,10 @@ export default function GroupChatScreen() {
             <Text style={{ color: c.textSecondary, fontSize: 11 }} numberOfLines={1}>
               {typingName} skriver…
             </Text>
+          ) : onlineOthers > 0 ? (
+            <Text style={{ color: "#22c55e", fontSize: 11 }} numberOfLines={1}>
+              🟢 {onlineOthers} aktiv{onlineOthers > 1 ? "a" : ""} nu
+            </Text>
           ) : null}
         </Pressable>
         <Pressable onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
@@ -2224,6 +2460,38 @@ export default function GroupChatScreen() {
           <Text style={{ fontSize: 20 }}>⚙️</Text>
         </Pressable>
       </View>
+
+      {chatSearchOpen ? (
+        <View style={[styles.chatSearchBar, { backgroundColor: c.backgroundElement }]}>
+          <TextInput
+            value={chatSearch}
+            onChangeText={(t) => {
+              setChatSearch(t);
+              setMatchIdx(0);
+            }}
+            placeholder="Sök i chatten…"
+            placeholderTextColor={c.textSecondary}
+            autoFocus
+            style={[styles.chatSearchInput, { color: c.text }]}
+          />
+          <Text style={{ color: c.textSecondary, fontSize: 12, fontWeight: "700" }}>
+            {matchIndices.length === 0
+              ? chatQuery
+                ? "0/0"
+                : ""
+              : `${(matchIdx % matchIndices.length) + 1}/${matchIndices.length}`}
+          </Text>
+          <Pressable onPress={() => gotoMatch(1)} hitSlop={10} disabled={matchIndices.length === 0}>
+            <Text style={{ color: c.text, fontSize: 17 }}>↑</Text>
+          </Pressable>
+          <Pressable onPress={() => gotoMatch(-1)} hitSlop={10} disabled={matchIndices.length === 0}>
+            <Text style={{ color: c.text, fontSize: 17 }}>↓</Text>
+          </Pressable>
+          <Pressable onPress={closeChatSearch} hitSlop={10}>
+            <Text style={{ color: c.textSecondary, fontSize: 18 }}>×</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {/* Gemensam energibar: fylls av aktivitet, sjunker vid tystnad. */}
       <View style={[styles.energyTrack, { backgroundColor: c.backgroundElement }]}>
@@ -2625,6 +2893,7 @@ export default function GroupChatScreen() {
                   action: checkin,
                 },
                 { emoji: "🏆", label: "Turneringar & topplista", action: () => router.push("/feed") },
+                { emoji: "🔍", label: "Sök i chatten", action: () => setChatSearchOpen(true) },
                 {
                   emoji: "🔗",
                   label: linkCopied ? "Länk kopierad!" : "Bjud in en polare",
@@ -3333,7 +3602,48 @@ const styles = StyleSheet.create({
   recordingBanner: { backgroundColor: "#7f1d1d", paddingVertical: 6 },
   recordingText: { color: "#fecaca", fontWeight: "700", fontSize: 12, textAlign: "center" },
   chatImage: { width: 230, height: 230, borderRadius: 12 },
-  audioBubble: { paddingVertical: 2 },
+  audioBubble: {
+    paddingVertical: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 200,
+  },
+  waveform: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    flex: 1,
+    height: 22,
+  },
+  speedChip: {
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  jumpBtn: {
+    position: "absolute",
+    bottom: 14,
+    right: 14,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    minWidth: 44,
+    minHeight: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 4,
+  },
+  chatSearchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  chatSearchInput: { flex: 1, fontSize: 14, paddingVertical: 4 },
   pollBox: { minWidth: 230, gap: 6 },
   pollOption: {
     borderRadius: 10,
