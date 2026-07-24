@@ -927,6 +927,9 @@ export default function GroupChatScreen() {
 
   // Växande textfält: följer innehållet upp till ett tak, sedan skroll.
   const [inputHeight, setInputHeight] = useState(0);
+  // Fokus markeras Claude-likt: rutans kant ljusnar diskret, ingen fyrkantig
+  // webbläsar-outline (den släcks globalt i +html.tsx).
+  const [inputFocused, setInputFocused] = useState(false);
 
   // Skriver-indikator via broadcast: throttlad sändning, 3s självdöende.
   const [typingName, setTypingName] = useState<string | null>(null);
@@ -3080,7 +3083,10 @@ export default function GroupChatScreen() {
         <View
           style={[
             styles.composer,
-            { backgroundColor: c.backgroundElement, borderColor: c.backgroundSelected },
+            {
+              backgroundColor: c.backgroundElement,
+              borderColor: inputFocused ? c.textSecondary : c.backgroundSelected,
+            },
           ]}
         >
           <TextInput
@@ -3089,6 +3095,8 @@ export default function GroupChatScreen() {
             placeholder="Skriv ett meddelande…"
             placeholderTextColor={c.textSecondary}
             multiline
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setInputFocused(false)}
             onKeyPress={handleKeyPress}
             onContentSizeChange={(e) => setInputHeight(e.nativeEvent.contentSize.height)}
             style={[
