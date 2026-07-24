@@ -5188,6 +5188,12 @@ const styles = StyleSheet.create({
     padding: 0,
     paddingHorizontal: 6,
     textAlignVertical: "top",
+    borderWidth: 0,
+    // RN-web: släck webbläsarens fokusring direkt på elementet också —
+    // iOS Safari ritar annars en blå ram trots global CSS.
+    ...(Platform.OS === "web"
+      ? ({ outlineStyle: "none", outlineWidth: 0 } as object)
+      : null),
   },
   composerRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   composerBtn: {

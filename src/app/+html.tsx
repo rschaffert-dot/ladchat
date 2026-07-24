@@ -17,7 +17,7 @@ export default function Root({ children }: PropsWithChildren) {
         <style
           dangerouslySetInnerHTML={{
             __html:
-              "html,body{height:100%}@supports(height:100dvh){html,body{height:100dvh}}body{overflow:hidden;overscroll-behavior:none}#root{display:flex;height:100%;flex-direction:column}textarea:focus,input:focus,textarea,input,[contenteditable]{outline:none!important;box-shadow:none!important}",
+              "html,body{height:100%}@supports(height:100dvh){html,body{height:100dvh}}body{overflow:hidden;overscroll-behavior:none}#root{display:flex;height:100%;flex-direction:column}*:focus,*:focus-visible,textarea,input,[contenteditable]{outline:none!important;outline-width:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent}textarea,input{-webkit-appearance:none;appearance:none;border:0!important}",
           }}
         />
       </head>
