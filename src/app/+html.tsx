@@ -13,11 +13,15 @@ export default function Root({ children }: PropsWithChildren) {
           name="viewport"
           content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
+        <meta name="theme-color" content="#FAF9F5" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#262624" media="(prefers-color-scheme: dark)" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <ScrollViewStyleReset />
         <style
           dangerouslySetInnerHTML={{
             __html:
-              "html,body{height:100%}@supports(height:100dvh){html,body{height:100dvh}}body{overflow:hidden;overscroll-behavior:none}#root{display:flex;height:100%;flex-direction:column}*:focus,*:focus-visible,textarea,input,[contenteditable]{outline:none!important;outline-width:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent}textarea,input{-webkit-appearance:none;appearance:none;border:0!important}",
+              "html,body{height:100%}@supports(height:100dvh){html,body{height:100dvh}}body{overflow:hidden;overscroll-behavior:none}#root{display:flex;height:100%;flex-direction:column}*:focus,*:focus-visible,textarea,input,[contenteditable]{outline:none!important;outline-width:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent}textarea,input{-webkit-appearance:none;appearance:none;border:0!important}body{padding-bottom:env(safe-area-inset-bottom)}",
           }}
         />
       </head>

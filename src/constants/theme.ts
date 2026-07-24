@@ -25,6 +25,14 @@ export const Colors = {
   },
 } as const;
 
+/** Semantiska accentfärger — använd dessa i stället för hex i komponenter. */
+export const Accents = {
+  success: '#22c55e',
+  warning: '#f2a916',
+  danger: '#dc2626',
+  gold: '#d4af37',
+} as const;
+
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({

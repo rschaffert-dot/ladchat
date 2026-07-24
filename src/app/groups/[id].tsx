@@ -242,6 +242,16 @@ const QUICK_EMOJIS = [
   "😀", "😂", "🤣", "😎", "😭", "😡", "🥴", "🤠",
   "❤️", "🔥", "👍", "👎", "💪", "🍺", "🐐", "💀",
   "🎉", "👀", "🙏", "🤝", "🖕", "💩", "🧠", "⚽",
+  "🥂", "🍕", "🚬", "😈", "🤡", "🥶", "😤", "🫡",
+  "🤙", "👊", "🏆", "🎲", "⚡", "💯", "🙈", "😴",
+];
+
+const COMPOSER_PLACEHOLDERS = [
+  "Skriv ett meddelande…",
+  "Säg nåt kul…",
+  "Våga utmana någon…",
+  "Vad händer ikväll?",
+  "Dra en dålig vits…",
 ];
 
 function ChatImage({ path }: { path: string }) {
@@ -559,12 +569,27 @@ const ChatMessageRow = memo(function ChatMessageRow({
           <Text style={{ fontSize: 20, color: c.textSecondary }}>↩︎</Text>
         </View>
       )}
+      renderRightActions={() => (
+        <View style={styles.swipeReply}>
+          <Text style={{ fontSize: 12, color: c.textSecondary, fontWeight: "700" }}>
+            {new Date(item.created_at).toLocaleTimeString("sv-SE", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </View>
+      )}
+      overshootRight={false}
       onSwipeableWillOpen={(direction) => {
         if (direction === "left" && !item.pending) {
           buzz(8);
           act.reply(item);
+          swipeRef?.close();
+        } else if (direction === "right") {
+          setTimeout(() => swipeRef?.close(), 1200);
+        } else {
+          swipeRef?.close();
         }
-        swipeRef?.close();
       }}
     >
       <View
@@ -606,36 +631,25 @@ const ChatMessageRow = memo(function ChatMessageRow({
           style={[
             styles.bubble,
             mine
-              ? { backgroundColor: bubbleColor, borderBottomRightRadius: 4 }
+              ? { backgroundColor: c.backgroundSelected, borderBottomRightRadius: 4 }
               : { backgroundColor: c.backgroundElement, borderBottomLeftRadius: 4 },
             item.pending ? { opacity: 0.55 } : null,
             highlighted ? { borderWidth: 2, borderColor: "#f2a916" } : null,
           ]}
         >
           {item.reply_to_id ? (
-            <View
-              style={[
-                styles.quoteBox,
-                !mine ? { borderLeftColor: c.textSecondary } : null,
-              ]}
-            >
-              <Text
-                style={[styles.quoteAuthor, !mine ? { color: c.text } : null]}
-                numberOfLines={1}
-              >
+            <View style={[styles.quoteBox, { borderLeftColor: c.textSecondary }]}>
+              <Text style={[styles.quoteAuthor, { color: c.text }]} numberOfLines={1}>
                 {parentAuthor ?? "Svar"}
               </Text>
-              <Text
-                style={[styles.quoteContent, !mine ? { color: c.textSecondary } : null]}
-                numberOfLines={2}
-              >
+              <Text style={[styles.quoteContent, { color: c.textSecondary }]} numberOfLines={2}>
                 {parentContent ?? "…"}
               </Text>
             </View>
           ) : null}
           {item.kind === "image" && item.metadata?.media_path ? (
             item.metadata?.snap ? (
-              <SnapImage id={item.id} path={item.metadata.media_path as string} tint={mine ? "#fff" : c.text} />
+              <SnapImage id={item.id} path={item.metadata.media_path as string} tint={c.text} />
             ) : (
               <ChatImage path={item.metadata.media_path as string} />
             )
@@ -643,7 +657,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             <AudioBubble
               path={item.metadata.media_path as string}
               durationMs={(item.metadata.duration_ms as number) ?? null}
-              tint={mine ? "#fff" : c.text}
+              tint={c.text}
             />
           ) : item.kind === "poll" && item.metadata?.poll_id ? (
             !poll ? (
@@ -652,7 +666,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               <View style={styles.pollBox}>
                 <Text
                   style={{
-                    color: mine ? "#fff" : c.text,
+                    color: c.text,
                     fontWeight: "800",
                     fontSize: 15,
                     marginBottom: 6,
@@ -690,7 +704,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     </Pressable>
                   );
                 })}
-                <Text style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}>
+                <Text style={{ color: c.textSecondary, fontSize: 11 }}>
                   {poll.total} {poll.total === 1 ? "röst" : "röster"} — tryck för att rösta
                 </Text>
               </View>
@@ -700,7 +714,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               {item.metadata?.forwarded ? (
                 <Text
                   style={{
-                    color: mine ? "#e0e0ff" : c.textSecondary,
+                    color: c.textSecondary,
                     fontSize: 11,
                     fontStyle: "italic",
                   }}
@@ -710,13 +724,13 @@ const ChatMessageRow = memo(function ChatMessageRow({
               ) : null}
               <LinkifiedText
                 content={item.content}
-                color={mine ? "#fff" : c.text}
-                linkColor={mine ? "#bfdbfe" : c.brand}
+                color={c.text}
+                linkColor={c.brand}
                 suffix={
                   item.edited_at ? (
                     <Text
                       onPress={() => act.showOriginal(item)}
-                      style={{ color: mine ? "#e0e0ff" : c.textSecondary, fontSize: 11 }}
+                      style={{ color: c.textSecondary, fontSize: 11 }}
                     >
                       {"  (redigerad)"}
                     </Text>
@@ -930,7 +944,20 @@ export default function GroupChatScreen() {
   // Fokus markeras Claude-likt: rutans kant ljusnar diskret, ingen fyrkantig
   // webbläsar-outline (den släcks globalt i +html.tsx).
   const [inputFocused, setInputFocused] = useState(false);
-
+  // Offline-läge (webb): visa när anslutningen tappats.
+  const [offline, setOffline] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== "web" || typeof window === "undefined") return;
+    const on = () => setOffline(false);
+    const off = () => setOffline(true);
+    setOffline(!navigator.onLine);
+    window.addEventListener("online", on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online", on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
   // Skriver-indikator via broadcast: throttlad sändning, 3s självdöende.
   const [typingName, setTypingName] = useState<string | null>(null);
   const [typingUserId, setTypingUserId] = useState<string | null>(null);
@@ -978,9 +1005,23 @@ export default function GroupChatScreen() {
   >([]);
   const avatarsMap = Object.fromEntries(memberProfiles.map((m) => [m.id, m.avatar]));
   const [goalTotal, setGoalTotal] = useState<number | null>(null);
+  const [firstUnreadAt, setFirstUnreadAt] = useState<string | null>(null);
+  // Ihopfällda systemkörningar: nyckel = nyaste systemmeddelandet i körningen.
+  const [expandedRuns, setExpandedRuns] = useState<Record<string, true>>({});
   useEffect(() => {
     if (!groupId || !userId) return;
-    void supabase.rpc("mark_read", { gid: groupId });
+    // Fånga var jag läste till SIST innan kvittot uppdateras — det är
+    // gränsen för "Nya meddelanden"-linjen.
+    void (async () => {
+      const { data: myRead } = await supabase
+        .from("message_reads")
+        .select("last_read_at")
+        .eq("group_id", groupId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      setFirstUnreadAt((myRead?.last_read_at as string) ?? null);
+      void supabase.rpc("mark_read", { gid: groupId });
+    })();
     void supabase
       .from("group_members")
       .select("user_id")
@@ -1716,6 +1757,16 @@ export default function GroupChatScreen() {
   const [gameOpen, setGameOpen] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const discardRecordingRef = useRef(false);
+  // Inspelningstid i komposern.
+  const [recordElapsed, setRecordElapsed] = useState(0);
+  useEffect(() => {
+    if (!recording) {
+      setRecordElapsed(0);
+      return;
+    }
+    const id = setInterval(() => setRecordElapsed((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [recording]);
   const recordChunksRef = useRef<Blob[]>([]);
   const recordStartRef = useRef(0);
   const namesRef = useRef<Record<string, string>>({});
@@ -2903,9 +2954,18 @@ export default function GroupChatScreen() {
             loadingOlder ? <ActivityIndicator style={{ marginVertical: 12 }} /> : null
           }
           ListEmptyComponent={
-            <Text style={[styles.empty, { color: c.textSecondary }]}>
-              Inga meddelanden än. Skriv det första!
-            </Text>
+            <View style={[styles.empty, { alignItems: "center", gap: 10 }]}>
+              <Text style={{ fontSize: 44 }}>🍻</Text>
+              <Text style={{ color: c.textSecondary, fontSize: 14, textAlign: "center" }}>
+                Inga meddelanden än — bryt isen!
+              </Text>
+              <Pressable
+                onPress={() => setStarOpen(true)}
+                style={[styles.claimBtnLike, { backgroundColor: settings.color, paddingHorizontal: 22 }]}
+              >
+                <Text style={{ color: "#fff", fontWeight: "800" }}>💪 Starta något</Text>
+              </Pressable>
+            </View>
           }
           renderItem={({ item, index }) => {
             const mine = item.user_id === userId;
@@ -2914,6 +2974,32 @@ export default function GroupChatScreen() {
               : undefined;
             // Inverterad lista: index+1 är det ÄLDRE grannmeddelandet.
             const older = messages[index + 1];
+
+            // Systemspam viks ihop: bara nyaste i en svit visas, resten
+            // göms bakom en "N tidigare händelser"-knapp.
+            if (item.kind === "system") {
+              const newer = messages[index - 1];
+              if (newer?.kind === "system") {
+                let rootIdx = index - 1;
+                while (messages[rootIdx - 1]?.kind === "system") rootIdx--;
+                if (!expandedRuns[messages[rootIdx].id]) return null;
+              }
+            }
+            let hiddenOlder = 0;
+            if (item.kind === "system" && messages[index - 1]?.kind !== "system") {
+              let i = index + 1;
+              while (messages[i]?.kind === "system") {
+                hiddenOlder++;
+                i++;
+              }
+            }
+
+            const showUnreadLine = Boolean(
+              firstUnreadAt &&
+                !mine &&
+                item.created_at > firstUnreadAt &&
+                (!older || older.created_at <= firstUnreadAt),
+            );
             const grouped = Boolean(
               older &&
                 older.kind !== "system" &&
@@ -2928,6 +3014,36 @@ export default function GroupChatScreen() {
                 ? dayLabel(item.created_at)
                 : null;
             return (
+              <>
+              {hiddenOlder > 0 ? (
+                <Pressable
+                  onPress={() =>
+                    setExpandedRuns((prev) =>
+                      prev[item.id]
+                        ? Object.fromEntries(
+                            Object.entries(prev).filter(([k]) => k !== item.id),
+                          )
+                        : { ...prev, [item.id]: true },
+                    )
+                  }
+                  style={{ alignSelf: "center", paddingVertical: 3 }}
+                >
+                  <Text style={{ color: c.textSecondary, fontSize: 11, fontWeight: "700" }}>
+                    {expandedRuns[item.id]
+                      ? "▾ Dölj händelser"
+                      : `▸ ${hiddenOlder} tidigare händelse${hiddenOlder > 1 ? "r" : ""}`}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {showUnreadLine ? (
+                <View style={styles.unreadLine}>
+                  <View style={[styles.unreadLineBar, { backgroundColor: settings.color }]} />
+                  <Text style={{ color: settings.color, fontSize: 11, fontWeight: "800" }}>
+                    Nya meddelanden
+                  </Text>
+                  <View style={[styles.unreadLineBar, { backgroundColor: settings.color }]} />
+                </View>
+              ) : null}
               <ChatMessageRow
                 item={item as LocalMsg}
                 mine={mine}
@@ -2955,6 +3071,7 @@ export default function GroupChatScreen() {
                 highlighted={item.id === currentMatchId}
                 act={rowActions}
               />
+              </>
             );
           }}
         />
@@ -3043,17 +3160,6 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
-      {recording ? (
-        <View style={[styles.recordingBanner, styles.bannerRow]}>
-          <Text style={[styles.recordingText, { flex: 1 }]}>
-            🔴 Spelar in röstmemo… tryck ⏹ för att skicka
-          </Text>
-          <Pressable onPress={cancelRecording} hitSlop={12}>
-            <Text style={{ fontSize: 18 }}>🗑</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
       {mentionSuggestions.length > 0 ? (
         <View style={[styles.mentionRow, { backgroundColor: c.backgroundElement }]}>
           {mentionSuggestions.map((m) => (
@@ -3092,7 +3198,7 @@ export default function GroupChatScreen() {
           <TextInput
             value={text}
             onChangeText={onTypeText}
-            placeholder="Skriv ett meddelande…"
+            placeholder={COMPOSER_PLACEHOLDERS[new Date().getDate() % COMPOSER_PLACEHOLDERS.length]}
             placeholderTextColor={c.textSecondary}
             multiline
             onFocus={() => setInputFocused(true)}
@@ -3144,32 +3250,43 @@ export default function GroupChatScreen() {
               <Text style={{ fontSize: 18 }}>😊</Text>
             </Pressable>
             <View style={styles.flex} />
+            {recording ? (
+              <>
+                <Pressable onPress={cancelRecording} hitSlop={8} accessibilityLabel="Kasta inspelningen">
+                  <Text style={{ fontSize: 18 }}>🗑</Text>
+                </Pressable>
+                <Text style={{ color: "#dc2626", fontWeight: "800", fontSize: 13 }}>
+                  🔴 {Math.floor(recordElapsed / 60)}:{String(recordElapsed % 60).padStart(2, "0")}
+                </Text>
+              </>
+            ) : null}
             {uploadingMedia ? <ActivityIndicator style={{ marginRight: 6 }} /> : null}
             <Pressable
-              onPress={toggleRecording}
-              hitSlop={6}
-              style={[
-                styles.composerBtn,
-                { backgroundColor: recording ? "#dc2626" : c.backgroundSelected },
-              ]}
-            >
-              <Text style={{ fontSize: 18 }}>{recording ? "⏹" : "🎤"}</Text>
-            </Pressable>
-            <Pressable
-              onPress={send}
+              onPress={() => {
+                if (recording || text.trim().length === 0) {
+                  void toggleRecording();
+                } else {
+                  send();
+                }
+              }}
               onLongPress={() => text.trim().length > 0 && setScheduleOpen(true)}
               delayLongPress={400}
-              accessibilityLabel="Skicka (håll in för att schemalägga)"
-              disabled={sending || text.trim().length === 0}
-              style={[
+              accessibilityLabel={
+                recording
+                  ? "Stoppa och skicka röstmemo"
+                  : text.trim().length === 0
+                    ? "Spela in röstmemo"
+                    : "Skicka (håll in för att schemalägga)"
+              }
+              style={({ pressed }) => [
                 styles.sendCircle,
-                {
-                  backgroundColor: settings.color,
-                  opacity: sending || text.trim().length === 0 ? 0.35 : 1,
-                },
+                { backgroundColor: recording ? "#dc2626" : settings.color },
+                pressed ? { transform: [{ scale: 0.9 }] } : null,
               ]}
             >
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>↑</Text>
+              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
+                {recording ? "⏹" : text.trim().length === 0 ? "🎤" : "↑"}
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -3181,6 +3298,7 @@ export default function GroupChatScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
+      <View style={styles.appColumn}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
         <Pressable
           // Alltid till chattöversikten — router.back() var ett no-op när
@@ -3228,6 +3346,14 @@ export default function GroupChatScreen() {
           <Text style={{ fontSize: 20 }}>⚙️</Text>
         </Pressable>
       </View>
+
+      {offline ? (
+        <View style={styles.offlineBar}>
+          <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
+            📡 Ingen anslutning — försöker igen…
+          </Text>
+        </View>
+      ) : null}
 
       {chatSearchOpen ? (
         <View style={[styles.chatSearchBar, { backgroundColor: c.backgroundElement }]}>
@@ -3389,15 +3515,11 @@ export default function GroupChatScreen() {
         </View>
       ))}
 
-      {celebration ? (
-        <View style={styles.celebrationBanner}>
-          <Text style={styles.celebrationText}>{celebration}</Text>
-        </View>
-      ) : null}
-
-      {callNote ? (
-        <View style={styles.celebrationBanner}>
-          <Text style={styles.celebrationText}>{callNote}</Text>
+      {celebration || callNote ? (
+        <View pointerEvents="none" style={styles.toastOverlay}>
+          <View style={styles.toastCard}>
+            <Text style={styles.celebrationText}>{celebration ?? callNote}</Text>
+          </View>
         </View>
       ) : null}
 
@@ -3664,6 +3786,7 @@ export default function GroupChatScreen() {
             style={[styles.starSheet, { backgroundColor: c.background, maxHeight: "75%" }]}
             onPress={() => {}}
           >
+            <View style={styles.sheetHandle} />
             <Text style={[styles.starTitle, { color: c.text }]}>🧵 Tråd</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {threadMsgs.map((m) => (
@@ -3821,6 +3944,7 @@ export default function GroupChatScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setBetModalOpen(false)}>
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
             <Text style={[styles.starTitle, { color: c.text }]}>🤝 Slå vad</Text>
             <TextInput
               value={betClaim}
@@ -3870,6 +3994,7 @@ export default function GroupChatScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setStarredOpen(false)}>
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
             <Text style={[styles.starTitle, { color: c.text }]}>⭐ Sparade meddelanden</Text>
             {starred.length === 0 ? (
               <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
@@ -4220,6 +4345,7 @@ export default function GroupChatScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setForwardMsg(null)}>
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
             <Text style={[styles.starTitle, { color: c.text }]}>↪️ Vidarebefordra till…</Text>
             {forwardGroups.length === 0 ? (
               <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
@@ -4252,6 +4378,7 @@ export default function GroupChatScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setStarOpen(false)}>
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
             <Text style={[styles.starTitle, { color: c.text }]}>Starta något</Text>
             {(
               [
@@ -4857,6 +4984,7 @@ export default function GroupChatScreen() {
           members={leaderboard.map((m) => ({ id: m.userId, name: m.name }))}
         />
       ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -4869,7 +4997,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   back: {
@@ -4972,7 +5100,14 @@ const styles = StyleSheet.create({
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
   bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
-  reactionRow: { flexDirection: "row", gap: 4, marginTop: 4, flexWrap: "wrap" },
+  reactionRow: {
+    flexDirection: "row",
+    gap: 4,
+    marginTop: -9,
+    marginHorizontal: 10,
+    flexWrap: "wrap",
+    zIndex: 1,
+  },
   reactionChip: {
     borderWidth: 1,
     borderColor: "transparent",
@@ -5142,6 +5277,7 @@ const styles = StyleSheet.create({
   attachEmoji: { fontSize: 26 },
   attachLabel: { fontSize: 11, fontWeight: "600" },
   emojiRow: {
+    rowGap: 10,
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
@@ -5293,6 +5429,44 @@ const styles = StyleSheet.create({
   },
   mentionChip: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
   typingAvatar: { width: 18, height: 18, borderRadius: 9 },
+  unreadLine: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 20,
+  },
+  unreadLineBar: { flex: 1, height: 1, opacity: 0.5 },
+  toastOverlay: {
+    position: "absolute",
+    top: 64,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 60,
+  },
+  toastCard: {
+    backgroundColor: "#f2a916",
+    borderRadius: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    maxWidth: "90%",
+    elevation: 6,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(128,124,116,0.4)",
+    marginBottom: 6,
+  },
+  appColumn: { flex: 1, width: "100%", maxWidth: 860, alignSelf: "center" },
+  offlineBar: {
+    backgroundColor: "#6b7280",
+    paddingVertical: 4,
+    alignItems: "center",
+  },
   storyRow: { flexDirection: "row", gap: 12, paddingHorizontal: 12, paddingVertical: 6 },
   storyItem: { alignItems: "center", gap: 3, width: 56 },
   storyRing: {

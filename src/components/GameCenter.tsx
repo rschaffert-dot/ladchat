@@ -1283,7 +1283,7 @@ export default function GameCenter({
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <Pressable onPress={phase === "menu" ? close : exitGame} hitSlop={8}>
-            <Text style={{ color: "#c4b5fd", fontSize: 26 }}>{phase === "menu" ? "×" : "‹"}</Text>
+            <Text style={{ color: "#A6A39B", fontSize: 26 }}>{phase === "menu" ? "×" : "‹"}</Text>
           </Pressable>
           <Text style={styles.headerTitle}>
             {phase === "menu" ? "🎮 Spel" : `${gameDef?.emoji} ${gameDef?.title}`}
@@ -1509,7 +1509,7 @@ export default function GameCenter({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#1a1024" },
+  safe: { flex: 1, backgroundColor: "#262624" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1526,7 +1526,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   gameBody: { padding: 20, gap: 12 },
-  category: { color: "#c4b5fd", fontSize: 14, fontWeight: "800", marginTop: 8 },
+  category: { color: "#A6A39B", fontSize: 14, fontWeight: "800", marginTop: 8 },
   menuCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -1536,12 +1536,12 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   menuTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  dim: { color: "#c4b5fd", fontSize: 13 },
+  dim: { color: "#A6A39B", fontSize: 13 },
   h1: { color: "#fff", fontSize: 20, fontWeight: "800", textAlign: "center" },
   h2: { color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" },
   phaseLabel: { color: "#f2a916", fontSize: 13, fontWeight: "800", textAlign: "center" },
   turnBanner: { alignItems: "center", gap: 2 },
-  turnLabel: { color: "#c4b5fd", fontSize: 13 },
+  turnLabel: { color: "#A6A39B", fontSize: 13 },
   turnName: { color: "#fff", fontSize: 26, fontWeight: "900" },
   playerRow: {
     flexDirection: "row",
@@ -1583,7 +1583,7 @@ const styles = StyleSheet.create({
   },
   miniChipOn: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.25)" },
   btn: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#D97757",
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
@@ -1594,7 +1594,7 @@ const styles = StyleSheet.create({
   btnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   btnRow: { flexDirection: "row", gap: 10, justifyContent: "center", flexWrap: "wrap" },
   choiceBtn: {
-    backgroundColor: "#7c3aed",
+    backgroundColor: "#D97757",
     borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 20,
@@ -1627,7 +1627,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#7c3aed",
+    borderColor: "#D97757",
     alignItems: "center",
   },
   bigCard: {
@@ -1644,15 +1644,15 @@ const styles = StyleSheet.create({
   cardBack: {
     width: 170,
     height: 240,
-    backgroundColor: "#4c1d95",
+    backgroundColor: "#8a5a2b",
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     borderWidth: 3,
-    borderColor: "#7c3aed",
+    borderColor: "#D97757",
   },
-  cardBackText: { color: "#c4b5fd", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  cardBackText: { color: "#A6A39B", fontSize: 13, fontWeight: "700", textAlign: "center" },
   ruleBox: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 14, gap: 6 },
   ruleTitle: { color: "#f2a916", fontSize: 16, fontWeight: "800" },
   ruleText: { color: "#fff", fontSize: 14, lineHeight: 20 },
@@ -1672,10 +1672,10 @@ const styles = StyleSheet.create({
   pCardBack: {
     width: 40,
     height: 54,
-    backgroundColor: "#4c1d95",
+    backgroundColor: "#8a5a2b",
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: "#7c3aed",
+    borderColor: "#D97757",
   },
   pyramid: { gap: 6, alignItems: "center" },
   pyramidRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
