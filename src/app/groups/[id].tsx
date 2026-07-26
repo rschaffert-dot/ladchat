@@ -4753,6 +4753,46 @@ export default function GroupChatScreen() {
             </Pressable>
           </View>
 
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+            Medlemmar ({memberProfiles.length})
+          </Text>
+          <ScrollView style={{ maxHeight: 190 }} contentContainerStyle={styles.leaderboard}>
+            {memberProfiles.map((m) => (
+              <Pressable
+                key={m.id}
+                onPress={() => {
+                  setSettingsOpen(false);
+                  void openMemberCard(m.id);
+                }}
+                style={[styles.leaderboardRow, { alignItems: "center", gap: 8 }]}
+              >
+                {m.avatar ? (
+                  <Image source={{ uri: m.avatar }} style={styles.msgAvatar} />
+                ) : (
+                  <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
+                    <Text style={{ fontSize: 12 }}>👤</Text>
+                  </View>
+                )}
+                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600", flex: 1 }}>
+                  {m.name}
+                  {m.id === group?.owner_id ? " 👑" : ""}
+                  {m.id === userId ? " (du)" : ""}
+                </Text>
+                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                  {titleForPoints(memberPoints[m.id] ?? 0)} ›
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable
+            onPress={invite}
+            style={[styles.closeBtn, { backgroundColor: settings.color, marginTop: 4 }]}
+          >
+            <Text style={styles.sendText}>
+              {linkCopied ? "✓ Länk kopierad!" : "🔗 Dela chatten — bjud in med länk"}
+            </Text>
+          </Pressable>
+
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Färg</Text>
           <View style={styles.swatchRow}>
             {COLOR_OPTIONS.map((color) => (
