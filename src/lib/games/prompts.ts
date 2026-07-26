@@ -111,23 +111,8 @@ export const DARES: Record<Intensity, string[]> = {
   ],
 };
 
-export const MOST_LIKELY_TO: string[] = [
-  "Vem är mest trolig att bli miljonär?",
-  "Vem är mest trolig att somna först ikväll?",
-  "Vem är mest trolig att hamna i slagsmål för något löjligt?",
-  "Vem är mest trolig att bli känd på sociala medier?",
-  "Vem är mest trolig att glömma sin egen födelsedag?",
-  "Vem är mest trolig att gifta sig först?",
-  "Vem är mest trolig att flytta utomlands?",
-  "Vem är mest trolig att bli stoppad i tullen?",
-  "Vem är mest trolig att gråta på en fest?",
-  "Vem är mest trolig att svara sitt ex klockan 03?",
-  "Vem är mest trolig att starta ett företag som går i konkurs?",
-  "Vem är mest trolig att äta något från golvet?",
-  "Vem är mest trolig att bli president?",
-  "Vem är mest trolig att tappa bort sin telefon ikväll?",
-  "Vem är mest trolig att skratta på en begravning?",
-];
+// "Vem är mest trolig" har vuxit till 1000+ frågor och bor i egen fil.
+export { MOST_LIKELY_TO } from "./mostLikely";
 
 export const PARANOIA_QUESTIONS: string[] = [
   "Vem i rummet skulle klara sig sämst i en zombieapokalyps?",

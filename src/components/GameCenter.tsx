@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
@@ -49,6 +49,7 @@ export type GameSettings = {
   mexicoSimple: boolean;
   buzzExtra: number | null;
   rouletteDare: boolean;
+  tjugoettClassic: boolean;
 };
 
 const DEFAULT_SETTINGS: GameSettings = {
@@ -61,6 +62,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   mexicoSimple: false,
   buzzExtra: null,
   rouletteDare: false,
+  tjugoettClassic: true,
 };
 
 type GameId =
@@ -73,13 +75,15 @@ type GameId =
   | "paranoia"
   | "buzz"
   | "roulette"
-  | "bomb";
+  | "bomb"
+  | "tjugoett";
 
 const GAMES: { id: GameId; emoji: string; title: string; desc: string; category: "drick" | "utmaning" }[] = [
   { id: "kingscup", emoji: "👑", title: "Kings Cup", desc: "Dra kort, följ regeln, skicka vidare.", category: "drick" },
   { id: "bus", emoji: "🚌", title: "Ride the Bus", desc: "Gissa kort i tre faser — förloraren åker bussen.", category: "drick" },
   { id: "mexico", emoji: "🎲", title: "Mexico", desc: "Två tärningar under dold kopp. Bluffa eller syna.", category: "drick" },
   { id: "buzz", emoji: "🔢", title: "Buzz", desc: "Räkna i tur — men sjuor är förbjudna.", category: "drick" },
+  { id: "tjugoett", emoji: "🥂", title: "21", desc: "Räkna till 21 ihop — den som säger 21 skapar en ny regel.", category: "drick" },
   { id: "bomb", emoji: "💣", title: "The Bomb", desc: "Säg ett ord i kategorin och skicka vidare — före smällen.", category: "drick" },
   { id: "roulette", emoji: "📱", title: "Mobilroulette", desc: "Snurra — ödet väljer vem som drabbas.", category: "drick" },
   { id: "nhie", emoji: "🙊", title: "Jag har aldrig", desc: "Alla som gjort det dricker.", category: "utmaning" },
@@ -1213,6 +1217,121 @@ function BombGame({ players, names, settings, onExit }: GameProps) {
 }
 
 // ============================================================
+// Spel 11: 21 — räkna tillsammans, bygg regler
+// ============================================================
+
+const TJUGOETT_START_RULE = "7 och 17 byter plats — säg '17' på 7 och '7' på 17";
+
+function TwentyOneGame({ players, names, settings, onExit }: GameProps) {
+  const [n, setN] = useState(1);
+  const [turn, setTurn] = useState(0);
+  const [dir, setDir] = useState<1 | -1>(1);
+  const [round, setRound] = useState(1);
+  const [rules, setRules] = useState<string[]>(
+    settings.tjugoettClassic ? [TJUGOETT_START_RULE] : [],
+  );
+  const [msg, setMsg] = useState<string | null>(null);
+  const [winner, setWinner] = useState<string | null>(null);
+  const [newRule, setNewRule] = useState("");
+
+  /** count = hur många tal spelaren sa. 1 = vidare, 2 = riktningen vänds, 3 = nästa hoppas över. */
+  function said(count: 1 | 2 | 3) {
+    setMsg(null);
+    const lastSaid = n + count - 1;
+    if (lastSaid >= 21) {
+      setWinner(players[turn]);
+      return;
+    }
+    const nd = count === 2 ? ((dir * -1) as 1 | -1) : dir;
+    const hop = count === 3 ? 2 : 1;
+    setDir(nd);
+    setN(n + count);
+    setTurn((turn + nd * hop + players.length * 3) % players.length);
+  }
+
+  function fail() {
+    setMsg(
+      `${names[players[turn]]} sa fel (eller tvekade) och dricker ${sipText(1, settings)} — vi börjar om från 1. ${names[players[turn]]} börjar.`,
+    );
+    setN(1);
+    setDir(1);
+  }
+
+  function nextRound() {
+    const trimmed = newRule.trim();
+    if (trimmed) setRules((r) => [...r, trimmed]);
+    const winnerIdx = winner ? players.indexOf(winner) : 0;
+    setTurn((winnerIdx + 1) % players.length);
+    setWinner(null);
+    setNewRule("");
+    setRound((r) => r + 1);
+    setN(1);
+    setDir(1);
+    setMsg(null);
+  }
+
+  if (winner) {
+    return (
+      <View style={styles.gameBody}>
+        <Text style={{ fontSize: 64, textAlign: "center" }}>🥂</Text>
+        <Text style={styles.h1}>21! GEMENSAM SKÅL!</Text>
+        <Text style={styles.dim}>
+          Alla dricker {sipText(1, settings)} tillsammans. {names[winner]} sa 21 och får hitta på en
+          ny regel som gäller resten av spelet — t.ex. &quot;på 6 ska man säga 7&quot; eller
+          &quot;på 12 gör man ett djurläte&quot;.
+        </Text>
+        <TextInput
+          style={styles.input}
+          placeholder={`${names[winner]}s nya regel…`}
+          placeholderTextColor="#A6A39B"
+          value={newRule}
+          onChangeText={setNewRule}
+        />
+        <Btn label={`Starta runda ${round + 1} →`} onPress={nextRound} />
+        <Btn label="Avsluta" tone="ghost" onPress={onExit} />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.gameBody}>
+      <Text style={styles.phaseLabel}>21 — runda {round}</Text>
+      <Text style={styles.dim}>
+        Räkna till 21 med ett tal var. Sa någon två tal i rad vänds riktningen, tre tal hoppar över
+        nästa spelare. Fel eller tvekan = klunk och omstart från 1.
+      </Text>
+      {rules.length > 0 ? (
+        <View style={styles.ruleBox}>
+          <Text style={styles.ruleTitle}>Gällande regler</Text>
+          {rules.map((r, i) => (
+            <Text key={i} style={styles.ruleText}>
+              {i + 1}. {r}
+            </Text>
+          ))}
+        </View>
+      ) : null}
+      <TurnBanner name={names[players[turn]] ?? "?"} />
+      <Text style={styles.buzzNumber}>{n}</Text>
+      <Text style={styles.dim}>
+        …är nästa tal{dir === -1 ? " (riktningen är just nu omvänd ↩️)" : ""}. Kom ihåg reglerna!
+      </Text>
+      {msg ? <ResultMsg text={msg} good={false} /> : null}
+      <Btn label="✓ Sa ett tal — vidare" onPress={() => said(1)} />
+      <View style={styles.btnRow}>
+        <Pressable onPress={() => said(2)} style={styles.choiceBtn}>
+          <Text style={styles.btnText}>✓✓ Två tal (vänd)</Text>
+        </Pressable>
+        <Pressable onPress={() => said(3)} style={styles.choiceBtn}>
+          <Text style={styles.btnText}>✓✓✓ Tre tal (hoppa)</Text>
+        </Pressable>
+      </View>
+      <Btn label="✗ Fel! Klunk + omstart" tone="danger" onPress={fail} />
+      <Btn label="Avsluta" tone="ghost" onPress={onExit} />
+    </View>
+  );
+}
+
+// ============================================================
 // GameCenter: meny + delad lobby + spelväxel
 // ============================================================
 
@@ -1232,10 +1351,16 @@ export default function GameCenter({
   const [playerIds, setPlayerIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [starting, setStarting] = useState(false);
+  // Gästspelare: polare på plats som inte är med i chatten. Spelar med i alla
+  // spel men skickas inte till servern (inga poäng, inga konton).
+  const [guests, setGuests] = useState<GameMember[]>([]);
+  const [guestName, setGuestName] = useState("");
+  const guestSeq = useRef(0);
 
+  const allPlayers = useMemo(() => [...members, ...guests], [members, guests]);
   const names = useMemo(
-    () => Object.fromEntries(members.map((m) => [m.id, m.name])),
-    [members],
+    () => Object.fromEntries(allPlayers.map((m) => [m.id, m.name])),
+    [allPlayers],
   );
   const gameDef = GAMES.find((g) => g.id === game);
 
@@ -1247,16 +1372,33 @@ export default function GameCenter({
     setSettings((prev) => ({ ...prev, ...p }));
   }
 
+  function addGuest() {
+    const name = guestName.trim();
+    if (!name) return;
+    guestSeq.current += 1;
+    const guest = { id: `guest:${guestSeq.current}`, name };
+    setGuests((prev) => [...prev, guest]);
+    setPlayerIds((prev) => [...prev, guest.id]);
+    setGuestName("");
+  }
+
   async function start() {
     if (!gameDef || playerIds.length < 2 || starting) return;
     setStarting(true);
-    const { error } = await supabase.rpc("start_drinking_game", {
-      gid: groupId,
-      game_name: gameDef.title,
-      participant_ids: playerIds,
-    });
+    // Bara riktiga gruppmedlemmar rapporteras till servern — gäster får inga poäng.
+    const memberIds = playerIds.filter((id) => !id.startsWith("guest:"));
+    if (memberIds.length > 0) {
+      const { error } = await supabase.rpc("start_drinking_game", {
+        gid: groupId,
+        game_name: gameDef.title,
+        participant_ids: memberIds,
+      });
+      if (error) {
+        setStarting(false);
+        return;
+      }
+    }
     setStarting(false);
-    if (error) return;
     setPhase("play");
   }
 
@@ -1268,6 +1410,8 @@ export default function GameCenter({
 
   function close() {
     exitGame();
+    setGuests([]);
+    setGuestName("");
     onClose();
   }
 
@@ -1342,8 +1486,9 @@ export default function GameCenter({
                 Bocka i spelarna i den ordning ni sitter runt bordet — turordningen följer den. Alla
                 får +10 poäng.
               </Text>
-              {members.map((m) => {
+              {allPlayers.map((m) => {
                 const order = playerIds.indexOf(m.id);
+                const isGuest = m.id.startsWith("guest:");
                 return (
                   <Pressable
                     key={m.id}
@@ -1353,10 +1498,31 @@ export default function GameCenter({
                     <View style={[styles.orderBadge, order < 0 ? { opacity: 0.25 } : null]}>
                       <Text style={styles.orderText}>{order >= 0 ? order + 1 : "–"}</Text>
                     </View>
-                    <Text style={styles.playerName}>{m.name}</Text>
+                    <Text style={styles.playerName}>
+                      {m.name}
+                      {isGuest ? "  🧑‍🤝‍🧑 gäst" : ""}
+                    </Text>
                   </Pressable>
                 );
               })}
+
+              <Text style={styles.category}>Gästspelare</Text>
+              <Text style={styles.dim}>
+                Lägg till polare som är på plats men inte med i chatten. Gäster spelar med i allt
+                men får inga poäng.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="Gästens namn…"
+                  placeholderTextColor="#A6A39B"
+                  value={guestName}
+                  onChangeText={setGuestName}
+                  onSubmitEditing={addGuest}
+                  returnKeyType="done"
+                />
+                <Btn label="+ Lägg till" onPress={addGuest} disabled={!guestName.trim()} />
+              </View>
 
               <Text style={styles.category}>Inställningar</Text>
               <View style={styles.settingRow}>
@@ -1469,6 +1635,16 @@ export default function GameCenter({
                 </View>
               ) : null}
 
+              {game === "tjugoett" ? (
+                <View style={styles.settingRow}>
+                  <Text style={styles.settingLabel}>Klassisk startregel (7 och 17 byter plats)</Text>
+                  <Switch
+                    value={settings.tjugoettClassic}
+                    onValueChange={(v) => patch({ tjugoettClassic: v })}
+                  />
+                </View>
+              ) : null}
+
               {game === "roulette" ? (
                 <View style={styles.settingRow}>
                   <Text style={styles.settingLabel}>Djärvt läge 😈 (kräver 18+)</Text>
@@ -1502,6 +1678,7 @@ export default function GameCenter({
           {phase === "play" && game === "buzz" ? <BuzzGame {...gameProps} /> : null}
           {phase === "play" && game === "roulette" ? <RouletteGame {...gameProps} /> : null}
           {phase === "play" && game === "bomb" ? <BombGame {...gameProps} /> : null}
+          {phase === "play" && game === "tjugoett" ? <TwentyOneGame {...gameProps} /> : null}
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -1573,6 +1750,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   settingLabel: { color: "#fff", fontSize: 14, fontWeight: "600", flexShrink: 1 },
+  input: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: "#fff",
+    fontSize: 15,
+  },
   miniChip: {
     borderRadius: 10,
     paddingHorizontal: 12,
