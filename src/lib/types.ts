@@ -39,7 +39,7 @@ export interface Message {
   user_id: string;
   content: string;
   created_at: string;
-  kind: "user" | "system" | "image" | "audio" | "poll";
+  kind: "user" | "system" | "image" | "audio" | "poll" | "wager";
   metadata: Record<string, unknown>;
   reply_to_id: string | null;
   edited_at?: string | null;

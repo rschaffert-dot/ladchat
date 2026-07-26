@@ -475,12 +475,49 @@ type PollView = {
   mine: string | null;
 };
 
+type WagerView = {
+  question: string;
+  kind: "time" | "number";
+  settled: boolean;
+  resultLabel: string | null;
+  winnerIds: string[];
+  guesses: { userId: string; name: string; label: string }[];
+  mine: string | null;
+};
+
+/** Tolkar en gissning: klockslag ("8:30", "08.30", "0830") → minuter sedan
+ * midnatt med normaliserad label, siffra → talet. null = ogiltig inmatning. */
+function parseWagerInput(
+  kind: "time" | "number",
+  raw: string,
+): { value: number; label: string } | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (kind === "time") {
+    const compact = s.replace(/[.\s]/g, ":");
+    const m = /^(\d{1,2}):(\d{2})$/.exec(compact) ?? /^(\d{1,2})(\d{2})$/.exec(s.replace(/\D/g, "").padStart(3, "0"));
+    if (!m) return null;
+    const hh = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    if (hh > 23 || mm > 59) return null;
+    return {
+      value: hh * 60 + mm,
+      label: `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`,
+    };
+  }
+  const n = Number(s.replace(",", "."));
+  if (!Number.isFinite(n)) return null;
+  return { value: n, label: s.replace(",", ".") };
+}
+
 type RowActions = {
   openMenu: (m: LocalMsg) => void;
   tap: (m: LocalMsg, mine: boolean) => void;
   reply: (m: LocalMsg) => void;
   toggleReaction: (id: string, key: ReactionKey) => void;
   votePoll: (pid: string, oid: string) => void;
+  openWagerGuess: (wid: string) => void;
+  openWagerSettle: (wid: string) => void;
   retry: (m: LocalMsg) => void;
   removeLocal: (id: string) => void;
   openChallenge: (cid: string) => void;
@@ -504,6 +541,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   isLatestOwn,
   readUpTo,
   poll,
+  wager,
   highlighted,
   avatar,
   dateLabel,
@@ -522,6 +560,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
   isLatestOwn: boolean;
   readUpTo: string | null;
   poll: PollView | null;
+  wager: WagerView | null;
   highlighted?: boolean;
   avatar: string | null;
   dateLabel: string | null;
@@ -707,6 +746,77 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 <Text style={{ color: c.textSecondary, fontSize: 11 }}>
                   {poll.total} {poll.total === 1 ? "röst" : "röster"} — tryck för att rösta
                 </Text>
+              </View>
+            )
+          ) : item.kind === "wager" && item.metadata?.wager_id ? (
+            !wager ? (
+              <ActivityIndicator style={{ margin: 12 }} />
+            ) : (
+              <View style={styles.pollBox}>
+                <Text style={{ color: c.text, fontWeight: "800", fontSize: 15, marginBottom: 2 }}>
+                  🎯 {wager.question}
+                </Text>
+                <Text style={{ color: c.textSecondary, fontSize: 11 }}>
+                  Gissa {wager.kind === "time" ? "klockslag" : "en siffra"} — närmast vinner
+                  {wager.settled ? ` · AVGJORD, facit: ${wager.resultLabel}` : ""}
+                </Text>
+                {wager.guesses.map((g) => {
+                  const won = wager.settled && wager.winnerIds.includes(g.userId);
+                  return (
+                    <View
+                      key={g.userId}
+                      style={[styles.pollOption, won ? styles.pollOptionMine : null]}
+                    >
+                      <View style={styles.pollOptionRow}>
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontSize: 13,
+                            fontWeight: won ? "800" : "600",
+                            flex: 1,
+                          }}
+                          numberOfLines={1}
+                        >
+                          {won ? "🏆 " : ""}
+                          {g.name}
+                        </Text>
+                        <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
+                          {g.label}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+                {wager.guesses.length === 0 ? (
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    Inga gissningar än — var först!
+                  </Text>
+                ) : null}
+                {!wager.settled ? (
+                  <>
+                    <Pressable
+                      onPress={() => act.openWagerGuess(item.metadata.wager_id as string)}
+                      style={[styles.pollOption, { alignItems: "center", paddingVertical: 9 }]}
+                    >
+                      <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>
+                        {wager.mine ? `✏️ Ändra din gissning (${wager.mine})` : "🎯 Gissa!"}
+                      </Text>
+                    </Pressable>
+                    {mine ? (
+                      <Pressable
+                        onPress={() => act.openWagerSettle(item.metadata.wager_id as string)}
+                        style={[
+                          styles.pollOption,
+                          { alignItems: "center", paddingVertical: 9, borderColor: "#f2a916" },
+                        ]}
+                      >
+                        <Text style={{ color: "#f2a916", fontWeight: "800", fontSize: 13 }}>
+                          🏁 Ange facit & kora vinnare
+                        </Text>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : null}
               </View>
             )
           ) : (
@@ -1753,6 +1863,18 @@ export default function GroupChatScreen() {
       }
     >
   >({});
+  // Gissningar: skapa-modalen + gissa/facit-modalen (delas, mode avgör).
+  const [wagerCreateOpen, setWagerCreateOpen] = useState(false);
+  const [wagerQuestion, setWagerQuestion] = useState("");
+  const [wagerKind, setWagerKind] = useState<"time" | "number">("time");
+  const [wagerModal, setWagerModal] = useState<{
+    wagerId: string;
+    mode: "guess" | "settle";
+    kind: "time" | "number";
+    question: string;
+  } | null>(null);
+  const [wagerInput, setWagerInput] = useState("");
+  const [wagers, setWagers] = useState<Record<string, WagerView>>({});
   // Spelcentret (lobby + alla spel) bor i src/components/GameCenter.tsx.
   const [gameOpen, setGameOpen] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -1929,6 +2051,53 @@ export default function GroupChatScreen() {
       .map((m) => m.metadata?.poll_id as string)
       .filter(Boolean);
 
+  const loadWagers = useCallback(
+    async (wagerIds: string[]) => {
+      if (!wagerIds.length) return;
+      const [{ data: ws }, { data: gs }] = await Promise.all([
+        supabase
+          .from("wagers")
+          .select("id, question, kind, settled_at, result_label, winner_ids")
+          .in("id", wagerIds),
+        supabase
+          .from("wager_guesses")
+          .select("wager_id, user_id, label")
+          .in("wager_id", wagerIds)
+          .order("created_at"),
+      ]);
+      // Se till att gissarnas namn finns i cachen innan vyn byggs.
+      const guesserIds = [...new Set((gs ?? []).map((g) => g.user_id as string))];
+      await Promise.all(guesserIds.map((uid) => nameFor(uid)));
+      setWagers((prev) => {
+        const next = { ...prev };
+        for (const w of ws ?? []) {
+          const wGuesses = (gs ?? []).filter((g) => g.wager_id === w.id);
+          next[w.id as string] = {
+            question: w.question as string,
+            kind: w.kind as "time" | "number",
+            settled: Boolean(w.settled_at),
+            resultLabel: (w.result_label as string) ?? null,
+            winnerIds: (w.winner_ids as string[]) ?? [],
+            guesses: wGuesses.map((g) => ({
+              userId: g.user_id as string,
+              name: namesRef.current[g.user_id as string] ?? "Okänd",
+              label: g.label as string,
+            })),
+            mine: (wGuesses.find((g) => g.user_id === userId)?.label as string) ?? null,
+          };
+        }
+        return next;
+      });
+    },
+    [userId, nameFor],
+  );
+
+  const wagerIdsIn = (list: Message[]) =>
+    list
+      .filter((m) => m.kind === "wager")
+      .map((m) => m.metadata?.wager_id as string)
+      .filter(Boolean);
+
   const loadLeaderboard = useCallback(async () => {
     if (!groupId) return;
     const { data } = await supabase
@@ -2066,6 +2235,7 @@ export default function GroupChatScreen() {
       setLoading(false);
       void loadReactionsFor(list.map((m) => m.id));
       void loadPolls(pollIdsIn(list));
+      void loadWagers(wagerIdsIn(list));
       void loadActivation();
       void loadLeaderboard();
       void loadDuel();
@@ -2074,7 +2244,7 @@ export default function GroupChatScreen() {
     return () => {
       active = false;
     };
-  }, [groupId, router, loadReactionsFor, loadPolls, loadActivation, loadLeaderboard, loadDuel, loadGamification]);
+  }, [groupId, router, loadReactionsFor, loadPolls, loadWagers, loadActivation, loadLeaderboard, loadDuel, loadGamification]);
 
   // Ladda chattens personliga utseende-/ljudinställningar (sparade lokalt per enhet).
   useEffect(() => {
@@ -2196,6 +2366,10 @@ export default function GroupChatScreen() {
           if (m.kind === "poll" && m.metadata?.poll_id) {
             void loadPolls([m.metadata.poll_id as string]);
           }
+          if (m.metadata?.wager_id) {
+            // Både wager-kortet och systemmeddelandet vid avgörande pekar hit.
+            void loadWagers([m.metadata.wager_id as string]);
+          }
           setMessages((prev) =>
             prev.some((x) => x.id === m.id)
               ? prev
@@ -2251,7 +2425,7 @@ export default function GroupChatScreen() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [groupId, nameFor, userId, loadPolls]);
+  }, [groupId, nameFor, userId, loadPolls, loadWagers]);
 
   // Realtime: omröstningsröster.
   useEffect(() => {
@@ -2273,6 +2447,35 @@ export default function GroupChatScreen() {
       void supabase.removeChannel(channel);
     };
   }, [groupId, loadPolls]);
+
+  // Realtime: gissningar — nya/ändrade gissningar och avgöranden.
+  useEffect(() => {
+    if (!groupId) return;
+    const channel = supabase
+      .channel(`wagers:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "wager_guesses", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const wid =
+            ((payload.new as { wager_id?: string })?.wager_id ??
+              (payload.old as { wager_id?: string })?.wager_id) as string | undefined;
+          if (wid) void loadWagers([wid]);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "wagers", filter: `group_id=eq.${groupId}` },
+        (payload) => {
+          const wid = (payload.new as { id?: string })?.id;
+          if (wid) void loadWagers([wid]);
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [groupId, loadWagers]);
 
   // Realtime: reaktioner. Ingen optimistisk uppdatering (som send()) — vi väntar
   // på DB-eventet, annars dubbelräknas den egna reaktionen.
@@ -2752,6 +2955,59 @@ export default function GroupChatScreen() {
     await supabase.rpc("vote_poll", { pid: pollId, oid: optionId });
   }
 
+  async function createWager() {
+    if (!groupId) return;
+    const q = wagerQuestion.trim();
+    if (!q) return;
+    const { error } = await supabase.rpc("create_wager", {
+      gid: groupId,
+      question: q,
+      wkind: wagerKind,
+    });
+    if (!error) {
+      setWagerCreateOpen(false);
+      setWagerQuestion("");
+      setWagerKind("time");
+      setAttachOpen(false);
+    }
+  }
+
+  async function submitWagerInput() {
+    if (!wagerModal) return;
+    const parsed = parseWagerInput(wagerModal.kind, wagerInput);
+    if (!parsed) {
+      toast(
+        wagerModal.kind === "time"
+          ? "Skriv ett klockslag, t.ex. 08:30"
+          : "Skriv en siffra, t.ex. 42",
+      );
+      return;
+    }
+    const { error } =
+      wagerModal.mode === "guess"
+        ? await supabase.rpc("guess_wager", {
+            wid: wagerModal.wagerId,
+            guess_value: parsed.value,
+            guess_label: parsed.label,
+          })
+        : await supabase.rpc("settle_wager", {
+            wid: wagerModal.wagerId,
+            actual_value: parsed.value,
+            actual_label: parsed.label,
+          });
+    if (error) {
+      toast(
+        wagerModal.mode === "settle" && error.message.includes("no guesses")
+          ? "Ingen har gissat än — vänta in gänget!"
+          : "Något gick fel — försök igen.",
+      );
+      return;
+    }
+    void loadWagers([wagerModal.wagerId]);
+    setWagerModal(null);
+    setWagerInput("");
+  }
+
   async function participateThumb() {
     if (!activation || activationBusy) return;
     setActivationBusy(true);
@@ -2848,6 +3104,7 @@ export default function GroupChatScreen() {
     setLoadingOlder(false);
     void loadReactionsFor(older.map((m) => m.id));
     void loadPolls(pollIdsIn(older));
+    void loadWagers(wagerIdsIn(older));
   }
 
   async function invite() {
@@ -2893,6 +3150,18 @@ export default function GroupChatScreen() {
     reply: (m) => setReplyTo(m),
     toggleReaction: (id, key) => void toggleReaction(id, key),
     votePoll: (pid, oid) => void votePoll(pid, oid),
+    openWagerGuess: (wid) => {
+      const w = wagers[wid];
+      if (!w || w.settled) return;
+      setWagerInput(w.mine ?? "");
+      setWagerModal({ wagerId: wid, mode: "guess", kind: w.kind, question: w.question });
+    },
+    openWagerSettle: (wid) => {
+      const w = wagers[wid];
+      if (!w || w.settled) return;
+      setWagerInput("");
+      setWagerModal({ wagerId: wid, mode: "settle", kind: w.kind, question: w.question });
+    },
     retry: retryMessage,
     removeLocal: removeLocalMessage,
     openChallenge: (cid) =>
@@ -2909,6 +3178,8 @@ export default function GroupChatScreen() {
     reply: (m) => rowActionsLiveRef.current.reply(m),
     toggleReaction: (id, key) => rowActionsLiveRef.current.toggleReaction(id, key),
     votePoll: (pid, oid) => rowActionsLiveRef.current.votePoll(pid, oid),
+    openWagerGuess: (wid) => rowActionsLiveRef.current.openWagerGuess(wid),
+    openWagerSettle: (wid) => rowActionsLiveRef.current.openWagerSettle(wid),
     retry: (m) => rowActionsLiveRef.current.retry(m),
     removeLocal: (id) => rowActionsLiveRef.current.removeLocal(id),
     openChallenge: (cid) => rowActionsLiveRef.current.openChallenge(cid),
@@ -3068,6 +3339,11 @@ export default function GroupChatScreen() {
                     ? (polls[item.metadata.poll_id as string] ?? null)
                     : null
                 }
+                wager={
+                  item.kind === "wager" && item.metadata?.wager_id
+                    ? (wagers[item.metadata.wager_id as string] ?? null)
+                    : null
+                }
                 highlighted={item.id === currentMatchId}
                 act={rowActions}
               />
@@ -3146,6 +3422,10 @@ export default function GroupChatScreen() {
           <Pressable onPress={() => setPollModalOpen(true)} style={styles.attachBtn}>
             <Text style={styles.attachEmoji}>📊</Text>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Omröstning</Text>
+          </Pressable>
+          <Pressable onPress={() => setWagerCreateOpen(true)} style={styles.attachBtn}>
+            <Text style={styles.attachEmoji}>🎯</Text>
+            <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Gissning</Text>
           </Pressable>
         </View>
       ) : null}
@@ -4391,6 +4671,7 @@ export default function GroupChatScreen() {
                 },
                 { emoji: "⚔️", label: "Utmana på duell", action: () => setDuelModalOpen(true) },
                 { emoji: "📊", label: "Omröstning", action: () => setPollModalOpen(true) },
+                { emoji: "🎯", label: "Gissning (vem gissar rätt?)", action: () => setWagerCreateOpen(true) },
                 {
                   emoji: "🔥",
                   label: `Checka in streak (${streak?.current_streak ?? 0} dagar)`,
@@ -4904,6 +5185,109 @@ export default function GroupChatScreen() {
             ]}
           >
             <Text style={styles.sendText}>Starta omröstning</Text>
+          </Pressable>
+        </View>
+      </Modal>
+
+      {/* 🎯 Skapa gissning: fråga + typ (klockslag/siffra). */}
+      <Modal
+        visible={wagerCreateOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setWagerCreateOpen(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setWagerCreateOpen(false)} />
+        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>🎯 Skapa gissning</Text>
+          <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+            Alla i gruppen gissar — du anger facit när det hänt, och den som var närmast vinner
+            automatiskt (+15 poäng).
+          </Text>
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Vad ska gissas?</Text>
+          <TextInput
+            value={wagerQuestion}
+            onChangeText={setWagerQuestion}
+            placeholder="När vaknar Kalle?"
+            placeholderTextColor={c.textSecondary}
+            style={[styles.input, { color: c.text, borderColor: c.backgroundSelected, flex: 0 }]}
+          />
+          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Man gissar på…</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {(
+              [
+                ["time", "🕐 Klockslag"],
+                ["number", "🔢 Siffra"],
+              ] as const
+            ).map(([k, label]) => (
+              <Pressable
+                key={k}
+                onPress={() => setWagerKind(k)}
+                style={[
+                  styles.input,
+                  {
+                    flex: 1,
+                    alignItems: "center",
+                    borderColor: wagerKind === k ? settings.color : c.backgroundSelected,
+                  },
+                ]}
+              >
+                <Text style={{ color: c.text, fontWeight: wagerKind === k ? "800" : "600" }}>
+                  {label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+          <Pressable
+            onPress={createWager}
+            disabled={!wagerQuestion.trim()}
+            style={[
+              styles.closeBtn,
+              { backgroundColor: settings.color, opacity: wagerQuestion.trim() ? 1 : 0.4 },
+            ]}
+          >
+            <Text style={styles.sendText}>Starta gissningen</Text>
+          </Pressable>
+        </View>
+      </Modal>
+
+      {/* 🎯 Gissa / ange facit på en gissning. */}
+      <Modal
+        visible={wagerModal !== null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setWagerModal(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setWagerModal(null)} />
+        <View style={[styles.sheet, { backgroundColor: c.background }]}>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>
+            {wagerModal?.mode === "settle" ? "🏁 Ange facit" : "🎯 Din gissning"}
+          </Text>
+          <Text style={{ color: c.textSecondary, fontSize: 13 }}>{wagerModal?.question}</Text>
+          {wagerModal?.mode === "settle" ? (
+            <Text style={{ color: "#f2a916", fontSize: 12, fontWeight: "700" }}>
+              När du sparar korar servern vinnaren — det går inte att ångra.
+            </Text>
+          ) : null}
+          <TextInput
+            value={wagerInput}
+            onChangeText={setWagerInput}
+            placeholder={wagerModal?.kind === "time" ? "t.ex. 11:45" : "t.ex. 42"}
+            placeholderTextColor={c.textSecondary}
+            keyboardType={wagerModal?.kind === "time" ? "numbers-and-punctuation" : "numeric"}
+            autoFocus
+            style={[styles.input, { color: c.text, borderColor: c.backgroundSelected, flex: 0 }]}
+          />
+          <Pressable
+            onPress={() => void submitWagerInput()}
+            disabled={!wagerInput.trim()}
+            style={[
+              styles.closeBtn,
+              { backgroundColor: settings.color, opacity: wagerInput.trim() ? 1 : 0.4 },
+            ]}
+          >
+            <Text style={styles.sendText}>
+              {wagerModal?.mode === "settle" ? "Spara facit & kora vinnare" : "Spara gissning"}
+            </Text>
           </Pressable>
         </View>
       </Modal>
