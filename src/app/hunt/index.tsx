@@ -561,7 +561,7 @@ export default function HuntScreen() {
               <Pressable onPress={() => openCard(item)} style={{ flex: 1 / 3 }}>
                 <View style={[styles.cardBack, { borderColor: t.frame, backgroundColor: t.face }]}>
                   <View style={[styles.cardInnerFrame, { borderColor: t.frameDark }]}>
-                    <CategoryArt category={item.category} tint={t.frameDark} />
+                    <CategoryArt category={item.category} seed={item.id} />
                     <View style={styles.cornerSymbol}>
                       <AppIcon name={t.icon} size={12} color={t.frameDark} />
                     </View>
