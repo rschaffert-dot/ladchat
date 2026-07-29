@@ -31,6 +31,7 @@ import type {
   ViewStyle,
 } from "react-native";
 import { Swipeable } from "react-native-gesture-handler";
+import Svg, { Circle, Defs, RadialGradient, Stop } from "react-native-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
@@ -77,6 +78,7 @@ import {
   Image as LImage,
   Beer as LBeer,
   Coins as LCoins,
+  Disc3 as LDisc,
   Flame as LFlame,
   Gamepad2 as LGamepad,
   Layers as LLayers,
@@ -216,6 +218,93 @@ function ChatBackground({
     );
   }
   return <View style={[style, color ? { backgroundColor: color } : null]}>{children}</View>;
+}
+
+/** Discoljusens färger — temapaletten plus ett par festfärger. */
+const PARTY_LIGHTS = [
+  { color: "#3D5AFE", top: "-8%", left: "-15%", size: 300, delay: 0 },
+  { color: "#FF4C29", top: "18%", left: "55%", size: 260, delay: 420 },
+  { color: "#00B884", top: "48%", left: "-12%", size: 280, delay: 840 },
+  { color: "#D4AF37", top: "70%", left: "48%", size: 240, delay: 1260 },
+  { color: "#B14CFF", top: "34%", left: "22%", size: 220, delay: 1680 },
+] as const;
+
+/** En mjuk ljuskägla som pulserar i egen takt. */
+function PartyLight({
+  color,
+  top,
+  left,
+  size,
+  delay,
+}: {
+  color: string;
+  top: string;
+  left: string;
+  size: number;
+  delay: number;
+}) {
+  const pulse = useRef(new RNAnimated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = RNAnimated.loop(
+      RNAnimated.sequence([
+        RNAnimated.timing(pulse, {
+          toValue: 1,
+          duration: 900,
+          delay,
+          useNativeDriver: true,
+        }),
+        RNAnimated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, delay]);
+
+  const gradientId = `party-${color.slice(1)}`;
+
+  return (
+    <RNAnimated.View
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: top as unknown as number,
+        left: left as unknown as number,
+        width: size,
+        height: size,
+        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.42] }),
+        transform: [
+          { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.12] }) },
+        ],
+      }}
+    >
+      <Svg width={size} height={size}>
+        <Defs>
+          <RadialGradient id={gradientId} cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor={color} stopOpacity={1} />
+            <Stop offset="60%" stopColor={color} stopOpacity={0.35} />
+            <Stop offset="100%" stopColor={color} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Circle cx={size / 2} cy={size / 2} r={size / 2} fill={`url(#${gradientId})`} />
+      </Svg>
+    </RNAnimated.View>
+  );
+}
+
+/**
+ * Party-Mode: mjukt pulserande discoljus. Läggs som ett lager mellan
+ * bakgrunden och meddelandena (fungerar ihop med öl-mode och egen
+ * bakgrundsbild) och hålls lågmält så texten förblir läsbar.
+ */
+function PartyLights() {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {PARTY_LIGHTS.map((l) => (
+        <PartyLight key={l.color} {...l} />
+      ))}
+    </View>
+  );
 }
 
 function BeerGlassBackground({
@@ -4052,6 +4141,7 @@ export default function GroupChatScreen() {
             remainingMs={beerRemainingMs}
             style={styles.flex}
           >
+            {settings.partyMode ? <PartyLights /> : null}
             {chatBody}
           </BeerGlassBackground>
         ) : (
@@ -4060,6 +4150,7 @@ export default function GroupChatScreen() {
             color={settings.background}
             style={styles.flex}
           >
+            {settings.partyMode ? <PartyLights /> : null}
             {chatBody}
           </ChatBackground>
         )}
@@ -5215,6 +5306,26 @@ export default function GroupChatScreen() {
             />
           </View>
 
+          <View style={styles.soundRow}>
+            <View style={styles.partyRowLabel}>
+              <View style={[styles.starTile, { backgroundColor: "#F3E3FF" }]}>
+                <LDisc size={20} color="#B14CFF" strokeWidth={1.7} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sheetLabel, { color: c.text, marginBottom: 0 }]}>
+                  Party-Mode
+                </Text>
+                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                  Discoljus pulserar bakom chatten
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={settings.partyMode}
+              onValueChange={(v) => updateSettings({ partyMode: v })}
+            />
+          </View>
+
           <Pressable
             onPress={() => setSettingsOpen(false)}
             style={[styles.closeBtn, { backgroundColor: settings.color }]}
@@ -5520,6 +5631,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   starLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
+  partyRowLabel: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   starTile: {
     width: 38,
     height: 38,

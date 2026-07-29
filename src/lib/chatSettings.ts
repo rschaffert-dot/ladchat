@@ -28,6 +28,8 @@ export type ChatSettings = {
   // Kosmetisk etikett för poäng — själva poängen lagras server-side (group_members.points).
   currency: Currency;
   soundEnabled: boolean;
+  /** Party-Mode: mjukt pulserande discoljus bakom chatten (rent kosmetiskt). */
+  partyMode: boolean;
 };
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
@@ -37,6 +39,7 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   backgroundImage: "",
   currency: "Douchepoints",
   soundEnabled: true,
+  partyMode: false,
 };
 
 export const COLOR_OPTIONS = [
