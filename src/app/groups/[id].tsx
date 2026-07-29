@@ -1258,7 +1258,9 @@ export default function GroupChatScreen() {
         .eq("user_id", userId)
         .maybeSingle();
       setFirstUnreadAt((myRead?.last_read_at as string) ?? null);
-      void supabase.rpc("mark_read", { gid: groupId });
+      // OBS: supabase-js bygger frågan lat — utan await/then skickas den
+      // aldrig. "void" räcker inte, det ignorerar bara resultatet.
+      await supabase.rpc("mark_read", { gid: groupId });
     })();
     void supabase
       .from("group_members")
@@ -2322,7 +2324,9 @@ export default function GroupChatScreen() {
     setQuestDone(Boolean(qc));
 
     // Markera gruppens notiser som lästa när chatten öppnas.
-    void supabase
+    // OBS: supabase-js bygger frågan lat — utan await/then skickas den
+    // aldrig, "void" ensamt räcker inte (badgen förblev då evigt olöst).
+    await supabase
       .from("notifications")
       .update({ read: true })
       .eq("user_id", userId)
@@ -2503,7 +2507,7 @@ export default function GroupChatScreen() {
           // läser ju detta nu: uppdatera läskvittot direkt.
           if (m.user_id !== userId) {
             setTypingName(null);
-            void supabase.rpc("mark_read", { gid: groupId });
+            void supabase.rpc("mark_read", { gid: groupId }).then(() => {});
             if (awayRef.current) setNewWhileAway((n) => n + 1);
           }
           if (m.kind === "poll" && m.metadata?.poll_id) {
