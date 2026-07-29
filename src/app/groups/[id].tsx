@@ -4838,7 +4838,7 @@ export default function GroupChatScreen() {
                 { icon: LGamepad, color: "#3D5AFE", label: "Spel & lekar", action: () => setGameOpen(true) },
                 {
                   icon: LLayers,
-                  color: "#96781F",
+                  color: "#00B884",
                   label: "Poängjakten",
                   action: () =>
                     groupId && router.push({ pathname: "/hunt", params: { groupId } }),
@@ -4852,7 +4852,7 @@ export default function GroupChatScreen() {
                   label: `Checka in streak (${streak?.current_streak ?? 0} dagar)`,
                   action: checkin,
                 },
-                { icon: LTrophy, color: "#96781F", label: "Turneringar & topplista", action: () => router.push("/feed") },
+                { icon: LTrophy, color: "#00B884", label: "Turneringar & topplista", action: () => router.push("/feed") },
                 { icon: LSearch, color: "#15151B", label: "Sök i chatten", action: () => setChatSearchOpen(true) },
                 {
                   icon: LRotate,
@@ -4880,7 +4880,7 @@ export default function GroupChatScreen() {
                 { icon: LBeer, color: "#96781F", label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
                 {
                   icon: LStar,
-                  color: "#96781F",
+                  color: "#00B884",
                   label: `Sparade meddelanden (${starred.length})`,
                   action: () => setStarredOpen(true),
                 },

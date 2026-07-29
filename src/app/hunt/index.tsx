@@ -28,6 +28,7 @@ import {
   TIERS,
 } from "@/lib/huntCards";
 import type { Category, HuntChallenge, HuntCompletion, Tier } from "@/lib/huntCards";
+import { CategoryArt } from "@/lib/huntArt";
 import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { supabase } from "@/lib/supabase";
@@ -394,7 +395,7 @@ export default function HuntScreen() {
                   />
                 </View>
                 <View style={styles.iconRow}>
-                  <AppIcon name="star" size={13} color="#84828C" />
+                  <AppIcon name="star" size={13} color="#00B884" />
                   <Text style={styles.progressDim}>{totalPoints} poäng insamlade i jakten</Text>
                 </View>
               </View>
@@ -412,7 +413,7 @@ export default function HuntScreen() {
                   </Text>
                   {groupFeats.slice(0, 4).map((f) => (
                     <View key={f.id} style={styles.iconRow}>
-                      <AppIcon name="medal" size={13} color="#84828C" />
+                      <AppIcon name="medal" size={13} color="#00B884" />
                       <Text style={styles.progressDim}>
                         {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
                       </Text>
@@ -560,6 +561,7 @@ export default function HuntScreen() {
               <Pressable onPress={() => openCard(item)} style={{ flex: 1 / 3 }}>
                 <View style={[styles.cardBack, { borderColor: t.frame, backgroundColor: t.face }]}>
                   <View style={[styles.cardInnerFrame, { borderColor: t.frameDark }]}>
+                    <CategoryArt category={item.category} tint={t.frameDark} />
                     <View style={styles.cornerSymbol}>
                       <AppIcon name={t.icon} size={12} color={t.frameDark} />
                     </View>

@@ -230,7 +230,7 @@ export default function FeedScreen() {
                 {item.achievements.length > 0 ? (
                   <View style={styles.boardBadges}>
                     {item.achievements.map((code) => (
-                      <AppIcon key={code} name={achievementIcon(code)} size={14} color={c.brand} />
+                      <AppIcon key={code} name={achievementIcon(code)} size={14} color="#00B884" />
                     ))}
                   </View>
                 ) : null}

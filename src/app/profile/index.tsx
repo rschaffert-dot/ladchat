@@ -270,7 +270,7 @@ export default function ProfileScreen() {
                 <AppIcon
                   name={has ? achievementIcon(a.code) : "lock"}
                   size={26}
-                  color={has ? c.brand : c.textSecondary}
+                  color={has ? "#00B884" : c.textSecondary}
                 />
                 <Text style={[styles.trophyName, { color: c.text }]} numberOfLines={1}>
                   {a.name}
