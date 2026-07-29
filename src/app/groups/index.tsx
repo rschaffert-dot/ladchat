@@ -255,7 +255,7 @@ export default function GroupsScreen() {
             <Icon name="compass" size={22} color={c.brand} />
           </Pressable>
           <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
-            <Icon name="user" size={22} />
+            <Icon name="user" size={22} color="#00B884" />
           </Pressable>
           {isAdmin ? (
             <Pressable onPress={() => router.push("/admin")} hitSlop={8}>
@@ -470,7 +470,7 @@ export default function GroupsScreen() {
                     ) : null}
                     {teamScores[item.id] ? (
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                        <Icon name="shield" size={11} color={c.textSecondary} />
+                        <Icon name="shield" size={11} color="#00B884" />
                         <Text style={{ color: c.textSecondary, fontSize: 11 }}>
                           {teamScores[item.id].total} teampoäng
                           {previews[item.id] ? ` · ${relTime(previews[item.id].at)}` : ""}
