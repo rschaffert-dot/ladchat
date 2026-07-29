@@ -31,7 +31,8 @@ export type ChatSettings = {
 };
 
 export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
-  color: "#D97757",
+  // Utgående bubblor är Ink som standard (profilen); övriga färger är accenter.
+  color: "#15151B",
   background: "",
   backgroundImage: "",
   currency: "Douchepoints",
@@ -39,22 +40,21 @@ export const DEFAULT_CHAT_SETTINGS: ChatSettings = {
 };
 
 export const COLOR_OPTIONS = [
-  "#D97757",
-  "#4f46e5",
-  "#dc2626",
-  "#059669",
-  "#d97706",
-  "#0891b2",
-  "#db2777",
+  "#15151B", // Ink (standard)
+  "#3D5AFE", // Signal Blue
+  "#FF4C29", // Ember
+  "#00B884", // Mint
+  "#D4AF37", // Guld
+  "#84828C", // Muted
 ];
 
 export const BACKGROUND_OPTIONS = [
   { label: "Standard", value: "" },
-  { label: "Ljusgrå", value: "#f1f5f9" },
-  { label: "Varm", value: "#fef3c7" },
-  { label: "Mint", value: "#ecfdf5" },
-  { label: "Himmel", value: "#eff6ff" },
-  { label: "Mörk", value: "#1e1b2e" },
+  { label: "Vit", value: "#FFFFFF" },
+  { label: "Sand", value: "#EFEDE6" },
+  { label: "Mint", value: "#E3F6EF" },
+  { label: "Blå ton", value: "#E9EDFF" },
+  { label: "Mörk", value: "#15151B" },
 ];
 
 function storageKey(groupId: string) {

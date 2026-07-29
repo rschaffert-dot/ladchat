@@ -123,7 +123,7 @@ function TypingDots({ color }: { color: string }) {
           style={{
             width: 5,
             height: 5,
-            borderRadius: 3,
+            borderRadius: 0,
             backgroundColor: color,
             opacity: anim.interpolate({
               inputRange: [0, 0.5, 1],
@@ -411,7 +411,7 @@ function AudioBubble({
             style={{
               width: 3,
               height: h,
-              borderRadius: 2,
+              borderRadius: 0,
               backgroundColor: tint,
               opacity: i / bars.length <= progress ? 1 : 0.35,
             }}
@@ -670,10 +670,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
           style={[
             styles.bubble,
             mine
-              ? { backgroundColor: c.backgroundSelected, borderBottomRightRadius: 4 }
-              : { backgroundColor: c.backgroundElement, borderBottomLeftRadius: 4 },
+              ? { backgroundColor: c.backgroundSelected, borderBottomRightRadius: 0 }
+              : { backgroundColor: c.backgroundElement, borderBottomLeftRadius: 0 },
             item.pending ? { opacity: 0.55 } : null,
-            highlighted ? { borderWidth: 2, borderColor: "#f2a916" } : null,
+            highlighted ? { borderWidth: 2, borderColor: "#D4AF37" } : null,
           ]}
         >
           {item.reply_to_id ? (
@@ -807,10 +807,10 @@ const ChatMessageRow = memo(function ChatMessageRow({
                         onPress={() => act.openWagerSettle(item.metadata.wager_id as string)}
                         style={[
                           styles.pollOption,
-                          { alignItems: "center", paddingVertical: 9, borderColor: "#f2a916" },
+                          { alignItems: "center", paddingVertical: 9, borderColor: "#D4AF37" },
                         ]}
                       >
-                        <Text style={{ color: "#f2a916", fontWeight: "800", fontSize: 13 }}>
+                        <Text style={{ color: "#D4AF37", fontWeight: "800", fontSize: 13 }}>
                           🏁 Ange facit & kora vinnare
                         </Text>
                       </Pressable>
@@ -857,7 +857,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
               styles.msgStatus,
               {
                 color:
-                  readUpTo && item.created_at <= readUpTo ? "#3b82f6" : c.textSecondary,
+                  readUpTo && item.created_at <= readUpTo ? "#3D5AFE" : c.textSecondary,
               },
             ]}
           >
@@ -869,7 +869,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
         ) : null}
         {item.failed ? (
           <View style={styles.failedRow}>
-            <Text style={{ color: "#dc2626", fontSize: 12, fontWeight: "700" }}>
+            <Text style={{ color: "#FF4C29", fontSize: 12, fontWeight: "700" }}>
               ⚠️ Kunde inte skickas
             </Text>
             <Pressable onPress={() => act.retry(item)} hitSlop={8}>
@@ -3458,7 +3458,7 @@ export default function GroupChatScreen() {
         <View style={styles.undoBar}>
           <Text style={{ color: "#fff", flex: 1, fontSize: 13 }}>Meddelande borttaget</Text>
           <Pressable onPress={undoDelete} hitSlop={10}>
-            <Text style={{ color: "#f2a916", fontWeight: "800", fontSize: 13 }}>ÅNGRA</Text>
+            <Text style={{ color: "#D4AF37", fontWeight: "800", fontSize: 13 }}>ÅNGRA</Text>
           </Pressable>
         </View>
       ) : null}
@@ -3535,7 +3535,7 @@ export default function GroupChatScreen() {
                 <Pressable onPress={cancelRecording} hitSlop={8} accessibilityLabel="Kasta inspelningen">
                   <Text style={{ fontSize: 18 }}>🗑</Text>
                 </Pressable>
-                <Text style={{ color: "#dc2626", fontWeight: "800", fontSize: 13 }}>
+                <Text style={{ color: "#FF4C29", fontWeight: "800", fontSize: 13 }}>
                   🔴 {Math.floor(recordElapsed / 60)}:{String(recordElapsed % 60).padStart(2, "0")}
                 </Text>
               </>
@@ -3560,7 +3560,7 @@ export default function GroupChatScreen() {
               }
               style={({ pressed }) => [
                 styles.sendCircle,
-                { backgroundColor: recording ? "#dc2626" : settings.color },
+                { backgroundColor: recording ? "#FF4C29" : settings.color },
                 pressed ? { transform: [{ scale: 0.9 }] } : null,
               ]}
             >
@@ -3611,7 +3611,7 @@ export default function GroupChatScreen() {
               {typingName} skriver…
             </Text>
           ) : onlineOthers > 0 ? (
-            <Text style={{ color: "#22c55e", fontSize: 11 }} numberOfLines={1}>
+            <Text style={{ color: "#00B884", fontSize: 11 }} numberOfLines={1}>
               🟢 {onlineOthers} aktiv{onlineOthers > 1 ? "a" : ""} nu
             </Text>
           ) : null}
@@ -3725,7 +3725,7 @@ export default function GroupChatScreen() {
             styles.energyFill,
             {
               width: `${energyNow}%`,
-              backgroundColor: powerHourActive ? "#f2a916" : energyNow >= 80 ? "#22c55e" : settings.color,
+              backgroundColor: powerHourActive ? "#D4AF37" : energyNow >= 80 ? "#00B884" : settings.color,
             },
           ]}
         />
@@ -3809,7 +3809,7 @@ export default function GroupChatScreen() {
             ⚡ POWER HOUR — dubbel XP! {formatCountdown(powerHourRemainingMs)} kvar
           </Text>
           <Pressable onPress={() => dismissBanner(`ph:${powerHourEndsAt}`)} hitSlop={10}>
-            <Text style={[styles.bannerClose, { color: "#2a1a10" }]}>×</Text>
+            <Text style={[styles.bannerClose, { color: "#15151B" }]}>×</Text>
           </Pressable>
         </View>
       ) : null}
@@ -3890,7 +3890,7 @@ export default function GroupChatScreen() {
                     onPress={() => respondDuel(false)}
                     style={[styles.duelBtn, { backgroundColor: "transparent" }]}
                   >
-                    <Text style={[styles.duelBtnText, { color: "#fca5a5" }]}>Neka</Text>
+                    <Text style={[styles.duelBtnText, { color: "#FFB3A0" }]}>Neka</Text>
                   </Pressable>
                 </View>
               ) : duel.challenger_id === userId ? (
@@ -3900,7 +3900,7 @@ export default function GroupChatScreen() {
                     onPress={cancelDuel}
                     style={[styles.duelBtn, { backgroundColor: "transparent" }]}
                   >
-                    <Text style={[styles.duelBtnText, { color: "#fca5a5" }]}>
+                    <Text style={[styles.duelBtnText, { color: "#FFB3A0" }]}>
                       ↩️ Avbryt utmaningen
                     </Text>
                   </Pressable>
@@ -4142,7 +4142,7 @@ export default function GroupChatScreen() {
                       <Text style={{ color: c.text, fontSize: 14, flex: 1 }}>{m.name}</Text>
                       <Text
                         style={{
-                          color: hasRead ? "#3b82f6" : c.textSecondary,
+                          color: hasRead ? "#3D5AFE" : c.textSecondary,
                           fontSize: 12,
                           fontWeight: "700",
                         }}
@@ -4607,7 +4607,7 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: "#dc2626" }]}>🗑 Ta bort</Text>
+                  <Text style={[styles.ctxActionText, { color: "#FF4C29" }]}>🗑 Ta bort</Text>
                 </Pressable>
               ) : null}
             </Pressable>
@@ -4946,7 +4946,7 @@ export default function GroupChatScreen() {
                 <ImageBackground
                   source={{ uri: settings.backgroundImage }}
                   style={styles.bgImageThumb}
-                  imageStyle={{ borderRadius: 10 }}
+                  imageStyle={{ borderRadius: 0 }}
                 />
               ) : (
                 <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
@@ -5304,7 +5304,7 @@ export default function GroupChatScreen() {
           </Text>
           <Text style={{ color: c.textSecondary, fontSize: 13 }}>{wagerModal?.question}</Text>
           {wagerModal?.mode === "settle" ? (
-            <Text style={{ color: "#f2a916", fontSize: 12, fontWeight: "700" }}>
+            <Text style={{ color: "#D4AF37", fontSize: 12, fontWeight: "700" }}>
               När du sparar korar servern vinnaren — det går inte att ångra.
             </Text>
           ) : null}
@@ -5442,8 +5442,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backBadge: {
-    backgroundColor: "#dc2626",
-    borderRadius: 9,
+    backgroundColor: "#FF4C29",
+    borderRadius: 0,
     minWidth: 18,
     height: 18,
     alignItems: "center",
@@ -5453,8 +5453,8 @@ const styles = StyleSheet.create({
   backBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   gear: { paddingHorizontal: 4 },
   starSheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 16,
     gap: 8,
     paddingBottom: 28,
@@ -5464,7 +5464,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
@@ -5496,7 +5496,7 @@ const styles = StyleSheet.create({
   ctxCard: {
     width: "100%",
     maxWidth: 340,
-    borderRadius: 18,
+    borderRadius: 0,
     overflow: "hidden",
   },
   ctxPreview: { padding: 14 },
@@ -5514,7 +5514,7 @@ const styles = StyleSheet.create({
   msgRow: { maxWidth: "82%" },
   systemPill: {
     alignSelf: "center",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 5,
     marginVertical: 2,
@@ -5523,7 +5523,7 @@ const styles = StyleSheet.create({
   mine: { alignSelf: "flex-end", alignItems: "flex-end" },
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
-  bubble: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble: { borderRadius: 0, paddingHorizontal: 14, paddingVertical: 10 },
   reactionRow: {
     flexDirection: "row",
     gap: 4,
@@ -5535,7 +5535,7 @@ const styles = StyleSheet.create({
   reactionChip: {
     borderWidth: 1,
     borderColor: "transparent",
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
@@ -5543,7 +5543,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "rgba(255,255,255,0.45)",
     backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginBottom: 6,
@@ -5562,10 +5562,10 @@ const styles = StyleSheet.create({
   bannerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   bannerClose: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "700", lineHeight: 22 },
   bannerCloseCorner: { position: "absolute", top: 6, right: 10, zIndex: 1 },
-  powerHourBanner: { backgroundColor: "#f2a916", paddingHorizontal: 16, paddingVertical: 8 },
-  powerHourText: { color: "#2a1a10", fontWeight: "900", textAlign: "center", fontSize: 13 },
-  streakWarning: { backgroundColor: "#7f1d1d", paddingHorizontal: 16, paddingVertical: 8 },
-  streakWarningText: { color: "#fecaca", fontWeight: "700", textAlign: "center", fontSize: 12 },
+  powerHourBanner: { backgroundColor: "#D4AF37", paddingHorizontal: 16, paddingVertical: 8 },
+  powerHourText: { color: "#15151B", fontWeight: "900", textAlign: "center", fontSize: 13 },
+  streakWarning: { backgroundColor: "#D63A1C", paddingHorizontal: 16, paddingVertical: 8 },
+  streakWarningText: { color: "#FFD9CF", fontWeight: "700", textAlign: "center", fontSize: 12 },
   questStrip: {
     flexDirection: "row",
     alignItems: "center",
@@ -5574,20 +5574,20 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   questText: { flex: 1, fontSize: 13, fontWeight: "600" },
-  questBtn: { borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 },
+  questBtn: { borderRadius: 0, paddingHorizontal: 10, paddingVertical: 6 },
   duelBanner: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   duelText: { color: "#fff", fontWeight: "800", fontSize: 13, textAlign: "center" },
   duelSub: { color: "#fed7aa", fontSize: 12, textAlign: "center" },
   duelActions: { flexDirection: "row", justifyContent: "center", gap: 12 },
   duelBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  duelBtnSelected: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.25)" },
+  duelBtnSelected: { borderColor: "#D4AF37", backgroundColor: "rgba(242,169,22,0.25)" },
   duelBtnText: { color: "#fff", fontWeight: "700", fontSize: 13 },
   gameHeader: {
     flexDirection: "row",
@@ -5604,7 +5604,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
   },
   gameCardEmoji: { fontSize: 34 },
@@ -5616,26 +5616,26 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  gamePlayerRowSelected: { borderColor: "#f2a916" },
+  gamePlayerRowSelected: { borderColor: "#D4AF37" },
   gameOrderBadge: {
     width: 26,
     height: 26,
-    borderRadius: 13,
-    backgroundColor: "#f2a916",
+    borderRadius: 0,
+    backgroundColor: "#FF4C29",
     alignItems: "center",
     justifyContent: "center",
   },
-  gameOrderText: { color: "#2a1a10", fontWeight: "900", fontSize: 13 },
+  gameOrderText: { color: "#15151B", fontWeight: "900", fontSize: 13 },
   gamePlayerName: { color: "#fff", fontSize: 15, fontWeight: "600" },
   gameStartBtn: {
-    backgroundColor: "#7c3aed",
-    borderRadius: 14,
+    backgroundColor: "#3D5AFE",
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 12,
@@ -5648,7 +5648,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 0,
     padding: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -5665,21 +5665,21 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#4c1d95",
-    borderRadius: 14,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     borderWidth: 3,
-    borderColor: "#7c3aed",
+    borderColor: "#3D5AFE",
   },
   cardBackText: { color: "#c4b5fd", fontSize: 13, fontWeight: "700", textAlign: "center" },
   gameRuleBox: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 14,
+    borderRadius: 0,
     padding: 14,
     gap: 6,
   },
-  gameRuleTitle: { color: "#f2a916", fontSize: 16, fontWeight: "800" },
+  gameRuleTitle: { color: "#D4AF37", fontSize: 16, fontWeight: "800" },
   gameRuleText: { color: "#fff", fontSize: 14, lineHeight: 20 },
   gameStatusRow: { flexDirection: "row", justifyContent: "space-between" },
   gameStatus: { color: "#c4b5fd", fontSize: 13, fontWeight: "700" },
@@ -5709,9 +5709,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  recordingBanner: { backgroundColor: "#7f1d1d", paddingVertical: 6 },
-  recordingText: { color: "#fecaca", fontWeight: "700", fontSize: 12, textAlign: "center" },
-  chatImage: { width: 230, height: 230, borderRadius: 12 },
+  recordingBanner: { backgroundColor: "#D63A1C", paddingVertical: 6 },
+  recordingText: { color: "#FFD9CF", fontWeight: "700", fontSize: 12, textAlign: "center" },
+  chatImage: { width: 230, height: 230, borderRadius: 0 },
   audioBubble: {
     paddingVertical: 2,
     flexDirection: "row",
@@ -5727,7 +5727,7 @@ const styles = StyleSheet.create({
     height: 22,
   },
   speedChip: {
-    borderRadius: 8,
+    borderRadius: 0,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
@@ -5735,7 +5735,7 @@ const styles = StyleSheet.create({
   },
   composerWrap: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 10 },
   composer: {
-    borderRadius: 26,
+    borderRadius: 0,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingTop: 14,
@@ -5759,14 +5759,14 @@ const styles = StyleSheet.create({
   composerBtn: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
   },
   sendCircle: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5776,7 +5776,7 @@ const styles = StyleSheet.create({
     right: -2,
     width: 16,
     height: 16,
-    borderRadius: 8,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5791,7 +5791,7 @@ const styles = StyleSheet.create({
   msgAvatar: {
     width: 26,
     height: 26,
-    borderRadius: 13,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -5803,7 +5803,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  progressTrackThin: { height: 5, borderRadius: 3, overflow: "hidden" },
+  progressTrackThin: { height: 5, borderRadius: 0, overflow: "hidden" },
   progressFillThin: { height: 5 },
   undoBar: {
     flexDirection: "row",
@@ -5811,26 +5811,26 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: "#1F1E1D",
     marginHorizontal: 10,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   claimBtnLike: {
-    borderRadius: 12,
+    borderRadius: 0,
     paddingVertical: 12,
     alignItems: "center",
   },
   wheelGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   wheelChip: {
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderWidth: 1,
     borderColor: "transparent",
   },
   snapButton: {
-    backgroundColor: "#b91c1c",
-    borderRadius: 12,
+    backgroundColor: "#FF4C29",
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: "center",
@@ -5843,7 +5843,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  cardAvatar: { width: 72, height: 72, borderRadius: 36, overflow: "hidden" },
+  cardAvatar: { width: 72, height: 72, borderRadius: 0, overflow: "hidden" },
   mentionRow: {
     flexDirection: "row",
     gap: 8,
@@ -5851,8 +5851,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     flexWrap: "wrap",
   },
-  mentionChip: { borderRadius: 12, paddingHorizontal: 12, paddingVertical: 7 },
-  typingAvatar: { width: 18, height: 18, borderRadius: 9 },
+  mentionChip: { borderRadius: 0, paddingHorizontal: 12, paddingVertical: 7 },
+  typingAvatar: { width: 18, height: 18, borderRadius: 0 },
   unreadLine: {
     flexDirection: "row",
     alignItems: "center",
@@ -5870,8 +5870,8 @@ const styles = StyleSheet.create({
     zIndex: 60,
   },
   toastCard: {
-    backgroundColor: "#f2a916",
-    borderRadius: 14,
+    backgroundColor: "#FF4C29",
+    borderRadius: 0,
     paddingHorizontal: 18,
     paddingVertical: 10,
     maxWidth: "90%",
@@ -5881,13 +5881,13 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: 36,
     height: 4,
-    borderRadius: 2,
+    borderRadius: 0,
     backgroundColor: "rgba(128,124,116,0.4)",
     marginBottom: 6,
   },
   appColumn: { flex: 1, width: "100%", maxWidth: 860, alignSelf: "center" },
   offlineBar: {
-    backgroundColor: "#6b7280",
+    backgroundColor: "#84828C",
     paddingVertical: 4,
     alignItems: "center",
   },
@@ -5896,17 +5896,17 @@ const styles = StyleSheet.create({
   storyRing: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 0,
     borderWidth: 2.5,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  storyAvatar: { width: 42, height: 42, borderRadius: 21 },
+  storyAvatar: { width: 42, height: 42, borderRadius: 0 },
   storyName: { fontSize: 10, fontWeight: "600" },
   storyMeta: { position: "absolute", top: 46, left: 20, gap: 2 },
   threadMsg: {
-    borderRadius: 12,
+    borderRadius: 0,
     padding: 10,
     marginBottom: 6,
     gap: 2,
@@ -5915,7 +5915,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 14,
     right: 14,
-    borderRadius: 20,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 9,
     minWidth: 44,
@@ -5934,13 +5934,13 @@ const styles = StyleSheet.create({
   chatSearchInput: { flex: 1, fontSize: 14, paddingVertical: 4 },
   pollBox: { minWidth: 230, gap: 6 },
   pollOption: {
-    borderRadius: 10,
+    borderRadius: 0,
     backgroundColor: "rgba(0,0,0,0.25)",
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "transparent",
   },
-  pollOptionMine: { borderColor: "#f2a916" },
+  pollOptionMine: { borderColor: "#D4AF37" },
   pollFill: {
     position: "absolute",
     top: 0,
@@ -5958,25 +5958,25 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 22,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 120,
   },
   sendBtn: {
-    borderRadius: 22,
+    borderRadius: 0,
     paddingHorizontal: 18,
     paddingVertical: 11,
     justifyContent: "center",
   },
   sendText: { color: "#fff", fontWeight: "700" },
   celebrationBanner: {
-    backgroundColor: "#f2a916",
+    backgroundColor: "#FF4C29",
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  celebrationText: { color: "#2a1a10", fontWeight: "800", textAlign: "center" },
+  celebrationText: { color: "#fff", fontWeight: "800", textAlign: "center" },
   activationCard: { paddingHorizontal: 14, paddingVertical: 8, gap: 5 },
   activationTop: { flexDirection: "row", alignItems: "center", gap: 8 },
   activationTitle: { flex: 1, color: "#fff", fontWeight: "800", fontSize: 14 },
@@ -5985,7 +5985,7 @@ const styles = StyleSheet.create({
   activationActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   activationBtn: {
     backgroundColor: "#fff",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -5993,7 +5993,7 @@ const styles = StyleSheet.create({
   activationDone: { color: "#fff", fontWeight: "700", fontSize: 14 },
   activationCount: { color: "#eef", fontSize: 12 },
   activationAdmin: { color: "#fff", fontWeight: "700", fontSize: 12, textDecorationLine: "underline" },
-  beerBackdrop: { backgroundColor: "#2a1a10" },
+  beerBackdrop: { backgroundColor: "#F5F4F0" },
   beerGlassWrap: {
     position: "absolute",
     top: 0,
@@ -6005,22 +6005,22 @@ const styles = StyleSheet.create({
     gap: 12,
     opacity: 0.9,
   },
-  beerLabel: { color: "#fff", fontWeight: "800", fontSize: 14 },
+  beerLabel: { color: "#15151B", fontWeight: "800", fontSize: 14 },
   beerGlass: {
     width: 140,
     height: 220,
     borderWidth: 3,
-    borderColor: "rgba(255,255,255,0.55)",
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderColor: "#15151B",
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     overflow: "hidden",
     justifyContent: "flex-end",
   },
   beerLiquidColumn: { width: "100%" },
   beerFoam: { width: "100%", height: 10, backgroundColor: "#fff8e1" },
-  beerLiquid: { flex: 1, width: "100%", backgroundColor: "#f2a916" },
+  beerLiquid: { flex: 1, width: "100%", backgroundColor: "#D4AF37" },
   beerCountdownWrap: {
     position: "absolute",
     top: 0,
@@ -6033,13 +6033,13 @@ const styles = StyleSheet.create({
   beerCountdownBig: {
     width: "70%",
     textAlign: "center",
-    color: "rgba(255,255,255,0.16)",
+    color: "rgba(21,21,27,0.07)",
     fontSize: 140,
     fontWeight: "900",
   },
   chip: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -6050,8 +6050,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   sheet: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: 20,
     paddingBottom: 32,
     gap: 4,
@@ -6064,14 +6064,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   swatch: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: 0,
   },
   swatchSelected: {
     borderWidth: 3,
@@ -6085,7 +6085,7 @@ const styles = StyleSheet.create({
   },
   bgImageBtn: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
     alignItems: "center",
@@ -6098,7 +6098,7 @@ const styles = StyleSheet.create({
   beerPickerRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   beerOption: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: "center",
@@ -6106,7 +6106,7 @@ const styles = StyleSheet.create({
   },
   beerOptionSelected: {
     borderWidth: 2,
-    borderColor: "#f2a916",
+    borderColor: "#D4AF37",
   },
   leaderboard: { gap: 6 },
   leaderboardRow: {
@@ -6122,7 +6122,7 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     marginTop: 24,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingVertical: 13,
     alignItems: "center",
   },

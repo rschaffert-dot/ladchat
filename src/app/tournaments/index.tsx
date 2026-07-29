@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "800" },
   list: { paddingHorizontal: 20, paddingTop: 8, gap: 10, paddingBottom: 24 },
   empty: { textAlign: "center", marginTop: 40 },
-  card: { borderRadius: 16, padding: 16, gap: 6 },
+  card: { borderRadius: 0, padding: 16, gap: 6 },
   cardTitle: { fontSize: 17, fontWeight: "700" },
   cardDesc: { fontSize: 13 },
   cardRow: { flexDirection: "row", gap: 16, marginTop: 4 },

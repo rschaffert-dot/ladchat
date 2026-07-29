@@ -7,53 +7,53 @@ import '@/global.css';
 
 import { Platform } from 'react-native';
 
-/** Claude-inspirerad palett: varm cremevit ljus, varm mörkgrå mörk. */
-export const Colors = {
-  light: {
-    text: '#1F1E1D',
-    background: '#FAF9F5',
-    backgroundElement: '#F0EEE6',
-    backgroundSelected: '#E8E5DB',
-    textSecondary: '#73706A',
-  },
-  dark: {
-    text: '#F5F4EE',
-    background: '#262624',
-    backgroundElement: '#30302E',
-    backgroundSelected: '#3D3D3B',
-    textSecondary: '#A6A39B',
-  },
+/**
+ * Ladchat-profilen: ljus, minimal och strukturerad — Paper som grund,
+ * Ink för text/mörka ytor, 1px Line-kanter i stället för skuggor,
+ * Signal Blue som primär accent och Ember sparsamt som "het" detalj.
+ * Appen är ljus i grunden, så båda schemana använder samma palett.
+ */
+const palette = {
+  text: '#15151B', // Ink
+  background: '#F5F4F0', // Paper
+  backgroundElement: '#FFFFFF', // White — kort/ytor ovanpå Paper
+  backgroundSelected: '#E1DED5', // Line — kantlinjer, dividers, valda ytor
+  textSecondary: '#84828C', // Muted
 } as const;
+
+export const Colors = { light: palette, dark: palette } as const;
 
 /** Semantiska accentfärger — använd dessa i stället för hex i komponenter. */
 export const Accents = {
-  success: '#22c55e',
-  warning: '#f2a916',
-  danger: '#dc2626',
-  gold: '#d4af37',
+  success: '#00B884', // Mint — online-status, positiva bekräftelser
+  warning: '#FF4C29', // Ember — highlights, sparsamt
+  danger: '#FF4C29', // Ember — destruktiva accenter
+  gold: '#D4AF37',
 } as const;
 
 export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
+    /** Rubriker: Space Grotesk (systemfallback på native tills TTF laddas). */
+    display: 'system-ui',
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
+    display: 'normal',
     sans: 'normal',
     serif: 'serif',
     rounded: 'normal',
     mono: 'monospace',
   },
   web: {
-    sans: 'var(--font-display)',
+    /** Space Grotesk — rubriker/headlines (definieras i global.css). */
+    display: 'var(--font-display)',
+    /** Inter — brödtext och UI (body-default i global.css). */
+    sans: 'var(--font-sans)',
     serif: 'var(--font-serif)',
     rounded: 'var(--font-rounded)',
     mono: 'var(--font-mono)',

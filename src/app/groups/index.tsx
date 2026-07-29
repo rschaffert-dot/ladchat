@@ -389,7 +389,7 @@ export default function GroupsScreen() {
                   <View style={styles.swipeActions}>
                     <Pressable
                       onPress={() => void setPref(item.id, { mute: !p?.muted })}
-                      style={[styles.swipeBtn, { backgroundColor: "#6b7280" }]}
+                      style={[styles.swipeBtn, { backgroundColor: "#84828C" }]}
                     >
                       <Text style={styles.swipeBtnText}>
                         {p?.muted ? "🔔 Ljud på" : "🔕 Ljudlös"}
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   currencyRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   chip: {
     borderWidth: 1,
-    borderRadius: 16,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -489,34 +489,34 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
   },
   btn: {
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   btnText: { color: "#fff", fontWeight: "700" },
-  error: { color: "#dc2626", fontSize: 14 },
+  error: { color: "#FF4C29", fontSize: 14 },
   list: { paddingHorizontal: 20, paddingTop: 8, gap: 8 },
   empty: { textAlign: "center", marginTop: 40 },
   groupItem: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderRadius: 16,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 18,
   },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   badge: {
-    backgroundColor: "#dc2626",
-    borderRadius: 10,
+    backgroundColor: "#FF4C29",
+    borderRadius: 0,
     minWidth: 20,
     height: 20,
     alignItems: "center",

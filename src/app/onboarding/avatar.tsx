@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   avatarPreview: {
     width: 180,
     height: 180,
-    borderRadius: 90,
+    borderRadius: 0,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -152,14 +152,14 @@ const styles = StyleSheet.create({
   pickBtn: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
   pickText: { fontSize: 15, fontWeight: "700" },
   saveBtn: {
     width: "100%",
-    borderRadius: 14,
+    borderRadius: 0,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 4,

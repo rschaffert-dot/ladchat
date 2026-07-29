@@ -292,7 +292,7 @@ export default function ProfileScreen() {
                 <Text style={{ color: c.text, fontSize: 14, fontWeight: "700", flex: 1 }}>
                   vs {r.name}
                 </Text>
-                <Text style={{ color: r.wins >= r.losses ? "#16a34a" : "#dc2626", fontWeight: "800" }}>
+                <Text style={{ color: r.wins >= r.losses ? "#16a34a" : "#FF4C29", fontWeight: "800" }}>
                   {r.wins}–{r.losses}
                 </Text>
               </View>
@@ -393,7 +393,7 @@ export default function ProfileScreen() {
                   <Pressable
                     onPress={() => proofUrl && Linking.openURL(proofUrl)}
                     disabled={!proofUrl}
-                    style={[styles.ladBigCard, { borderColor: t.frame, backgroundColor: "#14100d" }]}
+                    style={[styles.ladBigCard, { borderColor: t.frame, backgroundColor: "#15151B" }]}
                   >
                     <View style={[styles.ladBigInner, { borderColor: t.frameDark, padding: 0, overflow: "hidden" }]}>
                       {proofUrl && !proofIsVideo ? (
@@ -420,7 +420,7 @@ export default function ProfileScreen() {
                             message: `💪 Jag klarade "${challenge.name}" i Poängjakten på LadChat — +${completion.points_awarded}p! 🃏 Vågar du?`,
                           })
                         }
-                        style={[styles.ladCloseBtn, { backgroundColor: "#D97757" }]}
+                        style={[styles.ladCloseBtn, { backgroundColor: "#3D5AFE" }]}
                       >
                         <Text style={{ color: "#fff", fontWeight: "800" }}>↗ Dela</Text>
                       </Pressable>
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
   avatar: {
     width: 72,
     height: 72,
-    borderRadius: 36,
+    borderRadius: 0,
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
@@ -465,15 +465,15 @@ const styles = StyleSheet.create({
   avatarImg: { width: "100%", height: "100%" },
   name: { fontSize: 22, fontWeight: "800" },
   sectionTitle: { fontSize: 13, fontWeight: "700", marginTop: 18, marginBottom: 4 },
-  card: { borderRadius: 14, padding: 14, gap: 8, marginBottom: 8 },
+  card: { borderRadius: 0, padding: 14, gap: 8, marginBottom: 8 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontWeight: "700" },
-  xpTrack: { height: 8, borderRadius: 4, overflow: "hidden" },
-  xpFill: { height: 8, borderRadius: 4 },
+  xpTrack: { height: 8, borderRadius: 0, overflow: "hidden" },
+  xpFill: { height: 8, borderRadius: 0 },
   trophyGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   trophy: {
     width: "47%",
-    borderRadius: 14,
+    borderRadius: 0,
     padding: 12,
     alignItems: "center",
     gap: 4,
@@ -491,7 +491,7 @@ const styles = StyleSheet.create({
   ladMini: {
     width: 64,
     aspectRatio: 0.68,
-    borderRadius: 8,
+    borderRadius: 0,
     borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
@@ -499,10 +499,10 @@ const styles = StyleSheet.create({
     gap: 3,
     overflow: "hidden",
   },
-  ladMiniImg: { width: "100%", flex: 1, borderRadius: 4 },
+  ladMiniImg: { width: "100%", flex: 1, borderRadius: 0 },
   ladMiniName: { fontFamily: HUNT_SERIF, fontSize: 8, fontWeight: "700", textAlign: "center" },
   ladMiniBadge: { position: "absolute", top: 2, right: 3, fontSize: 10 },
-  ladModalDim: { flex: 1, backgroundColor: "rgba(10,6,18,0.92)" },
+  ladModalDim: { flex: 1, backgroundColor: "rgba(21,21,27,0.88)" },
   ladModalScroll: {
     padding: 20,
     paddingTop: 48,
@@ -513,12 +513,12 @@ const styles = StyleSheet.create({
   ladBigCard: {
     width: "100%",
     maxWidth: 340,
-    borderRadius: 16,
+    borderRadius: 0,
     borderWidth: 4,
     padding: 6,
     overflow: "hidden",
   },
-  ladBigInner: { borderWidth: 1.5, borderRadius: 10, padding: 14, gap: 8 },
+  ladBigInner: { borderWidth: 1.5, borderRadius: 0, padding: 14, gap: 8 },
   ladBigTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   ladBigTier: { fontFamily: HUNT_SERIF, fontSize: 13, fontWeight: "700", letterSpacing: 3 },
   ladBigName: {
@@ -533,20 +533,20 @@ const styles = StyleSheet.create({
   ladBigPoints: { fontSize: 15, fontWeight: "800", textAlign: "center" },
   ladBigProofImg: { width: "100%", aspectRatio: 0.75 },
   ladProofEmpty: { alignItems: "center", gap: 6, paddingVertical: 40 },
-  ladProofEmptyText: { color: "#b9a97f", fontSize: 12, fontWeight: "600" },
+  ladProofEmptyText: { color: "#84828C", fontSize: 12, fontWeight: "600" },
   ladProofBadge: {
     position: "absolute",
     bottom: 6,
     right: 6,
     backgroundColor: "rgba(0,0,0,0.65)",
-    borderRadius: 6,
+    borderRadius: 0,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  ladProofBadgeText: { color: "#e9dcb8", fontWeight: "900", fontSize: 10, letterSpacing: 2 },
+  ladProofBadgeText: { color: "#F5F4F0", fontWeight: "900", fontSize: 10, letterSpacing: 2 },
   ladCloseBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingVertical: 12,
     paddingHorizontal: 32,
   },

@@ -360,7 +360,7 @@ export default function HuntScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={{ color: "#d8c9a3", fontSize: 26 }}>‹</Text>
+          <Text style={{ color: "#84828C", fontSize: 26 }}>‹</Text>
         </Pressable>
         <Text style={styles.headerTitle}>
           🃏 Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
@@ -629,7 +629,7 @@ export default function HuntScreen() {
 
                   {selCompletion?.status === "confirmed" ? (
                     <View style={styles.doneRow}>
-                      <Text style={[styles.bigPoints, { color: "#8a1f1f" }]}>
+                      <Text style={[styles.bigPoints, { color: "#FF4C29" }]}>
                         Klarad — +{selCompletion.points_awarded}p
                       </Text>
                     </View>
@@ -796,7 +796,7 @@ export default function HuntScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#171022" },
+  safe: { flex: 1, backgroundColor: "#F5F4F0" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -804,31 +804,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: { color: "#e9dcb8", fontSize: 19, fontWeight: "800", fontFamily: SERIF },
+  headerTitle: { color: "#15151B", fontSize: 19, fontWeight: "800", fontFamily: SERIF },
   top: { paddingHorizontal: 16, gap: 10, paddingBottom: 12 },
   progressCard: {
-    backgroundColor: "rgba(233,220,184,0.08)",
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 0,
     padding: 14,
     gap: 8,
     borderWidth: 1,
-    borderColor: "rgba(212,175,55,0.35)",
+    borderColor: "#E1DED5",
   },
-  progressBig: { color: "#e9dcb8", fontSize: 20, fontWeight: "800", fontFamily: SERIF },
-  progressDim: { color: "#b9a97f", fontSize: 13 },
+  progressBig: { color: "#15151B", fontSize: 20, fontWeight: "800", fontFamily: SERIF },
+  progressDim: { color: "#84828C", fontSize: 13 },
   progressTrack: {
     height: 8,
-    borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 0,
+    backgroundColor: "#E1DED5",
     overflow: "hidden",
   },
-  progressFill: { height: 8, backgroundColor: "#d4af37" },
-  galleryThumbWrap: { borderRadius: 10, overflow: "hidden" },
-  galleryThumb: { width: 84, height: 84, borderRadius: 10 },
+  progressFill: { height: 8, backgroundColor: "#3D5AFE" },
+  galleryThumbWrap: { borderRadius: 0, overflow: "hidden" },
+  galleryThumb: { width: 84, height: 84, borderRadius: 0 },
   galleryThumbVideo: {
     width: 84,
     height: 84,
-    borderRadius: 10,
+    borderRadius: 0,
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
@@ -841,21 +841,21 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   witnessBox: {
-    backgroundColor: "rgba(212,175,55,0.12)",
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 0,
     padding: 14,
     gap: 10,
     borderWidth: 1,
-    borderColor: "#d4af37",
+    borderColor: "#3D5AFE",
   },
-  witnessTitle: { color: "#e9dcb8", fontWeight: "800", fontSize: 15, fontFamily: SERIF },
+  witnessTitle: { color: "#15151B", fontWeight: "800", fontSize: 15, fontFamily: SERIF },
   witnessRow: { gap: 8 },
-  witnessText: { color: "#e9dcb8", fontSize: 14 },
-  witnessNoProof: { color: "#b9a97f", fontSize: 12, fontStyle: "italic" },
-  proofThumb: { width: 120, height: 120, borderRadius: 10, backgroundColor: "#000" },
+  witnessText: { color: "#15151B", fontSize: 14 },
+  witnessNoProof: { color: "#84828C", fontSize: 12, fontStyle: "italic" },
+  proofThumb: { width: 120, height: 120, borderRadius: 0, backgroundColor: "#000" },
   proofVideoBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 10,
+    backgroundColor: "#15151B",
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignSelf: "flex-start",
@@ -863,37 +863,37 @@ const styles = StyleSheet.create({
   proofPreview: {
     width: "100%",
     height: 160,
-    borderRadius: 10,
+    borderRadius: 0,
     backgroundColor: "#000",
   },
   confirmBtn: {
-    backgroundColor: "#15803d",
-    borderRadius: 10,
+    backgroundColor: "#00B884",
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   denyBtn: {
-    backgroundColor: "#b91c1c",
-    borderRadius: 10,
+    backgroundColor: "#FF4C29",
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   btnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   filterRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   filterChip: {
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "transparent",
   },
-  filterChipOn: { borderColor: "#d4af37", backgroundColor: "rgba(212,175,55,0.2)" },
-  filterText: { color: "#e9dcb8", fontWeight: "700", fontSize: 13 },
+  filterChipOn: { borderColor: "#3D5AFE", backgroundColor: "#E9EDFF" },
+  filterText: { color: "#15151B", fontWeight: "700", fontSize: 13 },
 
   cardBack: {
     aspectRatio: 0.68,
-    borderRadius: 10,
+    borderRadius: 0,
     borderWidth: 3,
     padding: 4,
     overflow: "hidden",
@@ -901,7 +901,7 @@ const styles = StyleSheet.create({
   cardInnerFrame: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 6,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     padding: 4,
@@ -937,7 +937,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     right: 4,
     backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 8,
+    borderRadius: 0,
     padding: 2,
   },
   stampWrap: {
@@ -951,27 +951,27 @@ const styles = StyleSheet.create({
   },
   stamp: {
     borderWidth: 3,
-    borderColor: "#9b1c1c",
-    borderRadius: 6,
+    borderColor: "#FF4C29",
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 4,
     transform: [{ rotate: "-18deg" }],
-    backgroundColor: "rgba(155,28,28,0.12)",
+    backgroundColor: "rgba(255,76,41,0.08)",
   },
   stampSmall: { paddingHorizontal: 6, paddingVertical: 2, borderWidth: 2 },
-  stampText: { color: "#9b1c1c", fontWeight: "900", fontSize: 20, letterSpacing: 2 },
+  stampText: { color: "#FF4C29", fontWeight: "900", fontSize: 20, letterSpacing: 2 },
 
-  modalDim: { flex: 1, backgroundColor: "rgba(10,6,18,0.92)" },
+  modalDim: { flex: 1, backgroundColor: "rgba(21,21,27,0.88)" },
   modalScroll: { padding: 20, paddingTop: 48, alignItems: "center", gap: 14, paddingBottom: 60 },
   bigCard: {
     width: "100%",
     maxWidth: 360,
-    borderRadius: 18,
+    borderRadius: 0,
     borderWidth: 5,
     padding: 8,
     overflow: "hidden",
   },
-  bigInnerFrame: { borderWidth: 1.5, borderRadius: 12, padding: 16, gap: 10 },
+  bigInnerFrame: { borderWidth: 1.5, borderRadius: 0, padding: 16, gap: 10 },
   bigTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   bigTier: { fontFamily: SERIF, fontSize: 14, fontWeight: "700", letterSpacing: 3 },
   bigName: {
@@ -985,11 +985,11 @@ const styles = StyleSheet.create({
   bigDesc: { fontFamily: SERIF, fontSize: 16, lineHeight: 23, textAlign: "center" },
   bigPoints: { fontSize: 17, fontWeight: "800", textAlign: "center" },
   bigBonus: { fontSize: 13, fontWeight: "600", textAlign: "center" },
-  alcoholNote: { color: "#8a5a10", fontSize: 12, textAlign: "center", fontWeight: "600" },
+  alcoholNote: { color: "#84828C", fontSize: 12, textAlign: "center", fontWeight: "600" },
   doneRow: { alignItems: "center" },
   claimBtn: {
-    backgroundColor: "#7c3aed",
-    borderRadius: 12,
+    backgroundColor: "#3D5AFE",
+    borderRadius: 0,
     paddingVertical: 12,
     alignItems: "center",
   },
@@ -997,26 +997,26 @@ const styles = StyleSheet.create({
   claimLabel: { fontSize: 14, fontWeight: "700", fontFamily: SERIF },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   pickChip: {
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: "rgba(0,0,0,0.15)",
+    backgroundColor: "#F5F4F0",
     borderWidth: 1,
     borderColor: "transparent",
   },
-  pickChipOn: { borderColor: "#7c3aed", backgroundColor: "rgba(124,58,237,0.25)" },
-  pickChipText: { color: "#2b2013", fontWeight: "700", fontSize: 13 },
+  pickChipOn: { borderColor: "#3D5AFE", backgroundColor: "#E9EDFF" },
+  pickChipText: { color: "#15151B", fontWeight: "700", fontSize: 13 },
   bonusRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
   },
-  error: { color: "#b91c1c", fontSize: 13, textAlign: "center" },
+  error: { color: "#FF4C29", fontSize: 13, textAlign: "center" },
   themeCaption: { fontSize: 11, fontStyle: "italic", textAlign: "center", marginTop: 4 },
   closeBtn: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 12,
+    backgroundColor: "#E1DED5",
+    borderRadius: 0,
     paddingVertical: 12,
     paddingHorizontal: 32,
   },

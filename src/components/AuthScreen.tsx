@@ -18,6 +18,7 @@ import { svAuthError } from "@/lib/errors";
 import { signInWithProvider } from "@/lib/oauth";
 import type { OAuthProvider } from "@/lib/oauth";
 import { supabase } from "@/lib/supabase";
+import { Logo } from "@/components/Logo";
 import { useColors } from "@/lib/ui";
 
 export function AuthScreen({ mode }: { mode: "login" | "register" }) {
@@ -126,7 +127,7 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
           contentContainerStyle={styles.container}
           keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.brand, { color: c.text }]}>Ladchat</Text>
+          <Logo size={38} />
           <Text style={[styles.subtitle, { color: c.textSecondary }]}>
             {isLogin ? "Logga in för att fortsätta" : "Skapa ett konto"}
           </Text>
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
   subtitle: { textAlign: "center", marginBottom: 12 },
   googleBtn: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -275,20 +276,20 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", gap: 10 },
   input: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
   },
   button: {
-    borderRadius: 14,
+    borderRadius: 0,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 4,
   },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  error: { color: "#dc2626", fontSize: 14 },
-  notice: { color: "#059669", fontSize: 14 },
+  error: { color: "#FF4C29", fontSize: 14 },
+  notice: { color: "#00B884", fontSize: 14 },
   switchRow: {
     flexDirection: "row",
     justifyContent: "center",

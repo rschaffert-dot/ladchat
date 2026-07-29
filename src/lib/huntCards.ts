@@ -6,10 +6,10 @@ import { Platform } from "react-native";
  * ser likadana ut överallt.
  */
 
+/** Kortens rubrikfont: Space Grotesk på web (global.css), systemfont på native. */
 export const HUNT_SERIF = Platform.select({
-  ios: "Georgia",
-  android: "serif",
-  default: "Georgia",
+  web: "'Space Grotesk', Inter, sans-serif",
+  default: "system-ui",
 });
 
 export type Tier = "wood" | "bronze" | "silver" | "gold" | "diamond";
@@ -29,15 +29,20 @@ export const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
 
 export const TIER_ORDER: Tier[] = ["wood", "bronze", "silver", "gold", "diamond"];
 
+/**
+ * Modern spelkortslook: vita kortytor med skarpa hörn och tunna ramar i
+ * tier-färgen — metallidentiteten (trä/brons/silver/guld/diamant) sitter i
+ * ramen och detaljerna, inte i pergament-bakgrunder.
+ */
 export const TIERS: Record<
   Tier,
   { label: string; symbol: string; frame: string; frameDark: string; face: string; text: string }
 > = {
-  wood: { label: "Trä", symbol: "🪵", frame: "#8a5a2b", frameDark: "#5d3c1c", face: "#efe0bd", text: "#4a3418" },
-  bronze: { label: "Brons", symbol: "🥉", frame: "#b87333", frameDark: "#7c4a1e", face: "#f0ddba", text: "#5a3517" },
-  silver: { label: "Silver", symbol: "🥈", frame: "#aab4bf", frameDark: "#6d7681", face: "#eef0ef", text: "#3c434b" },
-  gold: { label: "Guld", symbol: "🏆", frame: "#d4af37", frameDark: "#96781f", face: "#f5e9c0", text: "#5c4a12" },
-  diamond: { label: "Diamant", symbol: "💎", frame: "#8fd8f2", frameDark: "#4d94ad", face: "#e8f6fb", text: "#1f4b5a" },
+  wood: { label: "Trä", symbol: "🪵", frame: "#8B6F47", frameDark: "#5D4A2F", face: "#FFFFFF", text: "#15151B" },
+  bronze: { label: "Brons", symbol: "🥉", frame: "#B87333", frameDark: "#7C4A1E", face: "#FFFFFF", text: "#15151B" },
+  silver: { label: "Silver", symbol: "🥈", frame: "#9AA3AD", frameDark: "#6D7681", face: "#FFFFFF", text: "#15151B" },
+  gold: { label: "Guld", symbol: "🏆", frame: "#D4AF37", frameDark: "#96781F", face: "#FFFFFF", text: "#15151B" },
+  diamond: { label: "Diamant", symbol: "💎", frame: "#3D5AFE", frameDark: "#2A3EB1", face: "#FFFFFF", text: "#15151B" },
 };
 
 export type HuntChallenge = {

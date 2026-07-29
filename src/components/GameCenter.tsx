@@ -174,7 +174,7 @@ function ResultMsg({ text, good }: { text: string; good?: boolean }) {
 }
 
 function PlayingCardView({ card, small }: { card: Card; small?: boolean }) {
-  const color = isRedSuit(card.suit) ? "#dc2626" : "#111";
+  const color = isRedSuit(card.suit) ? "#FF4C29" : "#111";
   return (
     <View style={[styles.pCard, small ? styles.pCardSmall : null]}>
       <Text style={[small ? styles.pCardTextSmall : styles.pCardText, { color }]}>
@@ -238,11 +238,11 @@ function KingsCupGame({ players, names, onExit }: GameProps) {
       <Pressable onPress={draw} style={{ alignItems: "center" }}>
         {card ? (
           <View style={styles.bigCard}>
-            <Text style={[styles.bigCardCorner, { color: isRedSuit(card.suit) ? "#dc2626" : "#111" }]}>
+            <Text style={[styles.bigCardCorner, { color: isRedSuit(card.suit) ? "#FF4C29" : "#111" }]}>
               {card.rank}
               {card.suit}
             </Text>
-            <Text style={[styles.bigCardSuit, { color: isRedSuit(card.suit) ? "#dc2626" : "#111" }]}>
+            <Text style={[styles.bigCardSuit, { color: isRedSuit(card.suit) ? "#FF4C29" : "#111" }]}>
               {card.suit}
             </Text>
           </View>
@@ -1709,14 +1709,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 16,
   },
   menuTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
   dim: { color: "#A6A39B", fontSize: 13 },
   h1: { color: "#fff", fontSize: 20, fontWeight: "800", textAlign: "center" },
   h2: { color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" },
-  phaseLabel: { color: "#f2a916", fontSize: 13, fontWeight: "800", textAlign: "center" },
+  phaseLabel: { color: "#D4AF37", fontSize: 13, fontWeight: "800", textAlign: "center" },
   turnBanner: { alignItems: "center", gap: 2 },
   turnLabel: { color: "#A6A39B", fontSize: 13 },
   turnName: { color: "#fff", fontSize: 26, fontWeight: "900" },
@@ -1725,22 +1725,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  playerRowSelected: { borderColor: "#f2a916" },
+  playerRowSelected: { borderColor: "#D4AF37" },
   orderBadge: {
     width: 26,
     height: 26,
-    borderRadius: 13,
-    backgroundColor: "#f2a916",
+    borderRadius: 0,
+    backgroundColor: "#D4AF37",
     alignItems: "center",
     justifyContent: "center",
   },
-  orderText: { color: "#2a1a10", fontWeight: "900", fontSize: 13 },
+  orderText: { color: "#15151B", fontWeight: "900", fontSize: 13 },
   playerName: { color: "#fff", fontSize: 15, fontWeight: "600" },
   settingRow: {
     flexDirection: "row",
@@ -1752,35 +1752,35 @@ const styles = StyleSheet.create({
   settingLabel: { color: "#fff", fontSize: 14, fontWeight: "600", flexShrink: 1 },
   input: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 12,
     color: "#fff",
     fontSize: 15,
   },
   miniChip: {
-    borderRadius: 10,
+    borderRadius: 0,
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: "rgba(255,255,255,0.1)",
     borderWidth: 1,
     borderColor: "transparent",
   },
-  miniChipOn: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.25)" },
+  miniChipOn: { borderColor: "#D4AF37", backgroundColor: "rgba(242,169,22,0.25)" },
   btn: {
-    backgroundColor: "#D97757",
-    borderRadius: 14,
+    backgroundColor: "#3D5AFE",
+    borderRadius: 0,
     paddingVertical: 14,
     alignItems: "center",
     paddingHorizontal: 24,
   },
   btnGhost: { backgroundColor: "rgba(255,255,255,0.1)" },
-  btnDanger: { backgroundColor: "#b91c1c" },
+  btnDanger: { backgroundColor: "#FF4C29" },
   btnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   btnRow: { flexDirection: "row", gap: 10, justifyContent: "center", flexWrap: "wrap" },
   choiceBtn: {
-    backgroundColor: "#D97757",
-    borderRadius: 14,
+    backgroundColor: "#3D5AFE",
+    borderRadius: 0,
     paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: "center",
@@ -1789,37 +1789,37 @@ const styles = StyleSheet.create({
   nameGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   nameChip: {
     backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
+    borderRadius: 0,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  nameChipHot: { borderColor: "#f2a916", backgroundColor: "rgba(242,169,22,0.35)" },
+  nameChipHot: { borderColor: "#D4AF37", backgroundColor: "rgba(242,169,22,0.35)" },
   nameChipText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  resultBox: { borderRadius: 12, padding: 12 },
+  resultBox: { borderRadius: 0, padding: 12 },
   resultGood: { backgroundColor: "rgba(34,197,94,0.25)" },
   resultBad: { backgroundColor: "rgba(220,38,38,0.3)" },
   resultText: { color: "#fff", fontWeight: "700", fontSize: 14, textAlign: "center" },
   promptCard: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 18,
   },
   promptText: { color: "#fff", fontSize: 17, fontWeight: "700", textAlign: "center", lineHeight: 24 },
   peekBox: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 16,
+    borderRadius: 0,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#D97757",
+    borderColor: "#3D5AFE",
     alignItems: "center",
   },
   bigCard: {
     width: 170,
     height: 240,
     backgroundColor: "#fff",
-    borderRadius: 14,
+    borderRadius: 0,
     padding: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -1830,16 +1830,16 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#8a5a2b",
-    borderRadius: 14,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     borderWidth: 3,
-    borderColor: "#D97757",
+    borderColor: "#3D5AFE",
   },
   cardBackText: { color: "#A6A39B", fontSize: 13, fontWeight: "700", textAlign: "center" },
-  ruleBox: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 14, padding: 14, gap: 6 },
-  ruleTitle: { color: "#f2a916", fontSize: 16, fontWeight: "800" },
+  ruleBox: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 0, padding: 14, gap: 6 },
+  ruleTitle: { color: "#D4AF37", fontSize: 16, fontWeight: "800" },
   ruleText: { color: "#fff", fontSize: 14, lineHeight: 20 },
   statusRow: { flexDirection: "row", justifyContent: "space-between" },
   handRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" },
@@ -1847,7 +1847,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 60,
     backgroundColor: "#fff",
-    borderRadius: 6,
+    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1858,18 +1858,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 54,
     backgroundColor: "#8a5a2b",
-    borderRadius: 6,
+    borderRadius: 0,
     borderWidth: 1,
-    borderColor: "#D97757",
+    borderColor: "#3D5AFE",
   },
   pyramid: { gap: 6, alignItems: "center" },
   pyramidRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
   buzzNumber: { color: "#fff", fontSize: 72, fontWeight: "900", textAlign: "center" },
   timerTrack: {
     height: 8,
-    borderRadius: 4,
+    borderRadius: 0,
     backgroundColor: "rgba(255,255,255,0.15)",
     overflow: "hidden",
   },
-  timerFill: { height: 8, backgroundColor: "#f2a916" },
+  timerFill: { height: 8, backgroundColor: "#D4AF37" },
 });

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "@/lib/auth";
 import { svAuthError } from "@/lib/errors";
 import { supabase } from "@/lib/supabase";
+import { Logo } from "@/components/Logo";
 import { useColors } from "@/lib/ui";
 
 /**
@@ -60,7 +61,7 @@ export default function ResetPasswordScreen() {
         style={styles.flex}
       >
         <View style={styles.container}>
-          <Text style={[styles.brand, { color: c.text }]}>Ladchat</Text>
+          <Logo size={38} />
           <Text style={[styles.subtitle, { color: c.textSecondary }]}>
             Välj ett nytt lösenord
           </Text>
@@ -138,13 +139,13 @@ const styles = StyleSheet.create({
   subtitle: { textAlign: "center", marginBottom: 12 },
   input: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 0,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
   },
-  button: { borderRadius: 14, paddingVertical: 15, alignItems: "center", marginTop: 4 },
+  button: { borderRadius: 0, paddingVertical: 15, alignItems: "center", marginTop: 4 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  error: { color: "#dc2626", fontSize: 14 },
-  notice: { color: "#059669", fontSize: 15, textAlign: "center", fontWeight: "600" },
+  error: { color: "#FF4C29", fontSize: 14 },
+  notice: { color: "#00B884", fontSize: 15, textAlign: "center", fontWeight: "600" },
 });
