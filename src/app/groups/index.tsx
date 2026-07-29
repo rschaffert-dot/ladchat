@@ -28,6 +28,14 @@ import { Logo } from "@/components/Logo";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
 
+/** Stabil accentfärg per gruppnamn — ger listan färgblock ur temapaletten. */
+const AVATAR_COLORS = ["#3D5AFE", "#FF4C29", "#00B884", "#15151B", "#96781F"];
+function avatarColor(name: string): string {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
 export default function GroupsScreen() {
   const c = useColors();
   const router = useRouter();
@@ -420,10 +428,7 @@ export default function GroupsScreen() {
                   ]}
                 >
                   <View
-                    style={[
-                      styles.groupAvatar,
-                      { backgroundColor: item.owner_id === userId ? c.ink : c.brand },
-                    ]}
+                    style={[styles.groupAvatar, { backgroundColor: avatarColor(item.name) }]}
                   >
                     <Text style={styles.groupAvatarText}>
                       {item.name.trim().charAt(0).toUpperCase()}

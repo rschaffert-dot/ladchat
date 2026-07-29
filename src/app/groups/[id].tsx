@@ -73,6 +73,8 @@ import type {
 } from "@/lib/types";
 import {
   BarChart3 as LBarChart,
+  Camera as LCamera,
+  Image as LImage,
   Beer as LBeer,
   Coins as LCoins,
   Flame as LFlame,
@@ -253,6 +255,15 @@ function BeerGlassBackground({
     </View>
   );
 }
+
+/** Ljusa accentplattor bakom menyikoner — färg utan att skrika. */
+const STAR_TINTS: Record<string, string> = {
+  "#3D5AFE": "#E9EDFF",
+  "#FF4C29": "#FFE9E3",
+  "#00B884": "#E3F6EF",
+  "#96781F": "#F7EFD5",
+  "#15151B": "#E1DED5",
+};
 
 const PAGE = 30;
 const MISSING = "00000000-0000-0000-0000-000000000000";
@@ -3427,23 +3438,33 @@ export default function GroupChatScreen() {
       {attachOpen ? (
         <View style={[styles.attachRow, { borderTopColor: c.backgroundElement }]}>
           <Pressable onPress={takeChatPhoto} style={styles.attachBtn} disabled={uploadingMedia}>
-            <Text style={styles.attachEmoji}>📸</Text>
+            <View style={[styles.attachTile, { backgroundColor: "#E9EDFF" }]}>
+              <LCamera size={20} color="#3D5AFE" strokeWidth={1.7} />
+            </View>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Kamera</Text>
           </Pressable>
           <Pressable onPress={pickChatImage} style={styles.attachBtn} disabled={uploadingMedia}>
-            <Text style={styles.attachEmoji}>🖼️</Text>
+            <View style={[styles.attachTile, { backgroundColor: "#E3F6EF" }]}>
+              <LImage size={20} color="#00B884" strokeWidth={1.7} />
+            </View>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Bild</Text>
           </Pressable>
           <Pressable onPress={() => void sendSnap()} style={styles.attachBtn} disabled={uploadingMedia}>
-            <Text style={styles.attachEmoji}>🔥</Text>
+            <View style={[styles.attachTile, { backgroundColor: "#FFE9E3" }]}>
+              <LFlame size={20} color="#FF4C29" strokeWidth={1.7} />
+            </View>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Snap</Text>
           </Pressable>
           <Pressable onPress={() => setPollModalOpen(true)} style={styles.attachBtn}>
-            <Text style={styles.attachEmoji}>📊</Text>
+            <View style={[styles.attachTile, { backgroundColor: "#E9EDFF" }]}>
+              <LBarChart size={20} color="#3D5AFE" strokeWidth={1.7} />
+            </View>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Omröstning</Text>
           </Pressable>
           <Pressable onPress={() => setWagerCreateOpen(true)} style={styles.attachBtn}>
-            <Text style={styles.attachEmoji}>🎯</Text>
+            <View style={[styles.attachTile, { backgroundColor: "#F7EFD5" }]}>
+              <LTarget size={20} color="#96781F" strokeWidth={1.7} />
+            </View>
             <Text style={[styles.attachLabel, { color: c.textSecondary }]}>Gissning</Text>
           </Pressable>
         </View>
@@ -3696,8 +3717,8 @@ export default function GroupChatScreen() {
         contentContainerStyle={styles.storyRow}
       >
         <Pressable onPress={() => void postStory()} style={styles.storyItem}>
-          <View style={[styles.storyRing, { borderColor: c.backgroundSelected }]}>
-            <Icon name="plus" size={18} color={c.textSecondary} />
+          <View style={[styles.storyRing, { borderColor: c.brand }]}>
+            <Icon name="plus" size={18} color={c.brand} />
           </View>
           <Text style={[styles.storyName, { color: c.textSecondary }]}>Din story</Text>
         </Pressable>
@@ -4683,25 +4704,28 @@ export default function GroupChatScreen() {
             <Text style={[styles.starTitle, { color: c.text }]}>Starta något</Text>
             {(
               [
-                { icon: LGamepad, label: "Spel & lekar", action: () => setGameOpen(true) },
+                { icon: LGamepad, color: "#3D5AFE", label: "Spel & lekar", action: () => setGameOpen(true) },
                 {
                   icon: LLayers,
+                  color: "#96781F",
                   label: "Poängjakten",
                   action: () =>
                     groupId && router.push({ pathname: "/hunt", params: { groupId } }),
                 },
-                { icon: LSwords, label: "Utmana på duell", action: () => setDuelModalOpen(true) },
-                { icon: LBarChart, label: "Omröstning", action: () => setPollModalOpen(true) },
-                { icon: LTarget, label: "Gissning (vem gissar rätt?)", action: () => setWagerCreateOpen(true) },
+                { icon: LSwords, color: "#FF4C29", label: "Utmana på duell", action: () => setDuelModalOpen(true) },
+                { icon: LBarChart, color: "#3D5AFE", label: "Omröstning", action: () => setPollModalOpen(true) },
+                { icon: LTarget, color: "#96781F", label: "Gissning (vem gissar rätt?)", action: () => setWagerCreateOpen(true) },
                 {
                   icon: LFlame,
+                  color: "#FF4C29",
                   label: `Checka in streak (${streak?.current_streak ?? 0} dagar)`,
                   action: checkin,
                 },
-                { icon: LTrophy, label: "Turneringar & topplista", action: () => router.push("/feed") },
-                { icon: LSearch, label: "Sök i chatten", action: () => setChatSearchOpen(true) },
+                { icon: LTrophy, color: "#96781F", label: "Turneringar & topplista", action: () => router.push("/feed") },
+                { icon: LSearch, color: "#15151B", label: "Sök i chatten", action: () => setChatSearchOpen(true) },
                 {
                   icon: LRotate,
+                  color: "#3D5AFE",
                   label: "Vem gör det? (snurra hjulet)",
                   action: () => {
                     setWheelOpen(true);
@@ -4711,27 +4735,31 @@ export default function GroupChatScreen() {
                 },
                 {
                   icon: LSparkles,
+                  color: "#FF4C29",
                   label: "Partyläge — 2h dubbel XP",
                   action: () => void startPartyMode(),
                 },
-                { icon: LCoins, label: "Slå vad om poäng", action: () => setBetModalOpen(true) },
+                { icon: LCoins, color: "#96781F", label: "Slå vad om poäng", action: () => setBetModalOpen(true) },
                 {
                   icon: LTicket,
+                  color: "#3D5AFE",
                   label: "Veckans lotteri (10p/lott)",
                   action: () => void buyLottery(),
                 },
-                { icon: LBeer, label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
+                { icon: LBeer, color: "#96781F", label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
                 {
                   icon: LStar,
+                  color: "#96781F",
                   label: `Sparade meddelanden (${starred.length})`,
                   action: () => setStarredOpen(true),
                 },
                 {
                   icon: LLink,
+                  color: "#00B884",
                   label: linkCopied ? "Länk kopierad!" : "Bjud in en polare",
                   action: invite,
                 },
-              ] as { icon: typeof LGamepad; label: string; action: () => void }[]
+              ] as { icon: typeof LGamepad; color: string; label: string; action: () => void }[]
             ).map((item) => (
               <Pressable
                 key={item.label}
@@ -4741,7 +4769,9 @@ export default function GroupChatScreen() {
                 }}
                 style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
               >
-                <item.icon size={22} color={c.ink} strokeWidth={1.7} />
+                <View style={[styles.starTile, { backgroundColor: STAR_TINTS[item.color] ?? "#E1DED5" }]}>
+                  <item.icon size={20} color={item.color} strokeWidth={1.7} />
+                </View>
                 <Text style={[styles.starLabel, { color: c.text }]}>{item.label}</Text>
                 <Icon name="chevron-right" size={16} color={c.textSecondary} />
               </Pressable>
@@ -5490,10 +5520,21 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   starLabel: { flex: 1, fontSize: 15, fontWeight: "600" },
+  starTile: {
+    width: 38,
+    height: 38,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   headerTitle: {
     fontSize: 17,
     fontWeight: "700",
-    fontFamily: Platform.select({ ios: "Georgia", android: "serif", default: "Georgia" }),
+    letterSpacing: -0.3,
+    fontFamily: Platform.select({
+      web: "'Space Grotesk', Inter, sans-serif",
+      default: "system-ui",
+    }),
   },
   msgStatus: { fontSize: 11, marginTop: 2 },
   swipeReply: { justifyContent: "center", paddingHorizontal: 18 },
@@ -5719,7 +5760,13 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   attachBtn: { alignItems: "center", gap: 2, minWidth: 64 },
-  attachEmoji: { fontSize: 26 },
+  attachTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   attachLabel: { fontSize: 11, fontWeight: "600" },
   emojiRow: {
     rowGap: 10,
