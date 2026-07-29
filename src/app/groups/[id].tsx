@@ -3667,7 +3667,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Icon name="zap" size={22} />
+              <Icon name="zap" size={22} color={c.text} />
               <View style={[styles.moreBadge, { backgroundColor: settings.color }]}>
                 <Text style={styles.moreBadgeText}>+</Text>
               </View>
@@ -3680,7 +3680,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Icon name="smile" size={20} />
+              <Icon name="smile" size={20} color={c.text} />
             </Pressable>
             <View style={styles.flex} />
             {recording ? (
@@ -3773,13 +3773,13 @@ export default function GroupChatScreen() {
           ) : null}
         </Pressable>
         <Pressable accessibilityLabel="Gruppsamtal" onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
-          <Icon name="phone" size={20} />
+          <Icon name="phone" size={20} color={c.text} />
         </Pressable>
         <Pressable accessibilityLabel="Videosamtal" onPress={() => noteCall(true)} hitSlop={8} style={styles.gear}>
-          <Icon name="video" size={20} />
+          <Icon name="video" size={20} color={c.text} />
         </Pressable>
         <Pressable accessibilityLabel="Chattinställningar" onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
-          <Icon name="settings" size={20} />
+          <Icon name="settings" size={20} color={c.text} />
         </Pressable>
       </View>
 
