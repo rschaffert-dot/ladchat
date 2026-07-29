@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
 import type { Tournament, TournamentEntry } from "@/lib/types";
+import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 
 function formatKr(ore: number): string {
@@ -124,7 +125,7 @@ export default function FeedScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <View style={styles.header}>
         <Pressable onPress={goBack} hitSlop={8} style={styles.back}>
-          <Text style={{ color: c.textSecondary, fontSize: 26 }}>‹</Text>
+          <Icon name="chevron-left" size={26} color={c.textSecondary} />
         </Pressable>
         <Text style={[styles.title, { color: c.text }]}>Utforska</Text>
       </View>

@@ -18,6 +18,7 @@ import {
 import type { HuntChallenge, HuntCompletion } from "@/lib/huntCards";
 import { supabase } from "@/lib/supabase";
 import type { Achievement, Streak, UserAchievement } from "@/lib/types";
+import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 
 /** Ett uppslag i LadBook: klarad utmaning + dess bevismaterial. */
@@ -180,7 +181,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={[styles.header, { borderBottomColor: c.backgroundElement }]}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={{ color: c.textSecondary, fontSize: 26 }}>‹</Text>
+          <Icon name="chevron-left" size={26} color={c.textSecondary} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: c.text }]}>Min profil</Text>
       </View>
@@ -198,7 +199,7 @@ export default function ProfileScreen() {
             {avatar ? (
               <Image source={{ uri: avatar }} style={styles.avatarImg} />
             ) : (
-              <Text style={{ fontSize: 32 }}>👤</Text>
+              <Icon name="user" size={30} color={c.textSecondary} />
             )}
           </Pressable>
           <View style={styles.flex}>

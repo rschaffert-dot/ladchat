@@ -23,6 +23,8 @@ import {
 import type { Currency } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
+import { Icon } from "@/components/Icon";
+import { Logo } from "@/components/Logo";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
 
@@ -235,23 +237,24 @@ export default function GroupsScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <View style={styles.header}>
-        <Text style={[styles.title, { color: c.text }]}>Dina grupper</Text>
+        <View style={styles.headerBrand}>
+          <Logo size={26} showWordmark={false} />
+          <Text style={[styles.title, { color: c.text }]}>Dina grupper</Text>
+        </View>
         <View style={styles.headerActions}>
-          <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
-            <Text style={{ fontSize: 18 }}>👤</Text>
-          </Pressable>
           <Pressable onPress={() => router.push("/feed")} hitSlop={8}>
-            <Text style={{ color: c.brand, fontWeight: "700" }}>Utforska</Text>
+            <Icon name="compass" size={22} color={c.brand} />
+          </Pressable>
+          <Pressable onPress={() => router.push("/profile")} hitSlop={8}>
+            <Icon name="user" size={22} />
           </Pressable>
           {isAdmin ? (
             <Pressable onPress={() => router.push("/admin")} hitSlop={8}>
-              <Text style={{ color: c.textSecondary, fontWeight: "600" }}>⚙️</Text>
+              <Icon name="settings" size={22} color={c.textSecondary} />
             </Pressable>
           ) : null}
           <Pressable onPress={() => supabase.auth.signOut()} hitSlop={8}>
-            <Text style={{ color: c.textSecondary, fontWeight: "600" }}>
-              Logga ut
-            </Text>
+            <Icon name="log-out" size={22} color={c.textSecondary} />
           </Pressable>
         </View>
       </View>
@@ -297,7 +300,7 @@ export default function GroupsScreen() {
         <TextInput
           value={search}
           onChangeText={setSearch}
-          placeholder="🔍 Sök bland dina chattar…"
+          placeholder="Sök bland dina chattar…"
           placeholderTextColor={c.textSecondary}
           style={[styles.input, { color: c.text, borderColor: c.backgroundSelected }]}
         />
@@ -307,7 +310,7 @@ export default function GroupsScreen() {
             [
               ["alla", "Alla"],
               ["olasta", "Olästa"],
-              ["nalade", "📌 Nålade"],
+              ["nalade", "Nålade"],
             ] as ["alla" | "olasta" | "nalade", string][]
           ).map(([key, label]) => (
             <Pressable
@@ -355,7 +358,7 @@ export default function GroupsScreen() {
                 style={styles.archiveToggle}
               >
                 <Text style={{ color: c.textSecondary, fontWeight: "600", fontSize: 13 }}>
-                  🗄 {showArchived ? "Dölj arkiverade" : `Visa arkiverade (${archivedCount})`}
+                  {showArchived ? "Dölj arkiverade" : `Visa arkiverade (${archivedCount})`}
                 </Text>
               </Pressable>
             ) : null
@@ -371,17 +374,17 @@ export default function GroupsScreen() {
                   <View style={styles.swipeActions}>
                     <Pressable
                       onPress={() => void setPref(item.id, { pin: !p?.pinnedAt })}
-                      style={[styles.swipeBtn, { backgroundColor: "#2563eb" }]}
+                      style={[styles.swipeBtn, { backgroundColor: "#3D5AFE" }]}
                     >
                       <Text style={styles.swipeBtnText}>
-                        📌 {p?.pinnedAt ? "Lossa" : "Nåla"}
+                        {p?.pinnedAt ? "Lossa" : "Nåla"}
                       </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => void markGroupRead(item.id)}
-                      style={[styles.swipeBtn, { backgroundColor: "#16a34a" }]}
+                      style={[styles.swipeBtn, { backgroundColor: "#00B884" }]}
                     >
-                      <Text style={styles.swipeBtnText}>✓ Läst</Text>
+                      <Text style={styles.swipeBtnText}>Läst</Text>
                     </Pressable>
                   </View>
                 )}
@@ -392,15 +395,15 @@ export default function GroupsScreen() {
                       style={[styles.swipeBtn, { backgroundColor: "#84828C" }]}
                     >
                       <Text style={styles.swipeBtnText}>
-                        {p?.muted ? "🔔 Ljud på" : "🔕 Ljudlös"}
+                        {p?.muted ? "Ljud på" : "Ljudlös"}
                       </Text>
                     </Pressable>
                     <Pressable
                       onPress={() => void setPref(item.id, { arch: !p?.archived })}
-                      style={[styles.swipeBtn, { backgroundColor: "#b45309" }]}
+                      style={[styles.swipeBtn, { backgroundColor: "#15151B" }]}
                     >
                       <Text style={styles.swipeBtnText}>
-                        🗄 {p?.archived ? "Återställ" : "Arkivera"}
+                        {p?.archived ? "Återställ" : "Arkivera"}
                       </Text>
                     </Pressable>
                   </View>
@@ -412,13 +415,23 @@ export default function GroupsScreen() {
                   }
                   style={[
                     styles.groupItem,
-                    { backgroundColor: c.backgroundElement },
+                    { backgroundColor: c.backgroundElement, borderColor: c.line },
                     p?.archived ? { opacity: 0.55 } : null,
                   ]}
                 >
+                  <View
+                    style={[
+                      styles.groupAvatar,
+                      { backgroundColor: item.owner_id === userId ? c.ink : c.brand },
+                    ]}
+                  >
+                    <Text style={styles.groupAvatarText}>
+                      {item.name.trim().charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <View style={styles.groupNameRow}>
-                      {p?.pinnedAt ? <Text style={{ fontSize: 12 }}>📌</Text> : null}
+                      {p?.pinnedAt ? <Icon name="bookmark" size={13} color={c.brand} /> : null}
                       <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
                       {(item.msg_streak ?? 0) > 1 ? (
                         <Text style={{ fontSize: 12, color: c.textSecondary }}>
@@ -428,7 +441,9 @@ export default function GroupsScreen() {
                             : ""}
                         </Text>
                       ) : null}
-                      {p?.muted ? <Text style={{ fontSize: 12 }}>🔕</Text> : null}
+                      {p?.muted ? (
+                        <Icon name="bell-off" size={13} color={c.textSecondary} />
+                      ) : null}
                       {unread[item.id] && !p?.muted ? (
                         <View style={styles.badge}>
                           <Text style={styles.badgeText}>{unread[item.id]}</Text>
@@ -453,7 +468,7 @@ export default function GroupsScreen() {
                   {item.owner_id === userId ? (
                     <Text style={[styles.ownerTag, { color: c.brand }]}>Ägare</Text>
                   ) : (
-                    <Text style={{ color: c.textSecondary }}>›</Text>
+                    <Icon name="chevron-right" size={18} color={c.textSecondary} />
                   )}
                 </Pressable>
               </Swipeable>
@@ -508,10 +523,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
     borderRadius: 0,
+    borderWidth: 1,
     paddingHorizontal: 16,
-    paddingVertical: 18,
+    paddingVertical: 14,
   },
+  headerBrand: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  groupAvatar: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupAvatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   badge: {

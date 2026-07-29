@@ -71,6 +71,7 @@ import type {
   ReactionKey,
   Streak,
 } from "@/lib/types";
+import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
 
@@ -3527,7 +3528,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text style={{ fontSize: 18 }}>😊</Text>
+              <Icon name="smile" size={20} />
             </Pressable>
             <View style={styles.flex} />
             {recording ? (
@@ -3564,9 +3565,11 @@ export default function GroupChatScreen() {
                 pressed ? { transform: [{ scale: 0.9 }] } : null,
               ]}
             >
-              <Text style={{ color: "#fff", fontSize: 18, fontWeight: "800" }}>
-                {recording ? "⏹" : text.trim().length === 0 ? "🎤" : "↑"}
-              </Text>
+              <Icon
+                name={recording ? "square" : text.trim().length === 0 ? "mic" : "arrow-up"}
+                size={18}
+                color="#fff"
+              />
             </Pressable>
           </View>
         </View>
@@ -3612,18 +3615,18 @@ export default function GroupChatScreen() {
             </Text>
           ) : onlineOthers > 0 ? (
             <Text style={{ color: "#00B884", fontSize: 11 }} numberOfLines={1}>
-              🟢 {onlineOthers} aktiv{onlineOthers > 1 ? "a" : ""} nu
+              {onlineOthers} aktiv{onlineOthers > 1 ? "a" : ""} nu
             </Text>
           ) : null}
         </Pressable>
         <Pressable accessibilityLabel="Gruppsamtal" onPress={() => noteCall(false)} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>📞</Text>
+          <Icon name="phone" size={20} />
         </Pressable>
         <Pressable accessibilityLabel="Videosamtal" onPress={() => noteCall(true)} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>🎥</Text>
+          <Icon name="video" size={20} />
         </Pressable>
         <Pressable accessibilityLabel="Chattinställningar" onPress={() => setSettingsOpen(true)} hitSlop={8} style={styles.gear}>
-          <Text style={{ fontSize: 20 }}>⚙️</Text>
+          <Icon name="settings" size={20} />
         </Pressable>
       </View>
 
