@@ -5,7 +5,7 @@ import { BRAND, EMBER, INK } from "@/lib/ui";
 
 /**
  * Ladchat-logotypen: två överlappande fyrkanter i outline (Signal Blue +
- * Ember) och ordmärket "ladchat" i gemener, Space Grotesk 700.
+ * Ember) och ordmärket "LadChat", Space Grotesk 700.
  *
  * Varianter: "primary" (ljus bakgrund — blå/ember ikon, Ink-text) och
  * "hero" (på Signal Blue-yta — vit/Ink-ikon, vit text).
@@ -59,7 +59,7 @@ export function Logo({
             { color: textColor, fontSize: size * 0.8, fontFamily: Fonts?.display },
           ]}
         >
-          ladchat
+          LadChat
         </Text>
       ) : null}
     </View>

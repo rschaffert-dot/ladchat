@@ -1858,7 +1858,7 @@ export default function GroupChatScreen() {
       const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `${group?.name ?? "ladchat"}.txt`;
+      a.download = `${group?.name ?? "LadChat"}.txt`;
       a.click();
     } else {
       await Share.share({ message: txt.slice(0, 100_000) });
@@ -3273,7 +3273,7 @@ export default function GroupChatScreen() {
 
     if (Platform.OS !== "web") {
       Share.share({
-        message: `Gå med i "${group?.name ?? "gruppen"}" på Ladchat:\n\n${link}`,
+        message: `Gå med i "${group?.name ?? "gruppen"}" på LadChat:\n\n${link}`,
       }).catch(() => {});
     }
   }

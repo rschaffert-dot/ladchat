@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Ladchat",
+    "name": "LadChat",
     "slug": "ladchat-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -36,7 +36,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Ladchat behöver tillgång till dina bilder för att du ska kunna välja en bakgrundsbild till chatten."
+          "photosPermission": "LadChat behöver tillgång till dina bilder för att du ska kunna välja en bakgrundsbild till chatten."
         }
       ]
     ],
