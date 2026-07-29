@@ -4478,9 +4478,33 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setStarredOpen(false)}>
           <View style={{ flex: 1 }} />
-          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+          <Pressable
+            style={[styles.starSheet, { backgroundColor: c.background, maxHeight: "85%" }]}
+            onPress={() => {}}
+          >
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>Sparade meddelanden</Text>
+            <View style={styles.sheetHeader}>
+              <Text
+                style={[
+                  styles.starTitle,
+                  { color: c.text, flex: 1, marginBottom: 0, textAlign: "left" },
+                ]}
+              >
+                Sparade meddelanden
+              </Text>
+              <Pressable
+                onPress={() => setStarredOpen(false)}
+                hitSlop={12}
+                style={styles.sheetCloseBtn}
+              >
+                <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetScrollContent}
+              showsVerticalScrollIndicator
+            >
             {starred.length === 0 ? (
               <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
                 Inget sparat än — långtryck på ett meddelande och välj Spara.
@@ -4514,6 +4538,7 @@ export default function GroupChatScreen() {
                   </View>
                 ))
             )}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -4837,9 +4862,33 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setForwardMsg(null)}>
           <View style={{ flex: 1 }} />
-          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+          <Pressable
+            style={[styles.starSheet, { backgroundColor: c.background, maxHeight: "85%" }]}
+            onPress={() => {}}
+          >
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>↪️ Vidarebefordra till…</Text>
+            <View style={styles.sheetHeader}>
+              <Text
+                style={[
+                  styles.starTitle,
+                  { color: c.text, flex: 1, marginBottom: 0, textAlign: "left" },
+                ]}
+              >
+                Vidarebefordra till…
+              </Text>
+              <Pressable
+                onPress={() => setForwardMsg(null)}
+                hitSlop={12}
+                style={styles.sheetCloseBtn}
+              >
+                <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetScrollContent}
+              showsVerticalScrollIndicator
+            >
             {forwardGroups.length === 0 ? (
               <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
                 Du har inga andra grupper att skicka till.
@@ -4857,6 +4906,7 @@ export default function GroupChatScreen() {
                 </Pressable>
               ))
             )}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -4870,9 +4920,33 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setStarOpen(false)}>
           <View style={{ flex: 1 }} />
-          <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
+          <Pressable
+            style={[styles.starSheet, { backgroundColor: c.background, maxHeight: "85%" }]}
+            onPress={() => {}}
+          >
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>Starta något</Text>
+            <View style={styles.sheetHeader}>
+              <Text
+                style={[
+                  styles.starTitle,
+                  { color: c.text, flex: 1, marginBottom: 0, textAlign: "left" },
+                ]}
+              >
+                Starta något
+              </Text>
+              <Pressable
+                onPress={() => setStarOpen(false)}
+                hitSlop={12}
+                style={styles.sheetCloseBtn}
+              >
+                <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.sheetScrollContent}
+              showsVerticalScrollIndicator
+            >
             {(
               [
                 { icon: LGamepad, color: "#3D5AFE", label: "Spel & lekar", action: () => setGameOpen(true) },
@@ -4947,6 +5021,7 @@ export default function GroupChatScreen() {
                 <Icon name="chevron-right" size={16} color={c.textSecondary} />
               </Pressable>
             ))}
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
