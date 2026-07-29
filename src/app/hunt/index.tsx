@@ -32,6 +32,7 @@ import { CategoryArt } from "@/lib/huntArt";
 import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { supabase } from "@/lib/supabase";
+import { useColors } from "@/lib/ui";
 
 // ============================================================
 // Poängjakten: 100 utmaningar som tarotliknande samlarkort.
@@ -86,6 +87,7 @@ function useShimmer() {
 }
 
 export default function HuntScreen() {
+  const c = useColors();
   const router = useRouter();
   const { userId } = useAuth();
   // Öppnad från en gruppchatt: jakten visas i den gruppens kontext.
@@ -360,12 +362,12 @@ export default function HuntScreen() {
   const selCompletion = sel ? completions[sel.id] : undefined;
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Icon name="chevron-left" size={26} color="#84828C" />
+          <Icon name="chevron-left" size={26} color={c.textSecondary} />
         </Pressable>
-        <Text style={styles.headerTitle}>
+        <Text style={[styles.headerTitle, { color: c.text }]}>
           Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
         </Text>
         <View style={{ width: 26 }} />
@@ -382,11 +384,19 @@ export default function HuntScreen() {
           contentContainerStyle={{ gap: 8, paddingBottom: 40 }}
           ListHeaderComponent={
             <View style={styles.top}>
-              <View style={styles.progressCard}>
-                <Text style={styles.progressBig}>
-                  {confirmed.length} <Text style={styles.progressDim}>av {challenges.length} klarade</Text>
+              <View
+                style={[
+                  styles.progressCard,
+                  { backgroundColor: c.backgroundElement, borderColor: c.backgroundSelected },
+                ]}
+              >
+                <Text style={[styles.progressBig, { color: c.text }]}>
+                  {confirmed.length}{" "}
+                  <Text style={[styles.progressDim, { color: c.textSecondary }]}>
+                    av {challenges.length} klarade
+                  </Text>
                 </Text>
-                <View style={styles.progressTrack}>
+                <View style={[styles.progressTrack, { backgroundColor: c.backgroundSelected }]}>
                   <View
                     style={[
                       styles.progressFill,
@@ -396,25 +406,32 @@ export default function HuntScreen() {
                 </View>
                 <View style={styles.iconRow}>
                   <AppIcon name="star" size={13} color="#00B884" />
-                  <Text style={styles.progressDim}>{totalPoints} poäng insamlade i jakten</Text>
+                  <Text style={[styles.progressDim, { color: c.textSecondary }]}>
+                    {totalPoints} poäng insamlade i jakten
+                  </Text>
                 </View>
               </View>
 
               {contextGroupId ? (
-                <View style={styles.progressCard}>
+                <View
+                  style={[
+                    styles.progressCard,
+                    { backgroundColor: c.backgroundElement, borderColor: c.backgroundSelected },
+                  ]}
+                >
                   <View style={styles.iconRow}>
-                    <AppIcon name="shield" size={16} color="#15151B" />
-                    <Text style={styles.progressBig}>
+                    <AppIcon name="shield" size={16} color={c.text} />
+                    <Text style={[styles.progressBig, { color: c.text }]}>
                       {contextGroupName ?? "Gruppen"}s jakt
                     </Text>
                   </View>
-                  <Text style={styles.progressDim}>
+                  <Text style={[styles.progressDim, { color: c.textSecondary }]}>
                     {groupFeatCount} bekräftade bragder · {groupFeatPoints} poäng till laget
                   </Text>
                   {groupFeats.slice(0, 4).map((f) => (
                     <View key={f.id} style={styles.iconRow}>
                       <AppIcon name="medal" size={13} color="#00B884" />
-                      <Text style={styles.progressDim}>
+                      <Text style={[styles.progressDim, { color: c.textSecondary }]}>
                         {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
                       </Text>
                     </View>
@@ -422,8 +439,13 @@ export default function HuntScreen() {
                   {groupFeats.some((f) => f.proofUrl) ? (
                     <>
                       <View style={[styles.iconRow, { marginTop: 4 }]}>
-                        <AppIcon name="film" size={13} color="#84828C" />
-                        <Text style={[styles.progressDim, { fontWeight: "800" }]}>
+                        <AppIcon name="film" size={13} color={c.textSecondary} />
+                        <Text
+                          style={[
+                            styles.progressDim,
+                            { fontWeight: "800", color: c.textSecondary },
+                          ]}
+                        >
                           Gruppens höjdpunkter
                         </Text>
                       </View>
@@ -457,14 +479,21 @@ export default function HuntScreen() {
               ) : null}
 
               {witnessReqs.length > 0 ? (
-                <View style={styles.witnessBox}>
+                <View
+                  style={[
+                    styles.witnessBox,
+                    { backgroundColor: c.backgroundElement, borderColor: c.brand },
+                  ]}
+                >
                   <View style={styles.iconRow}>
-                    <AppIcon name="eye" size={15} color="#15151B" />
-                    <Text style={styles.witnessTitle}>Du är kallad som vittne</Text>
+                    <AppIcon name="eye" size={15} color={c.text} />
+                    <Text style={[styles.witnessTitle, { color: c.text }]}>
+                      Du är kallad som vittne
+                    </Text>
                   </View>
                   {witnessReqs.map((r) => (
                     <View key={r.id} style={styles.witnessRow}>
-                      <Text style={styles.witnessText}>
+                      <Text style={[styles.witnessText, { color: c.text }]}>
                         {r.claimantName} hävdar: {"”"}{r.challenge?.name ?? "?"}{"”"}
                         {r.bonus_claimed ? " (+bonus)" : ""}
                       </Text>
@@ -486,7 +515,9 @@ export default function HuntScreen() {
                           </Pressable>
                         )
                       ) : (
-                        <Text style={styles.witnessNoProof}>Bevis saknas (äldre klarmarkering)</Text>
+                        <Text style={[styles.witnessNoProof, { color: c.textSecondary }]}>
+                          Bevis saknas (äldre klarmarkering)
+                        </Text>
                       )}
                       <View style={{ flexDirection: "row", gap: 8 }}>
                         <Pressable onPress={() => respond(r.id, true)} style={styles.confirmBtn}>
@@ -505,18 +536,36 @@ export default function HuntScreen() {
                 <View style={styles.filterRow}>
                   <Pressable
                     onPress={() => setTierFilter("alla")}
-                    style={[styles.filterChip, tierFilter === "alla" ? styles.filterChipOn : null]}
+                    style={[
+                      styles.filterChip,
+                      { backgroundColor: c.backgroundElement },
+                      tierFilter === "alla" ? styles.filterChipOn : null,
+                    ]}
                   >
-                    <Text style={styles.filterText}>Alla</Text>
+                    <Text style={[styles.filterText, { color: tierFilter === "alla" ? "#15151B" : c.text }]}>
+                      Alla
+                    </Text>
                   </Pressable>
                   {TIER_ORDER.map((t) => (
                     <Pressable
                       key={t}
                       onPress={() => setTierFilter(t)}
-                      style={[styles.filterChip, styles.iconRow, tierFilter === t ? styles.filterChipOn : null]}
+                      style={[
+                        styles.filterChip,
+                        styles.iconRow,
+                        { backgroundColor: c.backgroundElement },
+                        tierFilter === t ? styles.filterChipOn : null,
+                      ]}
                     >
                       <AppIcon name={TIERS[t].icon} size={13} color={TIERS[t].frameDark} />
-                      <Text style={styles.filterText}>{TIERS[t].label}</Text>
+                      <Text
+                        style={[
+                          styles.filterText,
+                          { color: tierFilter === t ? "#15151B" : c.text },
+                        ]}
+                      >
+                        {TIERS[t].label}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
@@ -525,18 +574,40 @@ export default function HuntScreen() {
                 <View style={styles.filterRow}>
                   <Pressable
                     onPress={() => setCatFilter("alla")}
-                    style={[styles.filterChip, catFilter === "alla" ? styles.filterChipOn : null]}
+                    style={[
+                      styles.filterChip,
+                      { backgroundColor: c.backgroundElement },
+                      catFilter === "alla" ? styles.filterChipOn : null,
+                    ]}
                   >
-                    <Text style={styles.filterText}>Alla kategorier</Text>
+                    <Text style={[styles.filterText, { color: catFilter === "alla" ? "#15151B" : c.text }]}>
+                      Alla kategorier
+                    </Text>
                   </Pressable>
                   {CATEGORY_ORDER.map((cat) => (
                     <Pressable
                       key={cat}
                       onPress={() => setCatFilter(cat)}
-                      style={[styles.filterChip, styles.iconRow, catFilter === cat ? styles.filterChipOn : null]}
+                      style={[
+                        styles.filterChip,
+                        styles.iconRow,
+                        { backgroundColor: c.backgroundElement },
+                        catFilter === cat ? styles.filterChipOn : null,
+                      ]}
                     >
-                      <AppIcon name={CATEGORIES[cat].icon} size={13} color="#15151B" />
-                      <Text style={styles.filterText}>{CATEGORIES[cat].label}</Text>
+                      <AppIcon
+                        name={CATEGORIES[cat].icon}
+                        size={13}
+                        color={catFilter === cat ? "#15151B" : c.text}
+                      />
+                      <Text
+                        style={[
+                          styles.filterText,
+                          { color: catFilter === cat ? "#15151B" : c.text },
+                        ]}
+                      >
+                        {CATEGORIES[cat].label}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
@@ -546,9 +617,20 @@ export default function HuntScreen() {
                   <Pressable
                     key={s}
                     onPress={() => setStatusFilter(s)}
-                    style={[styles.filterChip, statusFilter === s ? styles.filterChipOn : null]}
+                    style={[
+                      styles.filterChip,
+                      { backgroundColor: c.backgroundElement },
+                      statusFilter === s ? styles.filterChipOn : null,
+                    ]}
                   >
-                    <Text style={styles.filterText}>{s[0].toUpperCase() + s.slice(1)}</Text>
+                    <Text
+                      style={[
+                        styles.filterText,
+                        { color: statusFilter === s ? "#15151B" : c.text },
+                      ]}
+                    >
+                      {s[0].toUpperCase() + s.slice(1)}
+                    </Text>
                   </Pressable>
                 ))}
               </View>

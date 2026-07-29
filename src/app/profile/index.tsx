@@ -20,8 +20,16 @@ import { achievementIcon } from "@/lib/achievements";
 import { supabase } from "@/lib/supabase";
 import type { Achievement, Streak, UserAchievement } from "@/lib/types";
 import { AppIcon } from "@/components/AppIcon";
+import type { AppIconName } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
+import { useThemeMode, type ThemeMode } from "@/lib/themeMode";
+
+const THEME_OPTIONS: { value: ThemeMode; label: string; icon: AppIconName }[] = [
+  { value: "light", label: "Ljust", icon: "sun" },
+  { value: "dark", label: "Mörkt", icon: "sleep" },
+  { value: "system", label: "Systemet", icon: "smartphone" },
+];
 
 /** Ett uppslag i LadBook: klarad utmaning + dess bevismaterial. */
 type LadBookEntry = {
@@ -35,6 +43,7 @@ type GroupStat = { groupId: string; groupName: string; points: number };
 
 export default function ProfileScreen() {
   const c = useColors();
+  const themeMode = useThemeMode();
   const router = useRouter();
   const { userId } = useAuth();
 
@@ -213,6 +222,36 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+        <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 4 }]}>
+          Utseende
+        </Text>
+        <View style={[styles.themeRow, { backgroundColor: c.backgroundElement }]}>
+          {THEME_OPTIONS.map((opt) => {
+            const active = themeMode.mode === opt.value;
+            return (
+              <Pressable
+                key={opt.value}
+                onPress={() => themeMode.setMode(opt.value)}
+                style={[
+                  styles.themeOption,
+                  active ? { backgroundColor: c.brand } : null,
+                ]}
+              >
+                <AppIcon name={opt.icon} size={15} color={active ? "#fff" : c.textSecondary} />
+                <Text
+                  style={{
+                    color: active ? "#fff" : c.textSecondary,
+                    fontSize: 13,
+                    fontWeight: "700",
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         {bestStreak > 0 ? (
           <View style={styles.inlineRow}>
             <AppIcon name="fire" size={14} color={c.textSecondary} />
@@ -495,6 +534,16 @@ const styles = StyleSheet.create({
   avatarImg: { width: "100%", height: "100%" },
   name: { fontSize: 22, fontWeight: "800" },
   sectionTitle: { fontSize: 13, fontWeight: "700", marginTop: 18, marginBottom: 4 },
+  themeRow: { flexDirection: "row", borderRadius: 8, padding: 4, gap: 4 },
+  themeOption: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderRadius: 6,
+    paddingVertical: 9,
+  },
   card: { borderRadius: 8, padding: 14, gap: 8, marginBottom: 8 },
   cardTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   cardTitle: { flex: 1, fontSize: 15, fontWeight: "700" },

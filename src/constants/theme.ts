@@ -11,9 +11,8 @@ import { Platform } from 'react-native';
  * Ladchat-profilen: ljus, minimal och strukturerad — Paper som grund,
  * Ink för text/mörka ytor, 1px Line-kanter i stället för skuggor,
  * Signal Blue som primär accent och Ember sparsamt som "het" detalj.
- * Appen är ljus i grunden, så båda schemana använder samma palett.
  */
-const palette = {
+const light = {
   text: '#15151B', // Ink
   background: '#F5F4F0', // Paper
   backgroundElement: '#FFFFFF', // White — kort/ytor ovanpå Paper
@@ -21,7 +20,21 @@ const palette = {
   textSecondary: '#84828C', // Muted
 } as const;
 
-export const Colors = { light: palette, dark: palette } as const;
+/**
+ * Mörkt läge: samma struktur speglad — nästan-svart grund, ljust Paper-vitt
+ * som text, och två gråtoner för ytor/kanter i stället för Line/White.
+ * Accentfärgerna (Signal Blue/Ember/Mint/Guld) är oförändrade — de är redan
+ * mättade nog för att läsas bra mot en mörk botten.
+ */
+const dark = {
+  text: '#F1F0EC',
+  background: '#121216',
+  backgroundElement: '#1D1D22',
+  backgroundSelected: '#2C2C33',
+  textSecondary: '#96949E',
+} as const;
+
+export const Colors = { light, dark } as const;
 
 /** Semantiska accentfärger — använd dessa i stället för hex i komponenter. */
 export const Accents = {

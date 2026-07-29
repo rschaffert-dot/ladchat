@@ -325,20 +325,28 @@ function BeerGlassBackground({
   style: StyleProp<ViewStyle>;
   children: ReactNode;
 }) {
+  const c = useColors();
   const glass = BEER_GLASSES[size];
   const percent = Math.min(100, Math.round((fillCl / glass.capacityCl) * 100));
   return (
-    <View style={[style, styles.beerBackdrop]}>
+    <View style={[style, styles.beerBackdrop, { backgroundColor: c.background }]}>
       <View style={styles.beerCountdownWrap} pointerEvents="none">
-        <Text style={styles.beerCountdownBig} numberOfLines={1} adjustsFontSizeToFit>
+        <Text
+          style={[
+            styles.beerCountdownBig,
+            { color: c.scheme === "dark" ? "rgba(241,240,236,0.07)" : "rgba(21,21,27,0.07)" },
+          ]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+        >
           {formatCountdown(remainingMs)}
         </Text>
       </View>
       <View style={styles.beerGlassWrap} pointerEvents="none">
-        <Text style={styles.beerLabel}>
+        <Text style={[styles.beerLabel, { color: c.text }]}>
           {glass.label} · {fillCl}/{glass.capacityCl} cl
         </Text>
-        <View style={styles.beerGlass}>
+        <View style={[styles.beerGlass, { borderColor: c.text }]}>
           <View style={[styles.beerLiquidColumn, { height: `${percent}%` }]}>
             {percent > 3 ? <View style={styles.beerFoam} /> : null}
             <View style={styles.beerLiquid} />

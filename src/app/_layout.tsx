@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { NEEDS_AVATAR_KEY } from "@/lib/avatar";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { PENDING_INVITE_KEY } from "@/lib/invite";
+import { ThemeModeProvider, useThemeMode } from "@/lib/themeMode";
 
 function RootNavigator() {
   const { session, loading } = useAuth();
@@ -45,25 +46,41 @@ function RootNavigator() {
     }
   }, [session, loading, segments, router]);
 
+  const { scheme } = useThemeMode();
+
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: scheme === "dark" ? "#121216" : "#F5F4F0",
+        }}
+      >
         <ActivityIndicator />
       </View>
     );
   }
 
-  // fullScreenGestureEnabled: svep tillbaka från vänsterkant på hela ytan (iOS).
-  return <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }} />;
+  return (
+    <>
+      {/* StatusBar-ikonerna ska vara mörka på ljus botten och tvärtom. */}
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      {/* fullScreenGestureEnabled: svep tillbaka från vänsterkant på hela ytan (iOS). */}
+      <Stack screenOptions={{ headerShown: false, fullScreenGestureEnabled: true }} />
+    </>
+  );
 }
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-    <AuthProvider>
-      <StatusBar style="auto" />
-      <RootNavigator />
-    </AuthProvider>
+    <ThemeModeProvider>
+      <AuthProvider>
+        <RootNavigator />
+      </AuthProvider>
+    </ThemeModeProvider>
     </GestureHandlerRootView>
   );
 }
