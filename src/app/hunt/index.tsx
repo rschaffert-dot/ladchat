@@ -809,7 +809,7 @@ const styles = StyleSheet.create({
   top: { paddingHorizontal: 16, gap: 10, paddingBottom: 12 },
   progressCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 14,
     gap: 8,
     borderWidth: 1,
@@ -819,17 +819,17 @@ const styles = StyleSheet.create({
   progressDim: { color: "#84828C", fontSize: 13 },
   progressTrack: {
     height: 8,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "#E1DED5",
     overflow: "hidden",
   },
   progressFill: { height: 8, backgroundColor: "#3D5AFE" },
-  galleryThumbWrap: { borderRadius: 0, overflow: "hidden" },
-  galleryThumb: { width: 84, height: 84, borderRadius: 0 },
+  galleryThumbWrap: { borderRadius: 8, overflow: "hidden" },
+  galleryThumb: { width: 84, height: 84, borderRadius: 8 },
   galleryThumbVideo: {
     width: 84,
     height: 84,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.4)",
     alignItems: "center",
     justifyContent: "center",
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
   },
   witnessBox: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 14,
     gap: 10,
     borderWidth: 1,
@@ -853,10 +853,10 @@ const styles = StyleSheet.create({
   witnessRow: { gap: 8 },
   witnessText: { color: "#15151B", fontSize: 14 },
   witnessNoProof: { color: "#84828C", fontSize: 12, fontStyle: "italic" },
-  proofThumb: { width: 120, height: 120, borderRadius: 0, backgroundColor: "#000" },
+  proofThumb: { width: 120, height: 120, borderRadius: 8, backgroundColor: "#000" },
   proofVideoBtn: {
     backgroundColor: "#15151B",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignSelf: "flex-start",
@@ -864,25 +864,25 @@ const styles = StyleSheet.create({
   proofPreview: {
     width: "100%",
     height: 160,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "#000",
   },
   confirmBtn: {
     backgroundColor: "#00B884",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   denyBtn: {
     backgroundColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   btnText: { color: "#fff", fontWeight: "800", fontSize: 14 },
   filterRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   filterChip: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
     backgroundColor: "#FFFFFF",
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
 
   cardBack: {
     aspectRatio: 0.68,
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 3,
     padding: 4,
     overflow: "hidden",
@@ -902,7 +902,7 @@ const styles = StyleSheet.create({
   cardInnerFrame: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     padding: 4,
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
     bottom: 4,
     right: 4,
     backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 2,
   },
   stampWrap: {
@@ -953,7 +953,7 @@ const styles = StyleSheet.create({
   stamp: {
     borderWidth: 3,
     borderColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 4,
     transform: [{ rotate: "-18deg" }],
@@ -967,12 +967,12 @@ const styles = StyleSheet.create({
   bigCard: {
     width: "100%",
     maxWidth: 360,
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 5,
     padding: 8,
     overflow: "hidden",
   },
-  bigInnerFrame: { borderWidth: 1.5, borderRadius: 0, padding: 16, gap: 10 },
+  bigInnerFrame: { borderWidth: 1.5, borderRadius: 8, padding: 16, gap: 10 },
   bigTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   bigTier: { fontFamily: SERIF, fontSize: 14, fontWeight: "700", letterSpacing: 3 },
   bigName: {
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   doneRow: { alignItems: "center" },
   claimBtn: {
     backgroundColor: "#3D5AFE",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
   },
@@ -998,7 +998,7 @@ const styles = StyleSheet.create({
   claimLabel: { fontSize: 14, fontWeight: "700", fontFamily: SERIF },
   chipWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   pickChip: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: "#F5F4F0",
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
   themeCaption: { fontSize: 11, fontStyle: "italic", textAlign: "center", marginTop: 4 },
   closeBtn: {
     backgroundColor: "#E1DED5",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 32,
   },

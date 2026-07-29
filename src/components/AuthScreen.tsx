@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   subtitle: { textAlign: "center", marginBottom: 12 },
   googleBtn: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
   },
@@ -276,13 +276,13 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", gap: 10 },
   input: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
   },
   button: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 4,

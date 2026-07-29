@@ -1,6 +1,23 @@
+import {
+  Beer,
+  Bomb,
+  Bus,
+  Crown,
+  Dices,
+  EyeOff,
+  Hash,
+  HelpCircle,
+  Smartphone,
+  Target,
+  VenetianMask,
+  Vote,
+  Wine,
+} from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import { Icon } from "@/components/Icon";
 
 import {
   MEXICO_VALUES,
@@ -91,6 +108,26 @@ const GAMES: { id: GameId; emoji: string; title: string; desc: string; category:
   { id: "mostlikely", emoji: "🫵", title: "Vem är mest trolig", desc: "Alla röstar — flest röster dricker.", category: "utmaning" },
   { id: "paranoia", emoji: "🤫", title: "Paranoia", desc: "Hemlig fråga, högt svar. Vågar du veta?", category: "utmaning" },
 ];
+
+/** Lucide-linjeikoner per spel — samma stroke-stil som övriga UI:t. */
+const GAME_ICONS: Record<GameId, typeof Crown> = {
+  kingscup: Crown,
+  bus: Bus,
+  mexico: Dices,
+  buzz: Hash,
+  tjugoett: Wine,
+  bomb: Bomb,
+  roulette: Smartphone,
+  nhie: EyeOff,
+  tod: VenetianMask,
+  mostlikely: Vote,
+  paranoia: HelpCircle,
+};
+
+function GameIcon({ id, size = 28, color = "#15151B" }: { id: GameId; size?: number; color?: string }) {
+  const Cmp = GAME_ICONS[id];
+  return <Cmp size={size} color={color} strokeWidth={1.7} />;
+}
 
 type GameProps = {
   players: string[];
@@ -570,7 +607,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
           <>
             <TurnBanner name={names[players[players.findIndex((p) => !openRolls[p])]] ?? "?"} />
             <Btn
-              label="🎲 Slå tärningarna"
+              label="Slå tärningarna"
               onPress={() => {
                 const p = players.find((x) => !openRolls[x]);
                 if (p) setOpenRolls((prev) => ({ ...prev, [p]: rollDice() }));
@@ -619,7 +656,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
             </Text>
           ) : null}
           <Btn
-            label="🎲 Slå under koppen (dolt)"
+            label="Slå under koppen (dolt)"
             onPress={() => {
               setActual(rollDice());
               setPhase("claim");
@@ -664,7 +701,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
             {MEXICO_VALUES.find((v) => v.rank === claimRank)?.label}
           </Text>
           <Btn
-            label="🎲 Tro — slå vidare"
+            label="Tro — slå vidare"
             onPress={() => {
               setPrevRank(claimRank);
               setActual(null);
@@ -1283,7 +1320,7 @@ function TwentyOneGame({ players, names, settings, onExit }: GameProps) {
         <TextInput
           style={styles.input}
           placeholder={`${names[winner]}s nya regel…`}
-          placeholderTextColor="#A6A39B"
+          placeholderTextColor="#84828C"
           value={newRule}
           onChangeText={setNewRule}
         />
@@ -1427,10 +1464,10 @@ export default function GameCenter({
       <SafeAreaView style={styles.safe} edges={["top"]}>
         <View style={styles.header}>
           <Pressable onPress={phase === "menu" ? close : exitGame} hitSlop={8}>
-            <Text style={{ color: "#A6A39B", fontSize: 26 }}>{phase === "menu" ? "×" : "‹"}</Text>
+            <Icon name={phase === "menu" ? "x" : "chevron-left"} size={24} color="#84828C" />
           </Pressable>
           <Text style={styles.headerTitle}>
-            {phase === "menu" ? "🎮 Spel" : `${gameDef?.emoji} ${gameDef?.title}`}
+            {phase === "menu" ? "Spel" : (gameDef?.title ?? "")}
           </Text>
           <View style={{ width: 26 }} />
         </View>
@@ -1442,7 +1479,7 @@ export default function GameCenter({
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           {phase === "menu" ? (
             <View style={styles.gameBody}>
-              <Text style={styles.category}>🍺 Drickspel</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Beer size={15} color="#84828C" strokeWidth={1.7} /><Text style={styles.category}>Drickspel</Text></View>
               {GAMES.filter((g) => g.category === "drick").map((g) => (
                 <Pressable
                   key={g.id}
@@ -1452,14 +1489,14 @@ export default function GameCenter({
                   }}
                   style={styles.menuCard}
                 >
-                  <Text style={{ fontSize: 32 }}>{g.emoji}</Text>
+                  <GameIcon id={g.id} size={30} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.menuTitle}>{g.title}</Text>
                     <Text style={styles.dim}>{g.desc}</Text>
                   </View>
                 </Pressable>
               ))}
-              <Text style={styles.category}>🎯 Utmaningar</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Target size={15} color="#84828C" strokeWidth={1.7} /><Text style={styles.category}>Utmaningar</Text></View>
               {GAMES.filter((g) => g.category === "utmaning").map((g) => (
                 <Pressable
                   key={g.id}
@@ -1469,7 +1506,7 @@ export default function GameCenter({
                   }}
                   style={styles.menuCard}
                 >
-                  <Text style={{ fontSize: 32 }}>{g.emoji}</Text>
+                  <GameIcon id={g.id} size={30} />
                   <View style={{ flex: 1 }}>
                     <Text style={styles.menuTitle}>{g.title}</Text>
                     <Text style={styles.dim}>{g.desc}</Text>
@@ -1515,7 +1552,7 @@ export default function GameCenter({
                 <TextInput
                   style={[styles.input, { flex: 1 }]}
                   placeholder="Gästens namn…"
-                  placeholderTextColor="#A6A39B"
+                  placeholderTextColor="#84828C"
                   value={guestName}
                   onChangeText={setGuestName}
                   onSubmitEditing={addGuest}
@@ -1686,7 +1723,7 @@ export default function GameCenter({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#262624" },
+  safe: { flex: 1, backgroundColor: "#F5F4F0" },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -1694,38 +1731,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  headerTitle: { color: "#fff", fontSize: 18, fontWeight: "800" },
+  headerTitle: { color: "#15151B", fontSize: 18, fontWeight: "800" },
   responsible: {
-    color: "#fbbf24",
+    color: "#D4AF37",
     fontSize: 11,
     textAlign: "center",
     paddingBottom: 4,
     fontWeight: "600",
   },
   gameBody: { padding: 20, gap: 12 },
-  category: { color: "#A6A39B", fontSize: 14, fontWeight: "800", marginTop: 8 },
+  category: { color: "#84828C", fontSize: 14, fontWeight: "800", marginTop: 8 },
   menuCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
     padding: 16,
   },
-  menuTitle: { color: "#fff", fontSize: 16, fontWeight: "800" },
-  dim: { color: "#A6A39B", fontSize: 13 },
-  h1: { color: "#fff", fontSize: 20, fontWeight: "800", textAlign: "center" },
-  h2: { color: "#fff", fontSize: 16, fontWeight: "700", textAlign: "center" },
+  menuTitle: { color: "#15151B", fontSize: 16, fontWeight: "800" },
+  dim: { color: "#84828C", fontSize: 13 },
+  h1: { color: "#15151B", fontSize: 20, fontWeight: "800", textAlign: "center" },
+  h2: { color: "#15151B", fontSize: 16, fontWeight: "700", textAlign: "center" },
   phaseLabel: { color: "#D4AF37", fontSize: 13, fontWeight: "800", textAlign: "center" },
   turnBanner: { alignItems: "center", gap: 2 },
-  turnLabel: { color: "#A6A39B", fontSize: 13 },
-  turnName: { color: "#fff", fontSize: 26, fontWeight: "900" },
+  turnLabel: { color: "#84828C", fontSize: 13 },
+  turnName: { color: "#15151B", fontSize: 26, fontWeight: "900" },
   playerRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 0,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
@@ -1735,13 +1772,13 @@ const styles = StyleSheet.create({
   orderBadge: {
     width: 26,
     height: 26,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "#D4AF37",
     alignItems: "center",
     justifyContent: "center",
   },
   orderText: { color: "#15151B", fontWeight: "900", fontSize: 13 },
-  playerName: { color: "#fff", fontSize: 15, fontWeight: "600" },
+  playerName: { color: "#15151B", fontSize: 15, fontWeight: "600" },
   settingRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1749,38 +1786,38 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 4,
   },
-  settingLabel: { color: "#fff", fontSize: 14, fontWeight: "600", flexShrink: 1 },
+  settingLabel: { color: "#15151B", fontSize: 14, fontWeight: "600", flexShrink: 1 },
   input: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#fff",
+    color: "#15151B",
     fontSize: 15,
   },
   miniChip: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "#E1DED5",
     borderWidth: 1,
     borderColor: "transparent",
   },
-  miniChipOn: { borderColor: "#D4AF37", backgroundColor: "rgba(242,169,22,0.25)" },
+  miniChipOn: { borderColor: "#D4AF37", backgroundColor: "rgba(212,175,55,0.25)" },
   btn: {
     backgroundColor: "#3D5AFE",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
     paddingHorizontal: 24,
   },
-  btnGhost: { backgroundColor: "rgba(255,255,255,0.1)" },
+  btnGhost: { backgroundColor: "#E1DED5" },
   btnDanger: { backgroundColor: "#FF4C29" },
   btnText: { color: "#fff", fontWeight: "800", fontSize: 15 },
   btnRow: { flexDirection: "row", gap: 10, justifyContent: "center", flexWrap: "wrap" },
   choiceBtn: {
     backgroundColor: "#3D5AFE",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: "center",
@@ -1788,28 +1825,28 @@ const styles = StyleSheet.create({
   },
   nameGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   nameChip: {
-    backgroundColor: "rgba(255,255,255,0.1)",
-    borderRadius: 0,
+    backgroundColor: "#E1DED5",
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderWidth: 1,
     borderColor: "transparent",
   },
-  nameChipHot: { borderColor: "#D4AF37", backgroundColor: "rgba(242,169,22,0.35)" },
-  nameChipText: { color: "#fff", fontWeight: "700", fontSize: 14 },
-  resultBox: { borderRadius: 0, padding: 12 },
-  resultGood: { backgroundColor: "rgba(34,197,94,0.25)" },
-  resultBad: { backgroundColor: "rgba(220,38,38,0.3)" },
-  resultText: { color: "#fff", fontWeight: "700", fontSize: 14, textAlign: "center" },
+  nameChipHot: { borderColor: "#D4AF37", backgroundColor: "rgba(212,175,55,0.35)" },
+  nameChipText: { color: "#15151B", fontWeight: "700", fontSize: 14 },
+  resultBox: { borderRadius: 8, padding: 12 },
+  resultGood: { backgroundColor: "rgba(0,184,132,0.25)" },
+  resultBad: { backgroundColor: "rgba(255,76,41,0.25)" },
+  resultText: { color: "#15151B", fontWeight: "700", fontSize: 14, textAlign: "center" },
   promptCard: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
     padding: 18,
   },
-  promptText: { color: "#fff", fontSize: 17, fontWeight: "700", textAlign: "center", lineHeight: 24 },
+  promptText: { color: "#15151B", fontSize: 17, fontWeight: "700", textAlign: "center", lineHeight: 24 },
   peekBox: {
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
     padding: 18,
     borderWidth: 1,
     borderColor: "#3D5AFE",
@@ -1819,7 +1856,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#fff",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -1830,24 +1867,24 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#8a5a2b",
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
     borderWidth: 3,
     borderColor: "#3D5AFE",
   },
-  cardBackText: { color: "#A6A39B", fontSize: 13, fontWeight: "700", textAlign: "center" },
-  ruleBox: { backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 0, padding: 14, gap: 6 },
+  cardBackText: { color: "#84828C", fontSize: 13, fontWeight: "700", textAlign: "center" },
+  ruleBox: { backgroundColor: "#FFFFFF", borderRadius: 8, padding: 14, gap: 6 },
   ruleTitle: { color: "#D4AF37", fontSize: 16, fontWeight: "800" },
-  ruleText: { color: "#fff", fontSize: 14, lineHeight: 20 },
+  ruleText: { color: "#15151B", fontSize: 14, lineHeight: 20 },
   statusRow: { flexDirection: "row", justifyContent: "space-between" },
   handRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" },
   pCard: {
     width: 44,
     height: 60,
     backgroundColor: "#fff",
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1858,17 +1895,17 @@ const styles = StyleSheet.create({
     width: 40,
     height: 54,
     backgroundColor: "#8a5a2b",
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#3D5AFE",
   },
   pyramid: { gap: 6, alignItems: "center" },
   pyramidRow: { flexDirection: "row", gap: 6, justifyContent: "center" },
-  buzzNumber: { color: "#fff", fontSize: 72, fontWeight: "900", textAlign: "center" },
+  buzzNumber: { color: "#15151B", fontSize: 72, fontWeight: "900", textAlign: "center" },
   timerTrack: {
     height: 8,
-    borderRadius: 0,
-    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 8,
+    backgroundColor: "#E1DED5",
     overflow: "hidden",
   },
   timerFill: { height: 8, backgroundColor: "#D4AF37" },

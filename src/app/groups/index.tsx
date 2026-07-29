@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   currencyRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   chip: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -507,13 +507,13 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
   },
   btn: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     justifyContent: "center",
     alignItems: "center",
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   badge: {
     backgroundColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     minWidth: 20,
     height: 20,
     alignItems: "center",

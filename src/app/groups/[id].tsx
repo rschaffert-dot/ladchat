@@ -71,6 +71,24 @@ import type {
   ReactionKey,
   Streak,
 } from "@/lib/types";
+import {
+  BarChart3 as LBarChart,
+  Beer as LBeer,
+  Coins as LCoins,
+  Flame as LFlame,
+  Gamepad2 as LGamepad,
+  Layers as LLayers,
+  Link as LLink,
+  RotateCw as LRotate,
+  Search as LSearch,
+  Sparkles as LSparkles,
+  Star as LStar,
+  Swords as LSwords,
+  Target as LTarget,
+  Ticket as LTicket,
+  Trophy as LTrophy,
+} from "lucide-react-native";
+
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
@@ -124,7 +142,7 @@ function TypingDots({ color }: { color: string }) {
           style={{
             width: 5,
             height: 5,
-            borderRadius: 0,
+            borderRadius: 8,
             backgroundColor: color,
             opacity: anim.interpolate({
               inputRange: [0, 0.5, 1],
@@ -412,7 +430,7 @@ function AudioBubble({
             style={{
               width: 3,
               height: h,
-              borderRadius: 0,
+              borderRadius: 8,
               backgroundColor: tint,
               opacity: i / bars.length <= progress ? 1 : 0.35,
             }}
@@ -4209,7 +4227,7 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.claimBtnLike, { backgroundColor: settings.color, alignSelf: "stretch" }]}
                 >
-                  <Text style={{ color: "#fff", fontWeight: "800" }}>⚔️ Utmana på duell</Text>
+                  <Text style={{ color: "#fff", fontWeight: "800" }}>Utmana på duell</Text>
                 </Pressable>
               ) : null}
             </Pressable>
@@ -4397,7 +4415,7 @@ export default function GroupChatScreen() {
             onPress={() => {}}
           >
             <Text style={{ color: c.text, fontSize: 18, fontWeight: "800", textAlign: "center" }}>
-              🎡 Vem gör det?
+              Vem gör det?
             </Text>
             <Text style={{ color: c.textSecondary, fontSize: 12, textAlign: "center" }}>
               Vem hämtar nästa runda? Vem ringer taxin? Ödet avgör.
@@ -4665,25 +4683,25 @@ export default function GroupChatScreen() {
             <Text style={[styles.starTitle, { color: c.text }]}>Starta något</Text>
             {(
               [
-                { emoji: "🎮", label: "Spel & lekar", action: () => setGameOpen(true) },
+                { icon: LGamepad, label: "Spel & lekar", action: () => setGameOpen(true) },
                 {
-                  emoji: "🃏",
+                  icon: LLayers,
                   label: "Poängjakten",
                   action: () =>
                     groupId && router.push({ pathname: "/hunt", params: { groupId } }),
                 },
-                { emoji: "⚔️", label: "Utmana på duell", action: () => setDuelModalOpen(true) },
-                { emoji: "📊", label: "Omröstning", action: () => setPollModalOpen(true) },
-                { emoji: "🎯", label: "Gissning (vem gissar rätt?)", action: () => setWagerCreateOpen(true) },
+                { icon: LSwords, label: "Utmana på duell", action: () => setDuelModalOpen(true) },
+                { icon: LBarChart, label: "Omröstning", action: () => setPollModalOpen(true) },
+                { icon: LTarget, label: "Gissning (vem gissar rätt?)", action: () => setWagerCreateOpen(true) },
                 {
-                  emoji: "🔥",
+                  icon: LFlame,
                   label: `Checka in streak (${streak?.current_streak ?? 0} dagar)`,
                   action: checkin,
                 },
-                { emoji: "🏆", label: "Turneringar & topplista", action: () => router.push("/feed") },
-                { emoji: "🔍", label: "Sök i chatten", action: () => setChatSearchOpen(true) },
+                { icon: LTrophy, label: "Turneringar & topplista", action: () => router.push("/feed") },
+                { icon: LSearch, label: "Sök i chatten", action: () => setChatSearchOpen(true) },
                 {
-                  emoji: "🎡",
+                  icon: LRotate,
                   label: "Vem gör det? (snurra hjulet)",
                   action: () => {
                     setWheelOpen(true);
@@ -4692,28 +4710,28 @@ export default function GroupChatScreen() {
                   },
                 },
                 {
-                  emoji: "🎉",
+                  icon: LSparkles,
                   label: "Partyläge — 2h dubbel XP",
                   action: () => void startPartyMode(),
                 },
-                { emoji: "🤝", label: "Slå vad om poäng", action: () => setBetModalOpen(true) },
+                { icon: LCoins, label: "Slå vad om poäng", action: () => setBetModalOpen(true) },
                 {
-                  emoji: "🎟",
+                  icon: LTicket,
                   label: "Veckans lotteri (10p/lott)",
                   action: () => void buyLottery(),
                 },
-                { emoji: "🍺", label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
+                { icon: LBeer, label: "Fyllekollen (1–5)", action: () => void startFyllekollen() },
                 {
-                  emoji: "⭐",
+                  icon: LStar,
                   label: `Sparade meddelanden (${starred.length})`,
                   action: () => setStarredOpen(true),
                 },
                 {
-                  emoji: "🔗",
+                  icon: LLink,
                   label: linkCopied ? "Länk kopierad!" : "Bjud in en polare",
                   action: invite,
                 },
-              ] as { emoji: string; label: string; action: () => void }[]
+              ] as { icon: typeof LGamepad; label: string; action: () => void }[]
             ).map((item) => (
               <Pressable
                 key={item.label}
@@ -4723,9 +4741,9 @@ export default function GroupChatScreen() {
                 }}
                 style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
               >
-                <Text style={{ fontSize: 24 }}>{item.emoji}</Text>
+                <item.icon size={22} color={c.ink} strokeWidth={1.7} />
                 <Text style={[styles.starLabel, { color: c.text }]}>{item.label}</Text>
-                <Text style={{ color: c.textSecondary, fontSize: 18 }}>›</Text>
+                <Icon name="chevron-right" size={16} color={c.textSecondary} />
               </Pressable>
             ))}
           </Pressable>
@@ -4949,7 +4967,7 @@ export default function GroupChatScreen() {
                 <ImageBackground
                   source={{ uri: settings.backgroundImage }}
                   style={styles.bgImageThumb}
-                  imageStyle={{ borderRadius: 0 }}
+                  imageStyle={{ borderRadius: 8 }}
                 />
               ) : (
                 <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
@@ -5343,7 +5361,7 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setDuelModalOpen(false)} />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <Text style={[styles.sheetTitle, { color: c.text }]}>⚔️ Utmana på duell</Text>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>Utmana på duell</Text>
           {duel ? (
             <Text style={{ color: c.textSecondary, fontSize: 13 }}>
               Det pågår redan en duell i gruppen — vänta tills den är avgjord.
@@ -5446,7 +5464,7 @@ const styles = StyleSheet.create({
   },
   backBadge: {
     backgroundColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     minWidth: 18,
     height: 18,
     alignItems: "center",
@@ -5456,8 +5474,8 @@ const styles = StyleSheet.create({
   backBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   gear: { paddingHorizontal: 4 },
   starSheet: {
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     padding: 16,
     gap: 8,
     paddingBottom: 28,
@@ -5467,7 +5485,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
@@ -5499,7 +5517,7 @@ const styles = StyleSheet.create({
   ctxCard: {
     width: "100%",
     maxWidth: 340,
-    borderRadius: 0,
+    borderRadius: 8,
     overflow: "hidden",
   },
   ctxPreview: { padding: 14 },
@@ -5517,7 +5535,7 @@ const styles = StyleSheet.create({
   msgRow: { maxWidth: "82%" },
   systemPill: {
     alignSelf: "center",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 5,
     marginVertical: 2,
@@ -5526,7 +5544,7 @@ const styles = StyleSheet.create({
   mine: { alignSelf: "flex-end", alignItems: "flex-end" },
   theirs: { alignSelf: "flex-start", alignItems: "flex-start" },
   author: { fontSize: 12, marginBottom: 2, marginLeft: 6 },
-  bubble: { borderRadius: 0, paddingHorizontal: 14, paddingVertical: 10 },
+  bubble: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
   reactionRow: {
     flexDirection: "row",
     gap: 4,
@@ -5538,7 +5556,7 @@ const styles = StyleSheet.create({
   reactionChip: {
     borderWidth: 1,
     borderColor: "transparent",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 3,
   },
@@ -5546,7 +5564,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderLeftColor: "rgba(255,255,255,0.45)",
     backgroundColor: "rgba(0,0,0,0.15)",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginBottom: 6,
@@ -5577,14 +5595,14 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   questText: { flex: 1, fontSize: 13, fontWeight: "600" },
-  questBtn: { borderRadius: 0, paddingHorizontal: 10, paddingVertical: 6 },
+  questBtn: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   duelBanner: { paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
   duelText: { color: "#fff", fontWeight: "800", fontSize: 13, textAlign: "center" },
   duelSub: { color: "#fed7aa", fontSize: 12, textAlign: "center" },
   duelActions: { flexDirection: "row", justifyContent: "center", gap: 12 },
   duelBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderWidth: 1,
@@ -5607,7 +5625,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 14,
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 16,
   },
   gameCardEmoji: { fontSize: 34 },
@@ -5619,7 +5637,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     backgroundColor: "rgba(255,255,255,0.06)",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderWidth: 1,
@@ -5629,7 +5647,7 @@ const styles = StyleSheet.create({
   gameOrderBadge: {
     width: 26,
     height: 26,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "#FF4C29",
     alignItems: "center",
     justifyContent: "center",
@@ -5638,7 +5656,7 @@ const styles = StyleSheet.create({
   gamePlayerName: { color: "#fff", fontSize: 15, fontWeight: "600" },
   gameStartBtn: {
     backgroundColor: "#3D5AFE",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 14,
     alignItems: "center",
     marginTop: 12,
@@ -5651,7 +5669,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#fff",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 12,
     justifyContent: "center",
     alignItems: "center",
@@ -5668,7 +5686,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 240,
     backgroundColor: "#4c1d95",
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
@@ -5678,7 +5696,7 @@ const styles = StyleSheet.create({
   cardBackText: { color: "#c4b5fd", fontSize: 13, fontWeight: "700", textAlign: "center" },
   gameRuleBox: {
     backgroundColor: "rgba(255,255,255,0.08)",
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 14,
     gap: 6,
   },
@@ -5714,7 +5732,7 @@ const styles = StyleSheet.create({
   },
   recordingBanner: { backgroundColor: "#D63A1C", paddingVertical: 6 },
   recordingText: { color: "#FFD9CF", fontWeight: "700", fontSize: 12, textAlign: "center" },
-  chatImage: { width: 230, height: 230, borderRadius: 0 },
+  chatImage: { width: 230, height: 230, borderRadius: 8 },
   audioBubble: {
     paddingVertical: 2,
     flexDirection: "row",
@@ -5730,7 +5748,7 @@ const styles = StyleSheet.create({
     height: 22,
   },
   speedChip: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderWidth: 1,
@@ -5738,7 +5756,7 @@ const styles = StyleSheet.create({
   },
   composerWrap: { paddingHorizontal: 10, paddingTop: 6, paddingBottom: 10 },
   composer: {
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
     paddingTop: 14,
@@ -5762,14 +5780,14 @@ const styles = StyleSheet.create({
   composerBtn: {
     width: 40,
     height: 40,
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
   sendCircle: {
     width: 40,
     height: 40,
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5779,7 +5797,7 @@ const styles = StyleSheet.create({
     right: -2,
     width: 16,
     height: 16,
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -5794,7 +5812,7 @@ const styles = StyleSheet.create({
   msgAvatar: {
     width: 26,
     height: 26,
-    borderRadius: 0,
+    borderRadius: 8,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
@@ -5806,7 +5824,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  progressTrackThin: { height: 5, borderRadius: 0, overflow: "hidden" },
+  progressTrackThin: { height: 5, borderRadius: 8, overflow: "hidden" },
   progressFillThin: { height: 5 },
   undoBar: {
     flexDirection: "row",
@@ -5814,18 +5832,18 @@ const styles = StyleSheet.create({
     gap: 12,
     backgroundColor: "#1F1E1D",
     marginHorizontal: 10,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   claimBtnLike: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 12,
     alignItems: "center",
   },
   wheelGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   wheelChip: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderWidth: 1,
@@ -5833,7 +5851,7 @@ const styles = StyleSheet.create({
   },
   snapButton: {
     backgroundColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 12,
     alignItems: "center",
@@ -5846,7 +5864,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
   },
-  cardAvatar: { width: 72, height: 72, borderRadius: 0, overflow: "hidden" },
+  cardAvatar: { width: 72, height: 72, borderRadius: 8, overflow: "hidden" },
   mentionRow: {
     flexDirection: "row",
     gap: 8,
@@ -5854,8 +5872,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     flexWrap: "wrap",
   },
-  mentionChip: { borderRadius: 0, paddingHorizontal: 12, paddingVertical: 7 },
-  typingAvatar: { width: 18, height: 18, borderRadius: 0 },
+  mentionChip: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  typingAvatar: { width: 18, height: 18, borderRadius: 8 },
   unreadLine: {
     flexDirection: "row",
     alignItems: "center",
@@ -5874,7 +5892,7 @@ const styles = StyleSheet.create({
   },
   toastCard: {
     backgroundColor: "#FF4C29",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 10,
     maxWidth: "90%",
@@ -5884,7 +5902,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     width: 36,
     height: 4,
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "rgba(128,124,116,0.4)",
     marginBottom: 6,
   },
@@ -5899,17 +5917,17 @@ const styles = StyleSheet.create({
   storyRing: {
     width: 48,
     height: 48,
-    borderRadius: 0,
+    borderRadius: 8,
     borderWidth: 2.5,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
-  storyAvatar: { width: 42, height: 42, borderRadius: 0 },
+  storyAvatar: { width: 42, height: 42, borderRadius: 8 },
   storyName: { fontSize: 10, fontWeight: "600" },
   storyMeta: { position: "absolute", top: 46, left: 20, gap: 2 },
   threadMsg: {
-    borderRadius: 0,
+    borderRadius: 8,
     padding: 10,
     marginBottom: 6,
     gap: 2,
@@ -5918,7 +5936,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 14,
     right: 14,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 9,
     minWidth: 44,
@@ -5937,7 +5955,7 @@ const styles = StyleSheet.create({
   chatSearchInput: { flex: 1, fontSize: 14, paddingVertical: 4 },
   pollBox: { minWidth: 230, gap: 6 },
   pollOption: {
-    borderRadius: 0,
+    borderRadius: 8,
     backgroundColor: "rgba(0,0,0,0.25)",
     overflow: "hidden",
     borderWidth: 1,
@@ -5961,14 +5979,14 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
     fontSize: 15,
     maxHeight: 120,
   },
   sendBtn: {
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 11,
     justifyContent: "center",
@@ -5988,7 +6006,7 @@ const styles = StyleSheet.create({
   activationActions: { flexDirection: "row", alignItems: "center", gap: 12 },
   activationBtn: {
     backgroundColor: "#fff",
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
@@ -6014,8 +6032,8 @@ const styles = StyleSheet.create({
     height: 220,
     borderWidth: 3,
     borderColor: "#15151B",
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
     overflow: "hidden",
@@ -6042,7 +6060,7 @@ const styles = StyleSheet.create({
   },
   chip: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
@@ -6053,8 +6071,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
   },
   sheet: {
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
     padding: 20,
     paddingBottom: 32,
     gap: 4,
@@ -6067,14 +6085,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   swatch: {
     width: 36,
     height: 36,
-    borderRadius: 0,
+    borderRadius: 8,
   },
   swatchSelected: {
     borderWidth: 3,
@@ -6088,7 +6106,7 @@ const styles = StyleSheet.create({
   },
   bgImageBtn: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
     alignItems: "center",
@@ -6101,7 +6119,7 @@ const styles = StyleSheet.create({
   beerPickerRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   beerOption: {
     borderWidth: 1,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     alignItems: "center",
@@ -6125,7 +6143,7 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     marginTop: 24,
-    borderRadius: 0,
+    borderRadius: 8,
     paddingVertical: 13,
     alignItems: "center",
   },
