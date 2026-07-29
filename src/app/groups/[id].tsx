@@ -1576,7 +1576,7 @@ export default function GroupChatScreen() {
       void AsyncStorage.setItem(`starred:${groupId}`, JSON.stringify(next));
       return next;
     });
-    toast("⭐ Sparat! Hitta det under 💪 → Sparade meddelanden");
+    toast("Sparat! Hitta det under ⚡-knappen → Sparade meddelanden");
   }
 
   // 🔥 Snap: bild som bara kan ses en gång per enhet.
@@ -3235,7 +3235,7 @@ export default function GroupChatScreen() {
                 onPress={() => setStarOpen(true)}
                 style={[styles.claimBtnLike, { backgroundColor: settings.color, paddingHorizontal: 22 }]}
               >
-                <Text style={{ color: "#fff", fontWeight: "800" }}>💪 Starta något</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><Icon name="zap" size={16} color="#fff" /><Text style={{ color: "#fff", fontWeight: "800" }}>Starta något</Text></View>
               </Pressable>
             </View>
           }
@@ -3515,7 +3515,7 @@ export default function GroupChatScreen() {
               hitSlop={6}
               style={[styles.composerBtn, { backgroundColor: c.backgroundSelected }]}
             >
-              <Text accessibilityLabel="Starta något — spel, dueller och mer" style={{ fontSize: 24 }}>💪</Text>
+              <Icon name="zap" size={22} />
               <View style={[styles.moreBadge, { backgroundColor: settings.color }]}>
                 <Text style={styles.moreBadgeText}>+</Text>
               </View>
@@ -3679,7 +3679,7 @@ export default function GroupChatScreen() {
       >
         <Pressable onPress={() => void postStory()} style={styles.storyItem}>
           <View style={[styles.storyRing, { borderColor: c.backgroundSelected }]}>
-            <Text style={{ fontSize: 18, color: c.textSecondary }}>＋</Text>
+            <Icon name="plus" size={18} color={c.textSecondary} />
           </View>
           <Text style={[styles.storyName, { color: c.textSecondary }]}>Din story</Text>
         </Pressable>
@@ -4278,10 +4278,10 @@ export default function GroupChatScreen() {
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>⭐ Sparade meddelanden</Text>
+            <Text style={[styles.starTitle, { color: c.text }]}>Sparade meddelanden</Text>
             {starred.length === 0 ? (
               <Text style={{ color: c.textSecondary, fontSize: 13, textAlign: "center" }}>
-                Inget sparat än — långtryck på ett meddelande och välj ⭐ Spara.
+                Inget sparat än — långtryck på ett meddelande och välj Spara.
               </Text>
             ) : (
               starred
@@ -4366,7 +4366,7 @@ export default function GroupChatScreen() {
               Välkommen till chatten! 👊
             </Text>
             <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
-              💪 Knappen med plustecknet startar spel, dueller, Poängjakten och mer.
+              Blixtknappen startar spel, dueller, Poängjakten och mer.
             </Text>
             <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
               ↩︎ Svep ett meddelande åt höger för att svara på det.
@@ -4526,7 +4526,7 @@ export default function GroupChatScreen() {
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
                   <Text style={[styles.ctxActionText, { color: c.text }]}>
-                    {starred.some((s) => s.id === menuMsg.id) ? "⭐ Ta bort stjärna" : "⭐ Spara"}
+                    {starred.some((s) => s.id === menuMsg.id) ? "Ta bort stjärna" : "Spara"}
                   </Text>
                 </Pressable>
               ) : null}
@@ -5100,7 +5100,7 @@ export default function GroupChatScreen() {
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
               <View style={styles.leaderboardRow}>
                 <Text style={{ color: c.text, fontSize: 15, fontWeight: "800" }}>
-                  🛡 {teamScore.total} teampoäng
+                  {teamScore.total} teampoäng
                 </Text>
                 <Text style={{ color: c.textSecondary, fontSize: 12 }}>
                   {teamScore.member} individuellt + {teamScore.team} team · Gruppnivå{" "}

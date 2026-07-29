@@ -213,7 +213,7 @@ export default function ProfileScreen() {
         </View>
         {bestStreak > 0 ? (
           <Text style={{ color: c.textSecondary, fontSize: 13 }}>
-            🔥 Längsta aktiva streak: {bestStreak} dagar
+            Längsta aktiva streak: {bestStreak} dagar 🔥
           </Text>
         ) : null}
 
@@ -303,7 +303,7 @@ export default function ProfileScreen() {
 
         <Pressable onPress={() => setLadbookOpen((v) => !v)} style={styles.ladHeader}>
           <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 0, marginBottom: 0 }]}>
-            🃏 LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
+            LadBook ({ladbook.filter((e) => e.completion.status === "confirmed").length} klarade)
           </Text>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
             <Pressable onPress={() => router.push("/hunt")} hitSlop={6}>

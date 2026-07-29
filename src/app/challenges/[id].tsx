@@ -24,6 +24,7 @@ import type {
   ChallengeSubmission,
   Group,
 } from "@/lib/types";
+import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 
 type SubmissionWithVotes = ChallengeSubmission & { voteCount: number; imageUrl: string | null };
@@ -251,7 +252,7 @@ export default function ChallengeScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8} style={styles.back}>
-          <Text style={{ color: c.textSecondary, fontSize: 26 }}>‹</Text>
+          <Icon name="chevron-left" size={26} color={c.textSecondary} />
         </Pressable>
         <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>
           {challenge.title}

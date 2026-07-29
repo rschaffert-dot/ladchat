@@ -459,10 +459,13 @@ export default function GroupsScreen() {
                       </Text>
                     ) : null}
                     {teamScores[item.id] ? (
-                      <Text style={{ color: c.textSecondary, fontSize: 11 }}>
-                        🛡 {teamScores[item.id].total} teampoäng
-                        {previews[item.id] ? ` · ${relTime(previews[item.id].at)}` : ""}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Icon name="shield" size={11} color={c.textSecondary} />
+                        <Text style={{ color: c.textSecondary, fontSize: 11 }}>
+                          {teamScores[item.id].total} teampoäng
+                          {previews[item.id] ? ` · ${relTime(previews[item.id].at)}` : ""}
+                        </Text>
+                      </View>
                     ) : null}
                   </View>
                   {item.owner_id === userId ? (

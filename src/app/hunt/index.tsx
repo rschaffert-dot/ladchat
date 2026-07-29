@@ -28,6 +28,7 @@ import {
   TIERS,
 } from "@/lib/huntCards";
 import type { Category, HuntChallenge, HuntCompletion, Tier } from "@/lib/huntCards";
+import { Icon } from "@/components/Icon";
 import { supabase } from "@/lib/supabase";
 
 // ============================================================
@@ -360,7 +361,7 @@ export default function HuntScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} hitSlop={8}>
-          <Text style={{ color: "#84828C", fontSize: 26 }}>‹</Text>
+          <Icon name="chevron-left" size={26} color="#84828C" />
         </Pressable>
         <Text style={styles.headerTitle}>
           🃏 Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
