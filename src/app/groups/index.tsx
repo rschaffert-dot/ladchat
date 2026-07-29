@@ -545,6 +545,7 @@ const styles = StyleSheet.create({
   groupAvatar: {
     width: 44,
     height: 44,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
