@@ -223,10 +223,10 @@ function ChatBackground({
 /** Discoljusens färger — temapaletten plus ett par festfärger. */
 const PARTY_LIGHTS = [
   { color: "#3D5AFE", top: "-8%", left: "-15%", size: 300, delay: 0 },
-  { color: "#FF4C29", top: "18%", left: "55%", size: 260, delay: 420 },
-  { color: "#00B884", top: "48%", left: "-12%", size: 280, delay: 840 },
-  { color: "#D4AF37", top: "70%", left: "48%", size: 240, delay: 1260 },
-  { color: "#B14CFF", top: "34%", left: "22%", size: 220, delay: 1680 },
+  { color: "#FF4C29", top: "18%", left: "55%", size: 260, delay: 320 },
+  { color: "#00B884", top: "48%", left: "-12%", size: 280, delay: 640 },
+  { color: "#FFB300", top: "70%", left: "48%", size: 240, delay: 960 },
+  { color: "#B14CFF", top: "34%", left: "22%", size: 220, delay: 1280 },
 ] as const;
 
 /** En mjuk ljuskägla som pulserar i egen takt. */
@@ -272,9 +272,9 @@ function PartyLight({
         left: left as unknown as number,
         width: size,
         height: size,
-        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.1, 0.42] }),
+        opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.72] }),
         transform: [
-          { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1.12] }) },
+          { scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.18] }) },
         ],
       }}
     >
@@ -282,7 +282,8 @@ function PartyLight({
         <Defs>
           <RadialGradient id={gradientId} cx="50%" cy="50%" r="50%">
             <Stop offset="0%" stopColor={color} stopOpacity={1} />
-            <Stop offset="60%" stopColor={color} stopOpacity={0.35} />
+            <Stop offset="45%" stopColor={color} stopOpacity={0.75} />
+            <Stop offset="75%" stopColor={color} stopOpacity={0.3} />
             <Stop offset="100%" stopColor={color} stopOpacity={0} />
           </RadialGradient>
         </Defs>
@@ -299,7 +300,9 @@ function PartyLight({
  */
 function PartyLights() {
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    // overflow: hidden — ljusen är större än skärmen och skulle annars
+    // vidga layouten horisontellt (ger sidoscroll/beskuret innehåll).
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { overflow: "hidden" }]}>
       {PARTY_LIGHTS.map((l) => (
         <PartyLight key={l.color} {...l} />
       ))}
@@ -2050,6 +2053,10 @@ export default function GroupChatScreen() {
 
   const powerHourRemainingMs = powerHourEndsAt ? Math.max(0, powerHourEndsAt - nowTick) : 0;
   const powerHourActive = powerHourRemainingMs > 0;
+
+  // Discoljus: manuellt påslaget i inställningarna, eller automatiskt så
+  // länge Partyläget (2h dubbel XP) pågår.
+  const partyLightsOn = settings.partyMode || powerHourActive;
 
   const duelRemainingMs =
     duel?.status === "active" && duel.ends_at
@@ -4141,7 +4148,7 @@ export default function GroupChatScreen() {
             remainingMs={beerRemainingMs}
             style={styles.flex}
           >
-            {settings.partyMode ? <PartyLights /> : null}
+            {partyLightsOn ? <PartyLights /> : null}
             {chatBody}
           </BeerGlassBackground>
         ) : (
@@ -4150,7 +4157,7 @@ export default function GroupChatScreen() {
             color={settings.background}
             style={styles.flex}
           >
-            {settings.partyMode ? <PartyLights /> : null}
+            {partyLightsOn ? <PartyLights /> : null}
             {chatBody}
           </ChatBackground>
         )}
@@ -4882,456 +4889,464 @@ export default function GroupChatScreen() {
           onPress={() => setSettingsOpen(false)}
         />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[styles.sheetTitle, { color: c.text, flex: 1 }]}>
-              Inställningar för chatten
-            </Text>
-            <Pressable
-              onPress={() => setSettingsOpen(false)}
-              hitSlop={12}
-              style={styles.sheetCloseBtn}
-            >
-              <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
-            </Pressable>
-          </View>
-
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-            Medlemmar ({memberProfiles.length})
-          </Text>
-          <ScrollView style={{ maxHeight: 190 }} contentContainerStyle={styles.leaderboard}>
-            {memberProfiles.map((m) => (
-              <Pressable
-                key={m.id}
-                onPress={() => {
-                  setSettingsOpen(false);
-                  void openMemberCard(m.id);
-                }}
-                style={[styles.leaderboardRow, { alignItems: "center", gap: 8 }]}
-              >
-                {m.avatar ? (
-                  <Image source={{ uri: m.avatar }} style={styles.msgAvatar} />
-                ) : (
-                  <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
-                    <Text style={{ fontSize: 12 }}>👤</Text>
-                  </View>
-                )}
-                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600", flex: 1 }}>
-                  {m.name}
-                  {m.id === group?.owner_id ? " 👑" : ""}
-                  {m.id === userId ? " (du)" : ""}
-                </Text>
-                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
-                  {titleForPoints(memberPoints[m.id] ?? 0)} ›
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <Pressable
-            onPress={invite}
-            style={[styles.closeBtn, { backgroundColor: settings.color, marginTop: 4 }]}
+          <ScrollView
+            style={styles.sheetScroll}
+            contentContainerStyle={styles.sheetScrollContent}
+            showsVerticalScrollIndicator
           >
-            <Text style={styles.sendText}>
-              {linkCopied ? "✓ Länk kopierad!" : "🔗 Dela chatten — bjud in med länk"}
-            </Text>
-          </Pressable>
-
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Färg</Text>
-          <View style={styles.swatchRow}>
-            {COLOR_OPTIONS.map((color) => (
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: c.text, flex: 1 }]}>
+                Inställningar för chatten
+              </Text>
               <Pressable
-                key={color}
-                onPress={() => updateSettings({ color })}
-                style={[
-                  styles.swatch,
-                  { backgroundColor: color },
-                  settings.color === color ? styles.swatchSelected : null,
-                ]}
-              />
-            ))}
-          </View>
+                onPress={() => setSettingsOpen(false)}
+                hitSlop={12}
+                style={styles.sheetCloseBtn}
+              >
+                <Text style={{ color: c.textSecondary, fontSize: 24, fontWeight: "700" }}>×</Text>
+              </Pressable>
+            </View>
 
-          {group?.owner_id === userId ? (
-            <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                🫥 Försvinnande meddelanden
-              </Text>
-              <View style={styles.swatchRow}>
-                {(
-                  [
-                    [null, "Av"],
-                    [24, "24 timmar"],
-                    [168, "7 dagar"],
-                  ] as [number | null, string][]
-                ).map(([hours, label]) => (
-                  <Pressable
-                    key={label}
-                    onPress={() =>
-                      void supabase
-                        .rpc("set_ephemeral", { gid: groupId, hours })
-                        .then(({ error }) => error && toast("🫥 " + error.message))
-                    }
-                    style={[
-                      styles.currencyChip,
-                      {
-                        borderColor:
-                          (group?.ephemeral_hours ?? null) === hours
-                            ? settings.color
-                            : c.backgroundSelected,
-                      },
-                    ]}
-                  >
-                    <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>{label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                Gruppmål (teampoäng, 30 dagar)
-              </Text>
-              <View style={styles.swatchRow}>
-                {[500, 1000, 2000].map((target) => (
-                  <Pressable
-                    key={target}
-                    onPress={() =>
-                      void supabase
-                        .rpc("set_group_goal", {
-                          gid: groupId,
-                          target,
-                          deadline: new Date(Date.now() + 30 * 86_400_000).toISOString(),
-                        })
-                        .then(() => toast(`🎯 Mål satt: ${target} teampoäng!`))
-                    }
-                    style={[
-                      styles.currencyChip,
-                      { borderColor: c.backgroundSelected },
-                      group?.goal_points === target ? { borderColor: settings.color } : null,
-                    ]}
-                  >
-                    <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>
-                      {target}p
-                    </Text>
-                  </Pressable>
-                ))}
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+              Medlemmar ({memberProfiles.length})
+            </Text>
+            <ScrollView style={{ maxHeight: 190 }} contentContainerStyle={styles.leaderboard}>
+              {memberProfiles.map((m) => (
                 <Pressable
-                  onPress={() =>
-                    void supabase.rpc("set_group_goal", {
-                      gid: groupId,
-                      target: null,
-                      deadline: null,
-                    })
-                  }
-                  style={[styles.currencyChip, { borderColor: c.backgroundSelected }]}
+                  key={m.id}
+                  onPress={() => {
+                    setSettingsOpen(false);
+                    void openMemberCard(m.id);
+                  }}
+                  style={[styles.leaderboardRow, { alignItems: "center", gap: 8 }]}
                 >
-                  <Text style={{ color: c.textSecondary, fontSize: 12, fontWeight: "700" }}>
-                    Ta bort
+                  {m.avatar ? (
+                    <Image source={{ uri: m.avatar }} style={styles.msgAvatar} />
+                  ) : (
+                    <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
+                      <Text style={{ fontSize: 12 }}>👤</Text>
+                    </View>
+                  )}
+                  <Text style={{ color: c.text, fontSize: 13, fontWeight: "600", flex: 1 }}>
+                    {m.name}
+                    {m.id === group?.owner_id ? " 👑" : ""}
+                    {m.id === userId ? " (du)" : ""}
+                  </Text>
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    {titleForPoints(memberPoints[m.id] ?? 0)} ›
                   </Text>
                 </Pressable>
-              </View>
-            </>
-          ) : null}
-
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poängvaluta</Text>
-          <View style={styles.swatchRow}>
-            {CURRENCY_OPTIONS.map((cur) => (
-              <Pressable
-                key={cur}
-                onPress={() => updateSettings({ currency: cur })}
-                style={[
-                  styles.currencyChip,
-                  { borderColor: c.backgroundSelected },
-                  settings.currency === cur
-                    ? { borderColor: settings.color, backgroundColor: c.backgroundElement }
-                    : null,
-                ]}
-              >
-                <Text style={{ fontSize: 14 }}>{CURRENCY_META[cur].emoji}</Text>
-                <Text
-                  style={{
-                    color: settings.currency === cur ? c.text : c.textSecondary,
-                    fontSize: 12,
-                    fontWeight: "700",
-                  }}
-                >
-                  {cur}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Bakgrund</Text>
-          <View style={styles.swatchRow}>
-            {BACKGROUND_OPTIONS.map((bg) => (
-              <Pressable
-                key={bg.label}
-                onPress={() => updateSettings({ background: bg.value, backgroundImage: "" })}
-                style={[
-                  styles.swatch,
-                  {
-                    backgroundColor: bg.value || c.backgroundElement,
-                    borderWidth: 1,
-                    borderColor: c.backgroundSelected,
-                  },
-                  !settings.backgroundImage && settings.background === bg.value
-                    ? styles.swatchSelected
-                    : null,
-                ]}
-              />
-            ))}
-          </View>
-
-          <View style={styles.bgImageRow}>
+              ))}
+            </ScrollView>
             <Pressable
-              onPress={pickBackgroundImage}
-              style={[styles.bgImageBtn, { borderColor: c.backgroundSelected }]}
+              onPress={invite}
+              style={[styles.closeBtn, { backgroundColor: settings.color, marginTop: 4 }]}
             >
-              {settings.backgroundImage ? (
-                <ImageBackground
-                  source={{ uri: settings.backgroundImage }}
-                  style={styles.bgImageThumb}
-                  imageStyle={{ borderRadius: 8 }}
-                />
-              ) : (
-                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
-                  Välj bild från telefonen
-                </Text>
-              )}
+              <Text style={styles.sendText}>
+                {linkCopied ? "✓ Länk kopierad!" : "🔗 Dela chatten — bjud in med länk"}
+              </Text>
             </Pressable>
-            {settings.backgroundImage ? (
-              <Pressable onPress={() => updateSettings({ backgroundImage: "" })} hitSlop={8}>
-                <Text style={{ color: c.textSecondary, fontSize: 13 }}>Ta bort</Text>
-              </Pressable>
-            ) : null}
-          </View>
 
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Valuta</Text>
-          <View style={styles.swatchRow}>
-            {CURRENCY_OPTIONS.map((currency) => (
-              <Pressable
-                key={currency}
-                onPress={() => updateSettings({ currency })}
-                style={[
-                  styles.chip,
-                  { borderColor: c.backgroundSelected },
-                  settings.currency === currency
-                    ? { backgroundColor: settings.color, borderColor: settings.color }
-                    : null,
-                ]}
-              >
-                <Text
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Färg</Text>
+            <View style={styles.swatchRow}>
+              {COLOR_OPTIONS.map((color) => (
+                <Pressable
+                  key={color}
+                  onPress={() => updateSettings({ color })}
                   style={[
-                    styles.chipText,
-                    { color: settings.currency === currency ? "#fff" : c.text },
+                    styles.swatch,
+                    { backgroundColor: color },
+                    settings.color === color ? styles.swatchSelected : null,
+                  ]}
+                />
+              ))}
+            </View>
+
+            {group?.owner_id === userId ? (
+              <>
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                  🫥 Försvinnande meddelanden
+                </Text>
+                <View style={styles.swatchRow}>
+                  {(
+                    [
+                      [null, "Av"],
+                      [24, "24 timmar"],
+                      [168, "7 dagar"],
+                    ] as [number | null, string][]
+                  ).map(([hours, label]) => (
+                    <Pressable
+                      key={label}
+                      onPress={() =>
+                        void supabase
+                          .rpc("set_ephemeral", { gid: groupId, hours })
+                          .then(({ error }) => error && toast("🫥 " + error.message))
+                      }
+                      style={[
+                        styles.currencyChip,
+                        {
+                          borderColor:
+                            (group?.ephemeral_hours ?? null) === hours
+                              ? settings.color
+                              : c.backgroundSelected,
+                        },
+                      ]}
+                    >
+                      <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                  Gruppmål (teampoäng, 30 dagar)
+                </Text>
+                <View style={styles.swatchRow}>
+                  {[500, 1000, 2000].map((target) => (
+                    <Pressable
+                      key={target}
+                      onPress={() =>
+                        void supabase
+                          .rpc("set_group_goal", {
+                            gid: groupId,
+                            target,
+                            deadline: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+                          })
+                          .then(() => toast(`🎯 Mål satt: ${target} teampoäng!`))
+                      }
+                      style={[
+                        styles.currencyChip,
+                        { borderColor: c.backgroundSelected },
+                        group?.goal_points === target ? { borderColor: settings.color } : null,
+                      ]}
+                    >
+                      <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>
+                        {target}p
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    onPress={() =>
+                      void supabase.rpc("set_group_goal", {
+                        gid: groupId,
+                        target: null,
+                        deadline: null,
+                      })
+                    }
+                    style={[styles.currencyChip, { borderColor: c.backgroundSelected }]}
+                  >
+                    <Text style={{ color: c.textSecondary, fontSize: 12, fontWeight: "700" }}>
+                      Ta bort
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poängvaluta</Text>
+            <View style={styles.swatchRow}>
+              {CURRENCY_OPTIONS.map((cur) => (
+                <Pressable
+                  key={cur}
+                  onPress={() => updateSettings({ currency: cur })}
+                  style={[
+                    styles.currencyChip,
+                    { borderColor: c.backgroundSelected },
+                    settings.currency === cur
+                      ? { borderColor: settings.color, backgroundColor: c.backgroundElement }
+                      : null,
                   ]}
                 >
-                  {currency}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+                  <Text style={{ fontSize: 14 }}>{CURRENCY_META[cur].emoji}</Text>
+                  <Text
+                    style={{
+                      color: settings.currency === cur ? c.text : c.textSecondary,
+                      fontSize: 12,
+                      fontWeight: "700",
+                    }}
+                  >
+                    {cur}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-            Öl-mode 🍺 (1 cl per meddelande, delad mellan alla i chatten)
-          </Text>
-          <View style={styles.beerPickerRow}>
-            <Pressable
-              onPress={() => setBeerGlass(null, selectedDuration)}
-              style={[
-                styles.beerOption,
-                { borderColor: c.backgroundSelected },
-                !group?.beer_glass_size ? styles.beerOptionSelected : null,
-              ]}
-            >
-              <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>Av</Text>
-            </Pressable>
-            {(Object.keys(BEER_GLASSES) as BeerGlassSize[]).map((size) => {
-              const glass = BEER_GLASSES[size];
-              return (
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Bakgrund</Text>
+            <View style={styles.swatchRow}>
+              {BACKGROUND_OPTIONS.map((bg) => (
                 <Pressable
-                  key={size}
-                  onPress={() => setBeerGlass(size, selectedDuration)}
+                  key={bg.label}
+                  onPress={() => updateSettings({ background: bg.value, backgroundImage: "" })}
+                  style={[
+                    styles.swatch,
+                    {
+                      backgroundColor: bg.value || c.backgroundElement,
+                      borderWidth: 1,
+                      borderColor: c.backgroundSelected,
+                    },
+                    !settings.backgroundImage && settings.background === bg.value
+                      ? styles.swatchSelected
+                      : null,
+                  ]}
+                />
+              ))}
+            </View>
+
+            <View style={styles.bgImageRow}>
+              <Pressable
+                onPress={pickBackgroundImage}
+                style={[styles.bgImageBtn, { borderColor: c.backgroundSelected }]}
+              >
+                {settings.backgroundImage ? (
+                  <ImageBackground
+                    source={{ uri: settings.backgroundImage }}
+                    style={styles.bgImageThumb}
+                    imageStyle={{ borderRadius: 8 }}
+                  />
+                ) : (
+                  <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
+                    Välj bild från telefonen
+                  </Text>
+                )}
+              </Pressable>
+              {settings.backgroundImage ? (
+                <Pressable onPress={() => updateSettings({ backgroundImage: "" })} hitSlop={8}>
+                  <Text style={{ color: c.textSecondary, fontSize: 13 }}>Ta bort</Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Valuta</Text>
+            <View style={styles.swatchRow}>
+              {CURRENCY_OPTIONS.map((currency) => (
+                <Pressable
+                  key={currency}
+                  onPress={() => updateSettings({ currency })}
+                  style={[
+                    styles.chip,
+                    { borderColor: c.backgroundSelected },
+                    settings.currency === currency
+                      ? { backgroundColor: settings.color, borderColor: settings.color }
+                      : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      { color: settings.currency === currency ? "#fff" : c.text },
+                    ]}
+                  >
+                    {currency}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+              Öl-mode 🍺 (1 cl per meddelande, delad mellan alla i chatten)
+            </Text>
+            <View style={styles.beerPickerRow}>
+              <Pressable
+                onPress={() => setBeerGlass(null, selectedDuration)}
+                style={[
+                  styles.beerOption,
+                  { borderColor: c.backgroundSelected },
+                  !group?.beer_glass_size ? styles.beerOptionSelected : null,
+                ]}
+              >
+                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>Av</Text>
+              </Pressable>
+              {(Object.keys(BEER_GLASSES) as BeerGlassSize[]).map((size) => {
+                const glass = BEER_GLASSES[size];
+                return (
+                  <Pressable
+                    key={size}
+                    onPress={() => setBeerGlass(size, selectedDuration)}
+                    style={[
+                      styles.beerOption,
+                      { borderColor: c.backgroundSelected },
+                      group?.beer_glass_size === size ? styles.beerOptionSelected : null,
+                    ]}
+                  >
+                    <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
+                      {glass.label}
+                    </Text>
+                    <Text style={{ color: c.textSecondary, fontSize: 11 }}>
+                      {glass.capacityCl} cl · +{glass.points}p
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {group?.beer_glass_size ? (
+              <>
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                  Tid (nollställer och startar om rundan)
+                </Text>
+                <View style={styles.swatchRow}>
+                  {BEER_DURATION_OPTIONS.map((minutes) => (
+                    <Pressable
+                      key={minutes}
+                      onPress={() => setBeerGlass(group.beer_glass_size, minutes)}
+                      style={[
+                        styles.chip,
+                        { borderColor: c.backgroundSelected },
+                        selectedDuration === minutes
+                          ? { backgroundColor: settings.color, borderColor: settings.color }
+                          : null,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipText,
+                          { color: selectedDuration === minutes ? "#fff" : c.text },
+                        ]}
+                      >
+                        {minutes} min
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={[styles.pointsText, { color: c.textSecondary }]}>
+                  Fullt glas ger {BEER_GLASSES[group.beer_glass_size].points +
+                    (BEER_DURATION_BONUS[selectedDuration] ?? 0)}{" "}
+                  {settings.currency} till alla — hinner ni inte i tid nollställs glaset utan
+                  belöning.
+                </Text>
+              </>
+            ) : null}
+
+            {isAdmin ? (
+              <>
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                  Aktivera chatten 💤 (tävlingsledning)
+                </Text>
+                <Pressable
+                  onPress={adminStartActivation}
+                  disabled={activationBusy || !!activation}
                   style={[
                     styles.beerOption,
-                    { borderColor: c.backgroundSelected },
-                    group?.beer_glass_size === size ? styles.beerOptionSelected : null,
+                    {
+                      borderColor: c.backgroundSelected,
+                      alignItems: "center",
+                      opacity: activationBusy || activation ? 0.5 : 1,
+                    },
                   ]}
                 >
                   <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
-                    {glass.label}
-                  </Text>
-                  <Text style={{ color: c.textSecondary, fontSize: 11 }}>
-                    {glass.capacityCl} cl · +{glass.points}p
+                    {activation ? "Aktivering redan igång" : "Starta aktivering nu"}
                   </Text>
                 </Pressable>
-              );
-            })}
-          </View>
+              </>
+            ) : null}
 
-          {group?.beer_glass_size ? (
-            <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                Tid (nollställer och startar om rundan)
+            {teamScore ? (
+              <>
+                <Pressable onPress={() => void exportChat()} hitSlop={6}>
+              <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+                ⬇️ Exportera chatten som textfil
               </Text>
-              <View style={styles.swatchRow}>
-                {BEER_DURATION_OPTIONS.map((minutes) => (
-                  <Pressable
-                    key={minutes}
-                    onPress={() => setBeerGlass(group.beer_glass_size, minutes)}
-                    style={[
-                      styles.chip,
-                      { borderColor: c.backgroundSelected },
-                      selectedDuration === minutes
-                        ? { backgroundColor: settings.color, borderColor: settings.color }
-                        : null,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: selectedDuration === minutes ? "#fff" : c.text },
-                      ]}
-                    >
-                      {minutes} min
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={[styles.pointsText, { color: c.textSecondary }]}>
-                Fullt glas ger {BEER_GLASSES[group.beer_glass_size].points +
-                  (BEER_DURATION_BONUS[selectedDuration] ?? 0)}{" "}
-                {settings.currency} till alla — hinner ni inte i tid nollställs glaset utan
-                belöning.
+            </Pressable>
+
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
+                <View style={styles.leaderboardRow}>
+                  <Text style={{ color: c.text, fontSize: 15, fontWeight: "800" }}>
+                    {teamScore.total} teampoäng
+                  </Text>
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    {teamScore.member} individuellt + {teamScore.team} team · Gruppnivå{" "}
+                    {Math.min(10, 1 + Math.floor(teamScore.total / 250))}
+                  </Text>
+                </View>
+              </>
+            ) : null}
+
+            {leaderboard.length > 0 ? (
+              <>
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poäng</Text>
+                <View style={styles.leaderboard}>
+                  {leaderboard.map((row) => (
+                    <View key={row.userId} style={styles.leaderboardRow}>
+                      <Text style={{ color: c.text, fontSize: 13 }}>
+                        {levelForPoints(row.points) >= 5 ? "👑 " : ""}
+                        {row.name} · {titleForPoints(row.points)}
+                      </Text>
+                      <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                        {row.points} {CURRENCY_META[settings.currency].emoji}{" "}
+                        {settings.currency}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {weekly.length > 0 ? (
+              <>
+                <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
+                  Veckans topplista (nollställs varje måndag)
+                </Text>
+                <View style={styles.leaderboard}>
+                  {weekly.map((row, i) => (
+                    <View key={row.userId} style={styles.leaderboardRow}>
+                      <Text style={{ color: c.text, fontSize: 13 }}>
+                        {i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : ""}
+                        {row.name}
+                      </Text>
+                      <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                        +{row.points}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            {gotw ? (
+              <Text style={[styles.pointsText, { color: c.text, fontWeight: "700" }]}>
+                👑 Grabb of the Week: {namesRef.current[gotw] ?? "?"}
               </Text>
-            </>
-          ) : null}
+            ) : null}
 
-          {isAdmin ? (
-            <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                Aktivera chatten 💤 (tävlingsledning)
+            <View style={styles.soundRow}>
+              <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
+                Ljud vid nya meddelanden
               </Text>
-              <Pressable
-                onPress={adminStartActivation}
-                disabled={activationBusy || !!activation}
-                style={[
-                  styles.beerOption,
-                  {
-                    borderColor: c.backgroundSelected,
-                    alignItems: "center",
-                    opacity: activationBusy || activation ? 0.5 : 1,
-                  },
-                ]}
-              >
-                <Text style={{ color: c.text, fontSize: 13, fontWeight: "600" }}>
-                  {activation ? "Aktivering redan igång" : "Starta aktivering nu"}
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-
-          {teamScore ? (
-            <>
-              <Pressable onPress={() => void exportChat()} hitSlop={6}>
-            <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
-              ⬇️ Exportera chatten som textfil
-            </Text>
-          </Pressable>
-
-          <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Teampoäng</Text>
-              <View style={styles.leaderboardRow}>
-                <Text style={{ color: c.text, fontSize: 15, fontWeight: "800" }}>
-                  {teamScore.total} teampoäng
-                </Text>
-                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
-                  {teamScore.member} individuellt + {teamScore.team} team · Gruppnivå{" "}
-                  {Math.min(10, 1 + Math.floor(teamScore.total / 250))}
-                </Text>
-              </View>
-            </>
-          ) : null}
-
-          {leaderboard.length > 0 ? (
-            <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Poäng</Text>
-              <View style={styles.leaderboard}>
-                {leaderboard.map((row) => (
-                  <View key={row.userId} style={styles.leaderboardRow}>
-                    <Text style={{ color: c.text, fontSize: 13 }}>
-                      {levelForPoints(row.points) >= 5 ? "👑 " : ""}
-                      {row.name} · {titleForPoints(row.points)}
-                    </Text>
-                    <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
-                      {row.points} {CURRENCY_META[settings.currency].emoji}{" "}
-                      {settings.currency}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          {weekly.length > 0 ? (
-            <>
-              <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                Veckans topplista (nollställs varje måndag)
-              </Text>
-              <View style={styles.leaderboard}>
-                {weekly.map((row, i) => (
-                  <View key={row.userId} style={styles.leaderboardRow}>
-                    <Text style={{ color: c.text, fontSize: 13 }}>
-                      {i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : ""}
-                      {row.name}
-                    </Text>
-                    <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
-                      +{row.points}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          {gotw ? (
-            <Text style={[styles.pointsText, { color: c.text, fontWeight: "700" }]}>
-              👑 Grabb of the Week: {namesRef.current[gotw] ?? "?"}
-            </Text>
-          ) : null}
-
-          <View style={styles.soundRow}>
-            <Text style={[styles.sheetLabel, { color: c.textSecondary, marginBottom: 0 }]}>
-              Ljud vid nya meddelanden
-            </Text>
-            <Switch
-              value={settings.soundEnabled}
-              onValueChange={(v) => updateSettings({ soundEnabled: v })}
-            />
-          </View>
-
-          <View style={styles.soundRow}>
-            <View style={styles.partyRowLabel}>
-              <View style={[styles.starTile, { backgroundColor: "#F3E3FF" }]}>
-                <LDisc size={20} color="#B14CFF" strokeWidth={1.7} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.sheetLabel, { color: c.text, marginBottom: 0 }]}>
-                  Party-Mode
-                </Text>
-                <Text style={{ color: c.textSecondary, fontSize: 12 }}>
-                  Discoljus pulserar bakom chatten
-                </Text>
-              </View>
+              <Switch
+                value={settings.soundEnabled}
+                onValueChange={(v) => updateSettings({ soundEnabled: v })}
+              />
             </View>
-            <Switch
-              value={settings.partyMode}
-              onValueChange={(v) => updateSettings({ partyMode: v })}
-            />
-          </View>
 
-          <Pressable
-            onPress={() => setSettingsOpen(false)}
-            style={[styles.closeBtn, { backgroundColor: settings.color }]}
-          >
-            <Text style={styles.sendText}>Klart</Text>
-          </Pressable>
+            <View style={styles.soundRow}>
+              <View style={styles.partyRowLabel}>
+                <View style={[styles.starTile, { backgroundColor: "#F3E3FF" }]}>
+                  <LDisc size={20} color="#B14CFF" strokeWidth={1.7} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sheetLabel, { color: c.text, marginBottom: 0 }]}>
+                    Party-Mode
+                  </Text>
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    {powerHourActive
+                      ? "På automatiskt — Partyläget pågår 🎉"
+                      : "Discoljus bakom chatten (slås på automatiskt i Partyläget)"}
+                  </Text>
+                </View>
+              </View>
+              <Switch
+                value={settings.partyMode}
+                onValueChange={(v) => updateSettings({ partyMode: v })}
+              />
+            </View>
+
+            <Pressable
+              onPress={() => setSettingsOpen(false)}
+              style={[styles.closeBtn, { backgroundColor: settings.color }]}
+            >
+              <Text style={styles.sendText}>Klart</Text>
+            </Pressable>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -6232,10 +6247,16 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
-    padding: 20,
-    paddingBottom: 32,
+    // Aldrig högre än 85% av skärmen — innehållet scrollar i stället för
+    // att svämma över kanten (arket har fler val än vad som får plats).
+    maxHeight: "85%",
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     gap: 4,
   },
+  sheetScroll: { flexGrow: 0 },
+  sheetScrollContent: { gap: 4, paddingBottom: 12 },
   sheetTitle: { fontSize: 18, fontWeight: "800", marginBottom: 8 },
   sheetLabel: { fontSize: 13, fontWeight: "600", marginTop: 14, marginBottom: 8 },
   swatchRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
