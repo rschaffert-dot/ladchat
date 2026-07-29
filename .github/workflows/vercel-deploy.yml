@@ -1,0 +1,27 @@
+name: Deploy till Vercel
+
+# Vercels Git-integration blockerar deployer där commit-författaren inte finns
+# på Vercel-kontot — det är en spärr i Hobby-planen. Antons pushar fastnade
+# därför som "Blocked" utan att något bygge ens startade. En deploy hook har
+# ingen sådan spärr: den bryr sig bara om att URL:en stämmer.
+#
+# Hook-URL:en ligger som repo-secret VERCEL_DEPLOY_HOOK (Settings → Secrets →
+# Actions). Behöver den bytas: skapa en ny hook under Vercel → ladchat-rschaffert
+# → Settings → Git → Deploy Hooks och uppdatera secreten.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    # Rasmus pushar triggar redan ett bygge via Vercels Git-integration.
+    # Utan det här villkoret skulle hooken bygga en andra gång i onödan.
+    if: github.actor != 'rschaffert-dot'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigga Vercel-bygge
+        run: |
+          curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}" -o /dev/null
+          echo "Deploy triggad för ${{ github.sha }}"
