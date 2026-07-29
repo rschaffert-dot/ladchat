@@ -21,6 +21,7 @@ import {
   saveChatSettings,
 } from "@/lib/chatSettings";
 import type { Currency } from "@/lib/chatSettings";
+import { GodSilhouette, pickGod } from "@/lib/godAvatars";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
 import { AppIcon } from "@/components/AppIcon";
@@ -431,9 +432,7 @@ export default function GroupsScreen() {
                   <View
                     style={[styles.groupAvatar, { backgroundColor: avatarColor(item.name) }]}
                   >
-                    <Text style={styles.groupAvatarText}>
-                      {item.name.trim().charAt(0).toUpperCase()}
-                    </Text>
+                    <GodSilhouette god={pickGod(item.name)} size={30} />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <View style={styles.groupNameRow}>
@@ -549,7 +548,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  groupAvatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 3 },
