@@ -222,6 +222,16 @@ export function AuthScreen({ mode }: { mode: "login" | "register" }) {
             </Text>
           </Pressable>
 
+          {isLogin ? (
+            <View style={styles.switchRow}>
+              <Link href="/forgot-password">
+                <Text style={{ color: c.textSecondary, fontWeight: "600", fontSize: 13 }}>
+                  Glömt lösenordet?
+                </Text>
+              </Link>
+            </View>
+          ) : null}
+
           <View style={styles.switchRow}>
             <Text style={{ color: c.textSecondary }}>
               {isLogin ? "Har du inget konto? " : "Har du redan ett konto? "}

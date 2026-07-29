@@ -18,7 +18,12 @@ function RootNavigator() {
     if (loading) return;
     const first = segments[0];
     const isAuthScreen = first === "login" || first === "register";
+    // Lösenordsåterställning måste nås utan session (mejllänken skapar en
+    // recovery-session först när sidan laddats) och får inte auto-omdirigeras
+    // till /groups när sessionen sätts — användaren ska hinna byta lösenord.
+    const isPasswordScreen = first === "forgot-password" || first === "reset-password";
     const isJoinScreen = first === "join";
+    if (isPasswordScreen) return;
 
     if (!session && !isAuthScreen && !isJoinScreen) {
       router.replace("/login");
