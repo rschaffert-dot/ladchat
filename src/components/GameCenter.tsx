@@ -12,11 +12,13 @@ import {
   VenetianMask,
   Vote,
   Wine,
+  Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 
 import {
@@ -95,18 +97,18 @@ type GameId =
   | "bomb"
   | "tjugoett";
 
-const GAMES: { id: GameId; emoji: string; title: string; desc: string; category: "drick" | "utmaning" }[] = [
-  { id: "kingscup", emoji: "👑", title: "Kings Cup", desc: "Dra kort, följ regeln, skicka vidare.", category: "drick" },
-  { id: "bus", emoji: "🚌", title: "Ride the Bus", desc: "Gissa kort i tre faser — förloraren åker bussen.", category: "drick" },
-  { id: "mexico", emoji: "🎲", title: "Mexico", desc: "Två tärningar under dold kopp. Bluffa eller syna.", category: "drick" },
-  { id: "buzz", emoji: "🔢", title: "Buzz", desc: "Räkna i tur — men sjuor är förbjudna.", category: "drick" },
-  { id: "tjugoett", emoji: "🥂", title: "21", desc: "Räkna till 21 ihop — den som säger 21 skapar en ny regel.", category: "drick" },
-  { id: "bomb", emoji: "💣", title: "The Bomb", desc: "Säg ett ord i kategorin och skicka vidare — före smällen.", category: "drick" },
-  { id: "roulette", emoji: "📱", title: "Mobilroulette", desc: "Snurra — ödet väljer vem som drabbas.", category: "drick" },
-  { id: "nhie", emoji: "🙊", title: "Jag har aldrig", desc: "Alla som gjort det dricker.", category: "utmaning" },
-  { id: "tod", emoji: "🎭", title: "Sanning eller konsekvens", desc: "Välj själv — vägra och drick.", category: "utmaning" },
-  { id: "mostlikely", emoji: "🫵", title: "Vem är mest trolig", desc: "Alla röstar — flest röster dricker.", category: "utmaning" },
-  { id: "paranoia", emoji: "🤫", title: "Paranoia", desc: "Hemlig fråga, högt svar. Vågar du veta?", category: "utmaning" },
+const GAMES: { id: GameId; title: string; desc: string; category: "drick" | "utmaning" }[] = [
+  { id: "kingscup", title: "Kings Cup", desc: "Dra kort, följ regeln, skicka vidare.", category: "drick" },
+  { id: "bus", title: "Ride the Bus", desc: "Gissa kort i tre faser — förloraren åker bussen.", category: "drick" },
+  { id: "mexico", title: "Mexico", desc: "Två tärningar under dold kopp. Bluffa eller syna.", category: "drick" },
+  { id: "buzz", title: "Buzz", desc: "Räkna i tur — men sjuor är förbjudna.", category: "drick" },
+  { id: "tjugoett", title: "21", desc: "Räkna till 21 ihop — den som säger 21 skapar en ny regel.", category: "drick" },
+  { id: "bomb", title: "The Bomb", desc: "Säg ett ord i kategorin och skicka vidare — före smällen.", category: "drick" },
+  { id: "roulette", title: "Mobilroulette", desc: "Snurra — ödet väljer vem som drabbas.", category: "drick" },
+  { id: "nhie", title: "Jag har aldrig", desc: "Alla som gjort det dricker.", category: "utmaning" },
+  { id: "tod", title: "Sanning eller konsekvens", desc: "Välj själv — vägra och drick.", category: "utmaning" },
+  { id: "mostlikely", title: "Vem är mest trolig", desc: "Alla röstar — flest röster dricker.", category: "utmaning" },
+  { id: "paranoia", title: "Paranoia", desc: "Hemlig fråga, högt svar. Vågar du veta?", category: "utmaning" },
 ];
 
 /** Lucide-linjeikoner per spel — samma stroke-stil som övriga UI:t. */
@@ -122,6 +124,13 @@ const GAME_ICONS: Record<GameId, typeof Crown> = {
   tod: VenetianMask,
   mostlikely: Vote,
   paranoia: HelpCircle,
+};
+
+/** Trafikljus för Sanning eller konsekvens — färgen är hela signalen. */
+const INTENSITY_COLORS: Record<Intensity, string> = {
+  gron: "#00B884",
+  gul: "#D4AF37",
+  rod: "#FF4C29",
 };
 
 function GameIcon({ id, size = 28, color = "#15151B" }: { id: GameId; size?: number; color?: string }) {
@@ -247,11 +256,11 @@ function KingsCupGame({ players, names, onExit }: GameProps) {
     if (!card || !lockRef.current) return;
     lockRef.current = false;
     if (card.rank === "K" && kings >= 4) {
-      setEndReason("👑 Fjärde kungen drogs — Kungens kopp har druckits!");
+      setEndReason("Fjärde kungen drogs — Kungens kopp har druckits!");
       return;
     }
     if (deck.length === 0) {
-      setEndReason("🃏 Leken är slut — bra kämpat, grabbar!");
+      setEndReason("Leken är slut — bra kämpat, grabbar!");
       return;
     }
     setCard(null);
@@ -261,7 +270,7 @@ function KingsCupGame({ players, names, onExit }: GameProps) {
   if (endReason) {
     return (
       <View style={[styles.gameBody, { alignItems: "center", gap: 16 }]}>
-        <Text style={{ fontSize: 56 }}>🏁</Text>
+        <AppIcon name="flag" size={52} color="#15151B" strokeWidth={1.4} />
         <Text style={styles.h1}>Spelet är slut!</Text>
         <Text style={styles.dim}>{endReason}</Text>
         <Btn label="Tillbaka" onPress={onExit} />
@@ -285,7 +294,7 @@ function KingsCupGame({ players, names, onExit }: GameProps) {
           </View>
         ) : (
           <View style={styles.cardBack}>
-            <Text style={{ fontSize: 44 }}>🂠</Text>
+            <Text style={{ fontSize: 44 }}></Text>
             <Text style={styles.cardBackText}>Tryck för att dra ett kort</Text>
           </View>
         )}
@@ -298,14 +307,14 @@ function KingsCupGame({ players, names, onExit }: GameProps) {
           </Text>
           <Text style={styles.ruleText}>
             {card.rank === "K" && kings >= 4
-              ? "FJÄRDE KUNGEN! Drick hela Kungens kopp! 🍻"
+              ? "FJÄRDE KUNGEN! Drick hela Kungens kopp!"
               : KINGS_CUP_RULES[card.rank].rule}
           </Text>
         </View>
       ) : null}
       <View style={styles.statusRow}>
-        <Text style={styles.dim}>🃏 {deck.length} kort kvar</Text>
-        <Text style={styles.dim}>👑 {kings}/4 kungar</Text>
+        <Text style={styles.dim}>{deck.length} kort kvar</Text>
+        <Text style={styles.dim}>{kings}/4 kungar</Text>
       </View>
       {card ? (
         <Btn
@@ -422,7 +431,7 @@ function RideTheBusGame({ players, names, settings, onExit }: GameProps) {
       });
     } else {
       setMsg({
-        text: `🤥 ${names[pid]} har ingen ${RANK_LABELS[current.card.rank].toLowerCase()}! Synad bluff = drick dubbelt (${sipText(current.row * 2, settings)}).`,
+        text: `${names[pid]} har ingen ${RANK_LABELS[current.card.rank].toLowerCase()}! Synad bluff = drick dubbelt (${sipText(current.row * 2, settings)}).`,
         good: false,
       });
     }
@@ -466,8 +475,8 @@ function RideTheBusGame({ players, names, settings, onExit }: GameProps) {
 
   if (stage === 1) {
     const stepUI = [
-      { q: "Rött eller svart?", buttons: [["rod", "🔴 Rött"], ["svart", "⚫ Svart"]] },
-      { q: `Högre eller lägre än ${myHand[0]?.rank ?? "?"}${myHand[0]?.suit ?? ""}? (lika = fel)`, buttons: [["hogre", "⬆️ Högre"], ["lagre", "⬇️ Lägre"]] },
+      { q: "Rött eller svart?", buttons: [["rod", "Rött"], ["svart", "Svart"]] },
+      { q: `Högre eller lägre än ${myHand[0]?.rank ?? "?"}${myHand[0]?.suit ?? ""}? (lika = fel)`, buttons: [["hogre", "Högre"], ["lagre", "Lägre"]] },
       {
         q: `Innanför eller utanför ${myHand[0]?.rank ?? "?"} och ${myHand[1]?.rank ?? "?"}?`,
         buttons: [["innanfor", "↔️ Innanför"], ["utanfor", "↕️ Utanför"]],
@@ -543,7 +552,7 @@ function RideTheBusGame({ players, names, settings, onExit }: GameProps) {
 
   return (
     <View style={styles.gameBody}>
-      <Text style={styles.phaseLabel}>Fas 3 — bussen 🚌</Text>
+      <Text style={styles.phaseLabel}>Fas 3 — bussen</Text>
       <Text style={styles.h1}>{names[busRider ?? ""] ?? "?"} åker bussen!</Text>
       <Text style={styles.dim}>
         Sex kort i rad. Klätt kort (kn/dam/kung/ess) = drick och börja om. Klara hela raden för att
@@ -559,7 +568,7 @@ function RideTheBusGame({ players, names, settings, onExit }: GameProps) {
       {msg ? <ResultMsg text={msg.text} good={msg.good} /> : null}
       {busDone ? (
         <>
-          <Text style={styles.h1}>🎉 Bussen är klarad!</Text>
+          <Text style={styles.h1}>Bussen är klarad!</Text>
           <Btn label="Tillbaka" onPress={onExit} />
         </>
       ) : (
@@ -619,7 +628,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
           .filter((p) => openRolls[p])
           .map((p) => (
             <Text key={p} style={styles.h2}>
-              {names[p]}: 🎲 {mexicoLabel(...openRolls[p])}
+              {names[p]}: {mexicoLabel(...openRolls[p])}
             </Text>
           ))}
         {allRolled && loser ? (
@@ -669,7 +678,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
         <>
           <TurnBanner name={names[current] ?? "?"} />
           <Pressable onPressIn={() => setPeek(true)} onPressOut={() => setPeek(false)} style={styles.peekBox}>
-            <Text style={styles.h1}>{peek ? `🎲 ${mexicoLabel(...actual)}` : "👁 Håll in för att smygtitta"}</Text>
+            <Text style={styles.h1}>{peek ? mexicoLabel(...actual) : "Håll in för att smygtitta"}</Text>
           </Pressable>
           <Text style={styles.h2}>Vad påstår du att du slog?</Text>
           <ScrollView style={{ maxHeight: 180 }}>
@@ -710,7 +719,7 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
             }}
           />
           <Btn
-            label="👊 SYNA!"
+            label="SYNA!"
             tone="danger"
             onPress={() => {
               if (!actual) return;
@@ -718,9 +727,9 @@ function MexicoGame({ players, names, settings, onExit }: GameProps) {
               const truthful = real >= claimRank;
               const mexico = real === 1000 || claimRank === 1000;
               if (truthful) {
-                settleRound(idx, mexico, `Slaget var 🎲 ${mexicoLabel(...actual)} — sant påstående! Synaren förlorar.`);
+                settleRound(idx, mexico, `Slaget var ${mexicoLabel(...actual)} — sant påstående! Synaren förlorar.`);
               } else {
-                settleRound(prevClaimer, mexico, `Slaget var 🎲 ${mexicoLabel(...actual)} — BLUFF avslöjad!`);
+                settleRound(prevClaimer, mexico, `Slaget var ${mexicoLabel(...actual)} — BLUFF avslöjad!`);
               }
             }}
           />
@@ -774,7 +783,7 @@ function NeverEverGame({ players, names, settings, onExit }: GameProps) {
       <View style={styles.promptCard}>
         <Text style={styles.promptText}>{statement}</Text>
       </View>
-      <Text style={styles.dim}>Alla som gjort det dricker {sipText(1, settings)} 🍺</Text>
+      <Text style={styles.dim}>Alla som gjort det dricker {sipText(1, settings)}</Text>
       {settings.nhieCompetitive ? (
         <>
           <Text style={styles.dim}>Tryck på den som drack (−1 liv):</Text>
@@ -785,9 +794,10 @@ function NeverEverGame({ players, names, settings, onExit }: GameProps) {
                 onPress={() => setLives((prev) => ({ ...prev, [p]: Math.max(0, prev[p] - 1) }))}
                 style={[styles.nameChip, lives[p] <= 0 ? { opacity: 0.4 } : null]}
               >
-                <Text style={styles.nameChipText}>
-                  {names[p]} {"❤️".repeat(lives[p])}
-                </Text>
+                <Text style={styles.nameChipText}>{names[p]}</Text>
+                {Array.from({ length: lives[p] }, (_, i) => (
+                  <AppIcon key={i} name="heart" size={12} color="#FF4C29" />
+                ))}
               </Pressable>
             ))}
           </View>
@@ -833,9 +843,13 @@ function TruthDareGame({ players, names, settings, onExit }: GameProps) {
 
   return (
     <View style={styles.gameBody}>
-      <Text style={styles.phaseLabel}>
-        Sanning eller konsekvens — nivå {intensity === "gron" ? "🟢 grön" : intensity === "gul" ? "🟡 gul" : "🔴 röd"}
-      </Text>
+      <View style={styles.phaseRow}>
+        <View style={[styles.intensityDot, { backgroundColor: INTENSITY_COLORS[intensity] }]} />
+        <Text style={styles.phaseLabel}>
+          Sanning eller konsekvens — nivå{" "}
+          {intensity === "gron" ? "grön" : intensity === "gul" ? "gul" : "röd"}
+        </Text>
+      </View>
       <TurnBanner name={names[players[turn]] ?? "?"} />
       {!choice ? (
         <View style={styles.btnRow}>
@@ -846,7 +860,7 @@ function TruthDareGame({ players, names, settings, onExit }: GameProps) {
             }}
             style={styles.choiceBtn}
           >
-            <Text style={styles.btnText}>🗣 Sanning</Text>
+            <Text style={styles.btnText}>Sanning</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -855,7 +869,7 @@ function TruthDareGame({ players, names, settings, onExit }: GameProps) {
             }}
             style={styles.choiceBtn}
           >
-            <Text style={styles.btnText}>🔥 Konsekvens</Text>
+            <Text style={styles.btnText}>Konsekvens</Text>
           </Pressable>
         </View>
       ) : null}
@@ -975,7 +989,7 @@ function ParanoiaGame({ players, names, settings, onExit }: GameProps) {
             tryck på det.
           </Text>
           <Pressable onPressIn={() => setPeek(true)} onPressOut={() => setPeek(false)} style={styles.peekBox}>
-            <Text style={styles.promptText}>{peek ? q : "👁 Håll in för din hemliga fråga"}</Text>
+            <Text style={styles.promptText}>{peek ? q : "Håll in för din hemliga fråga"}</Text>
           </Pressable>
           <NameGrid
             players={players}
@@ -990,13 +1004,13 @@ function ParanoiaGame({ players, names, settings, onExit }: GameProps) {
       ) : null}
       {stage === "decide" && target ? (
         <>
-          <Text style={styles.h1}>{names[target]} pekades ut! 👉</Text>
+          <Text style={styles.h1}>{names[target]} pekades ut!</Text>
           <Text style={styles.dim}>
             {names[target]} väljer: drick för att slippa veta frågan, eller avstå så avslöjas den för
             alla.
           </Text>
-          <Btn label={`🍺 Jag dricker ${sipText(1, settings)} — säg inget`} onPress={advance} />
-          <Btn label="😱 Avslöja frågan!" tone="danger" onPress={() => setStage("revealed")} />
+          <Btn label={`Jag dricker ${sipText(1, settings)} — säg inget`} onPress={advance} />
+          <Btn label="Avslöja frågan!" tone="danger" onPress={() => setStage("revealed")} />
         </>
       ) : null}
       {stage === "revealed" ? (
@@ -1004,7 +1018,7 @@ function ParanoiaGame({ players, names, settings, onExit }: GameProps) {
           <View style={styles.promptCard}>
             <Text style={styles.promptText}>Frågan var: {q}</Text>
           </View>
-          <ResultMsg text={`…och svaret var ${names[target ?? ""] ?? "?"}. 😬`} good={false} />
+          <ResultMsg text={`…och svaret var ${names[target ?? ""] ?? "?"}.`} good={false} />
           <Btn label="Nästa spelare →" onPress={advance} />
         </>
       ) : null}
@@ -1044,7 +1058,7 @@ function BuzzGame({ players, names, settings, onExit }: GameProps) {
       setTimeLeft(Math.max(0, left));
       if (left <= 0) {
         clearInterval(id);
-        fail("⏰ Tiden gick ut!");
+        fail("Tiden gick ut!");
       }
     }, 100);
     return () => clearInterval(id);
@@ -1146,7 +1160,7 @@ function RouletteGame({ players, names, settings, onExit }: GameProps) {
   return (
     <View style={styles.gameBody}>
       <Text style={styles.phaseLabel}>
-        Mobilroulette{settings.rouletteDare && settings.adult ? " — djärvt läge 😈" : ""}
+        Mobilroulette{settings.rouletteDare && settings.adult ? " — djärvt läge" : ""}
       </Text>
       <View style={styles.nameGrid}>
         {players.map((p, i) => (
@@ -1157,7 +1171,7 @@ function RouletteGame({ players, names, settings, onExit }: GameProps) {
       </View>
       {result ? (
         <>
-          <Text style={styles.h1}>🎯 {names[result.player]}!</Text>
+          <Text style={styles.h1}>{names[result.player]}!</Text>
           {result.dare ? (
             <View style={styles.promptCard}>
               <Text style={styles.promptText}>{result.dare}</Text>
@@ -1173,7 +1187,7 @@ function RouletteGame({ players, names, settings, onExit }: GameProps) {
           />
         </>
       ) : null}
-      <Btn label={spinning ? "Snurrar…" : "🎰 Snurra"} onPress={spin} disabled={spinning} />
+      <Btn label={spinning ? "Snurrar…" : "Snurra"} onPress={spin} disabled={spinning} />
       <Btn label="Avsluta" tone="ghost" onPress={onExit} />
     </View>
   );
@@ -1217,7 +1231,7 @@ function BombGame({ players, names, settings, onExit }: GameProps) {
 
   return (
     <View style={styles.gameBody}>
-      <Text style={styles.phaseLabel}>The Bomb 💣 — säg ett ord i kategorin, skicka vidare</Text>
+      <Text style={styles.phaseLabel}>The Bomb — säg ett ord i kategorin, skicka vidare</Text>
       <View style={styles.promptCard}>
         <Text style={styles.promptText}>Kategori: {category}</Text>
       </View>
@@ -1225,13 +1239,15 @@ function BombGame({ players, names, settings, onExit }: GameProps) {
         <>
           <TurnBanner name={names[players[holder]] ?? "?"} />
           <Text style={styles.dim}>Bomben är gillrad på 10–60 sekunder — ingen vet när den smäller.</Text>
-          <Btn label="💣 Tänd stubinen" onPress={start} />
+          <Btn label="Tänd stubinen" onPress={start} />
         </>
       ) : null}
       {state === "ticking" ? (
         <>
           <TurnBanner name={names[players[holder]] ?? "?"} />
-          <Text style={{ fontSize: 64, textAlign: "center" }}>💣</Text>
+          <View style={styles.bigGlyph}>
+            <Bomb size={58} color="#15151B" strokeWidth={1.4} />
+          </View>
           <Btn
             label="Sagt mitt ord — SKICKA VIDARE →"
             onPress={() => setHolder((h) => (h + 1) % players.length)}
@@ -1240,7 +1256,9 @@ function BombGame({ players, names, settings, onExit }: GameProps) {
       ) : null}
       {state === "boom" ? (
         <>
-          <Text style={{ fontSize: 72, textAlign: "center" }}>💥</Text>
+          <View style={styles.bigGlyph}>
+            <Zap size={64} color="#FF4C29" strokeWidth={1.4} />
+          </View>
           <ResultMsg
             text={`PANG! ${names[players[boomHolderRef.current]]} höll bomben och dricker ${sipText(1, settings)}!`}
             good={false}
@@ -1310,7 +1328,9 @@ function TwentyOneGame({ players, names, settings, onExit }: GameProps) {
   if (winner) {
     return (
       <View style={styles.gameBody}>
-        <Text style={{ fontSize: 64, textAlign: "center" }}>🥂</Text>
+        <View style={styles.bigGlyph}>
+          <Wine size={58} color="#15151B" strokeWidth={1.4} />
+        </View>
         <Text style={styles.h1}>21! GEMENSAM SKÅL!</Text>
         <Text style={styles.dim}>
           Alla dricker {sipText(1, settings)} tillsammans. {names[winner]} sa 21 och får hitta på en
@@ -1473,7 +1493,7 @@ export default function GameCenter({
         </View>
 
         {!settings.alcoholFree && phase !== "menu" ? (
-          <Text style={styles.responsible}>🔞 Drick ansvarsfullt — och aldrig under 18.</Text>
+          <Text style={styles.responsible}>Drick ansvarsfullt — och aldrig under 18.</Text>
         ) : null}
 
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
@@ -1537,7 +1557,7 @@ export default function GameCenter({
                     </View>
                     <Text style={styles.playerName}>
                       {m.name}
-                      {isGuest ? "  🧑‍🤝‍🧑 gäst" : ""}
+                      {isGuest ? " · gäst" : ""}
                     </Text>
                   </Pressable>
                 );
@@ -1603,7 +1623,8 @@ export default function GameCenter({
                               locked ? { opacity: 0.35 } : null,
                             ]}
                           >
-                            <Text style={styles.nameChipText}>{locked ? `🔒 ${l}` : l}</Text>
+                            {locked ? <AppIcon name="lock" size={11} color="#15151B" /> : null}
+                            <Text style={styles.nameChipText}>{l}</Text>
                           </Pressable>
                         );
                       })}
@@ -1625,7 +1646,8 @@ export default function GameCenter({
                   <View style={{ flexDirection: "row", gap: 8 }}>
                     {(["gron", "gul", "rod"] as Intensity[]).map((l) => {
                       const locked = l !== "gron" && !settings.adult;
-                      const label = l === "gron" ? "🟢" : l === "gul" ? "🟡" : "🔴";
+                      // Nivån bärs av prickens färg, inte av en emoji.
+                      const dot = INTENSITY_COLORS[l];
                       return (
                         <Pressable
                           key={l}
@@ -1637,7 +1659,11 @@ export default function GameCenter({
                             locked ? { opacity: 0.35 } : null,
                           ]}
                         >
-                          <Text style={styles.nameChipText}>{locked ? "🔒" : label}</Text>
+                          {locked ? (
+                            <AppIcon name="lock" size={12} color="#15151B" />
+                          ) : (
+                            <View style={[styles.intensityDot, { backgroundColor: dot }]} />
+                          )}
                         </Pressable>
                       );
                     })}
@@ -1684,7 +1710,7 @@ export default function GameCenter({
 
               {game === "roulette" ? (
                 <View style={styles.settingRow}>
-                  <Text style={styles.settingLabel}>Djärvt läge 😈 (kräver 18+)</Text>
+                  <Text style={styles.settingLabel}>Djärvt läge (kräver 18+)</Text>
                   <Switch
                     value={settings.rouletteDare && settings.adult}
                     disabled={!settings.adult}
@@ -1796,6 +1822,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   miniChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 7,
@@ -1803,6 +1832,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "transparent",
   },
+  intensityDot: { width: 11, height: 11, borderRadius: 6 },
+  phaseRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  bigGlyph: { alignItems: "center" },
   miniChipOn: { borderColor: "#D4AF37", backgroundColor: "rgba(212,175,55,0.25)" },
   btn: {
     backgroundColor: "#3D5AFE",
@@ -1825,6 +1857,9 @@ const styles = StyleSheet.create({
   },
   nameGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" },
   nameChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
     backgroundColor: "#E1DED5",
     borderRadius: 8,
     paddingHorizontal: 14,

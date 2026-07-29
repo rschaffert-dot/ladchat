@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 
+import type { AppIconName } from "@/components/AppIcon";
 import { supabase } from "@/lib/supabase";
 import type { ActivationKind } from "@/lib/types";
 
@@ -8,17 +9,17 @@ const BUCKET = "activation-media";
 /** Metadata per aktivitetstyp — datadrivet så nya typer kan speglas i UI:t. */
 export const ACTIVATION_KINDS: Record<
   ActivationKind,
-  { label: string; emoji: string; blurb: string; needsMedia: boolean }
+  { label: string; icon: AppIconName; blurb: string; needsMedia: boolean }
 > = {
   thumb_order: {
     label: "Tummen på bordet",
-    emoji: "👍",
+    icon: "thumb",
     blurb: "Alla skickar en tumme upp. Först in får flest poäng, sist får 1p.",
     needsMedia: false,
   },
   longest_fart: {
     label: "Längsta prutten",
-    emoji: "💨",
+    icon: "wind",
     blurb: "Ladda upp en inspelning på en prutt. Längst inspelning vinner.",
     needsMedia: true,
   },

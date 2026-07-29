@@ -16,8 +16,10 @@ import {
   TIERS,
 } from "@/lib/huntCards";
 import type { HuntChallenge, HuntCompletion } from "@/lib/huntCards";
+import { achievementIcon } from "@/lib/achievements";
 import { supabase } from "@/lib/supabase";
 import type { Achievement, Streak, UserAchievement } from "@/lib/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 
@@ -212,9 +214,12 @@ export default function ProfileScreen() {
           </View>
         </View>
         {bestStreak > 0 ? (
-          <Text style={{ color: c.textSecondary, fontSize: 13 }}>
-            Längsta aktiva streak: {bestStreak} dagar 🔥
-          </Text>
+          <View style={styles.inlineRow}>
+            <AppIcon name="fire" size={14} color={c.textSecondary} />
+            <Text style={{ color: c.textSecondary, fontSize: 13 }}>
+              Längsta aktiva streak: {bestStreak} dagar
+            </Text>
+          </View>
         ) : null}
 
         <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>Level per grupp</Text>
@@ -262,7 +267,11 @@ export default function ProfileScreen() {
                   { backgroundColor: c.backgroundElement, opacity: has ? 1 : 0.35 },
                 ]}
               >
-                <Text style={{ fontSize: 30 }}>{has ? a.emoji : "🔒"}</Text>
+                <AppIcon
+                  name={has ? achievementIcon(a.code) : "lock"}
+                  size={26}
+                  color={has ? c.brand : c.textSecondary}
+                />
                 <Text style={[styles.trophyName, { color: c.text }]} numberOfLines={1}>
                   {a.name}
                 </Text>
@@ -276,12 +285,15 @@ export default function ProfileScreen() {
 
         {rivals.length > 0 ? (
           <>
-            <Text style={[styles.sectionTitle, { color: c.textSecondary }]}>
-              ⚔️ Rivaler{" "}
-              {rivals[0] ? (
-                <Text style={{ color: c.brand }}>— din ärkerival: {rivals[0].name}</Text>
-              ) : null}
-            </Text>
+            <View style={[styles.inlineRow, { marginTop: 18 }]}>
+              <AppIcon name="swords" size={15} color={c.textSecondary} />
+              <Text style={[styles.sectionTitle, { color: c.textSecondary, marginTop: 0 }]}>
+                Rivaler{" "}
+                {rivals[0] ? (
+                  <Text style={{ color: c.brand }}>— din ärkerival: {rivals[0].name}</Text>
+                ) : null}
+              </Text>
+            </View>
             {rivals.map((r) => (
               <View
                 key={r.name}
@@ -338,13 +350,15 @@ export default function ProfileScreen() {
                   {proofUrl && !proofIsVideo ? (
                     <Image source={{ uri: proofUrl }} style={styles.ladMiniImg} />
                   ) : (
-                    <Text style={{ fontSize: 16 }}>{proofUrl ? "🎬" : t.symbol}</Text>
+                    <AppIcon name={proofUrl ? "film" : t.icon} size={16} color={t.frameDark} />
                   )}
                   <Text style={[styles.ladMiniName, { color: t.text }]} numberOfLines={1}>
                     {challenge.name}
                   </Text>
                   {completion.status === "pending" ? (
-                    <Text style={styles.ladMiniBadge}>⏳</Text>
+                    <View style={styles.ladMiniBadge}>
+                      <AppIcon name="hourglass" size={11} color={t.frameDark} />
+                    </View>
                   ) : null}
                 </Pressable>
               );
@@ -370,11 +384,13 @@ export default function ProfileScreen() {
                   <View style={[styles.ladBigCard, { borderColor: t.frame, backgroundColor: t.face }]}>
                     <View style={[styles.ladBigInner, { borderColor: t.frameDark }]}>
                       <View style={styles.ladBigTop}>
-                        <Text style={{ fontSize: 20 }}>{t.symbol}</Text>
+                        <AppIcon name={t.icon} size={20} color={t.frameDark} />
                         <Text style={[styles.ladBigTier, { color: t.frameDark }]}>{t.label}</Text>
-                        <Text style={{ fontSize: 20 }}>
-                          {CATEGORIES[challenge.category]?.emoji}
-                        </Text>
+                        <AppIcon
+                          name={CATEGORIES[challenge.category]?.icon ?? "star"}
+                          size={20}
+                          color={t.frameDark}
+                        />
                       </View>
                       <Text style={[styles.ladBigName, { color: t.text }]}>
                         {challenge.name.toUpperCase()}
@@ -383,11 +399,18 @@ export default function ProfileScreen() {
                       <Text style={[styles.ladBigDesc, { color: t.text }]}>
                         {challenge.description}
                       </Text>
-                      <Text style={[styles.ladBigPoints, { color: t.text }]}>
-                        {completion.status === "confirmed"
-                          ? `⭐ Klarad — +${completion.points_awarded}p`
-                          : `⏳ Väntar på vittnets bekräftelse (${challenge.points}p)`}
-                      </Text>
+                      <View style={styles.ladBigPointsRow}>
+                        <AppIcon
+                          name={completion.status === "confirmed" ? "star" : "hourglass"}
+                          size={14}
+                          color={t.text}
+                        />
+                        <Text style={[styles.ladBigPoints, { color: t.text }]}>
+                          {completion.status === "confirmed"
+                            ? `Klarad — +${completion.points_awarded}p`
+                            : `Väntar på vittnets bekräftelse (${challenge.points}p)`}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
@@ -401,7 +424,12 @@ export default function ProfileScreen() {
                         <Image source={{ uri: proofUrl }} style={styles.ladBigProofImg} />
                       ) : (
                         <View style={styles.ladProofEmpty}>
-                          <Text style={{ fontSize: 40 }}>{proofUrl ? "🎬" : "🕳"}</Text>
+                          <AppIcon
+                            name={proofUrl ? "film" : "hole"}
+                            size={38}
+                            color="#84828C"
+                            strokeWidth={1.4}
+                          />
                           <Text style={styles.ladProofEmptyText}>
                             {proofUrl ? "Tryck för att visa videobeviset" : "Bevis saknas"}
                           </Text>
@@ -418,12 +446,13 @@ export default function ProfileScreen() {
                       <Pressable
                         onPress={() =>
                           void Share.share({
-                            message: `💪 Jag klarade "${challenge.name}" i Poängjakten på LadChat — +${completion.points_awarded}p! 🃏 Vågar du?`,
+                            message: `Jag klarade "${challenge.name}" i Poängjakten på LadChat — +${completion.points_awarded}p! Vågar du?`,
                           })
                         }
-                        style={[styles.ladCloseBtn, { backgroundColor: "#3D5AFE" }]}
+                        style={[styles.ladCloseBtn, { backgroundColor: "#3D5AFE", flexDirection: "row", gap: 6 }]}
                       >
-                        <Text style={{ color: "#fff", fontWeight: "800" }}>↗ Dela</Text>
+                        <Icon name="share-2" size={15} color="#fff" />
+                        <Text style={{ color: "#fff", fontWeight: "800" }}>Dela</Text>
                       </Pressable>
                     ) : null}
                     <Pressable onPress={() => setExpanded(null)} style={styles.ladCloseBtn}>
@@ -502,7 +531,8 @@ const styles = StyleSheet.create({
   },
   ladMiniImg: { width: "100%", flex: 1, borderRadius: 8 },
   ladMiniName: { fontFamily: HUNT_SERIF, fontSize: 8, fontWeight: "700", textAlign: "center" },
-  ladMiniBadge: { position: "absolute", top: 2, right: 3, fontSize: 10 },
+  ladMiniBadge: { position: "absolute", top: 3, right: 4 },
+  inlineRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   ladModalDim: { flex: 1, backgroundColor: "rgba(21,21,27,0.88)" },
   ladModalScroll: {
     padding: 20,
@@ -532,6 +562,7 @@ const styles = StyleSheet.create({
   ladBigOrnament: { textAlign: "center", fontSize: 11 },
   ladBigDesc: { fontFamily: HUNT_SERIF, fontSize: 15, lineHeight: 21, textAlign: "center" },
   ladBigPoints: { fontSize: 15, fontWeight: "800", textAlign: "center" },
+  ladBigPointsRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   ladBigProofImg: { width: "100%", aspectRatio: 0.75 },
   ladProofEmpty: { alignItems: "center", gap: 6, paddingVertical: 40 },
   ladProofEmptyText: { color: "#84828C", fontSize: 12, fontWeight: "600" },

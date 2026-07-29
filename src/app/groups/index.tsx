@@ -23,6 +23,7 @@ import {
 import type { Currency } from "@/lib/chatSettings";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
 import { useColors } from "@/lib/ui";
@@ -439,12 +440,16 @@ export default function GroupsScreen() {
                       {p?.pinnedAt ? <Icon name="bookmark" size={13} color={c.brand} /> : null}
                       <Text style={[styles.groupName, { color: c.text }]}>{item.name}</Text>
                       {(item.msg_streak ?? 0) > 1 ? (
-                        <Text style={{ fontSize: 12, color: c.textSecondary }}>
-                          🔥{item.msg_streak}
-                          {item.msg_streak_date !== new Date().toISOString().slice(0, 10)
-                            ? "⌛"
-                            : ""}
-                        </Text>
+                        <View style={styles.streakRow}>
+                          <AppIcon name="fire" size={12} color={c.textSecondary} />
+                          <Text style={{ fontSize: 12, color: c.textSecondary }}>
+                            {item.msg_streak}
+                          </Text>
+                          {/* Timglas = streaken riskerar att brytas idag. */}
+                          {item.msg_streak_date !== new Date().toISOString().slice(0, 10) ? (
+                            <AppIcon name="hourglass" size={11} color={c.textSecondary} />
+                          ) : null}
+                        </View>
                       ) : null}
                       {p?.muted ? (
                         <Icon name="bell-off" size={13} color={c.textSecondary} />
@@ -547,6 +552,7 @@ const styles = StyleSheet.create({
   groupAvatarText: { color: "#fff", fontSize: 18, fontWeight: "800" },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  streakRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   badge: {
     backgroundColor: "#FF4C29",
     borderRadius: 8,

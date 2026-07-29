@@ -48,6 +48,7 @@ import {
   saveChatSettings,
 } from "@/lib/chatSettings";
 import type { ChatSettings } from "@/lib/chatSettings";
+import { QUICK_EMOJIS } from "@/lib/messageEmojis";
 import {
   ACTIVATION_KINDS,
   formatDuration,
@@ -93,8 +94,9 @@ import {
   Trophy as LTrophy,
 } from "lucide-react-native";
 
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
-import { useColors } from "@/lib/ui";
+import { BRAND, useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
 
 type LeaderboardRow = { userId: string; name: string; points: number };
@@ -360,13 +362,9 @@ const STAR_TINTS: Record<string, string> = {
 const PAGE = 30;
 const MISSING = "00000000-0000-0000-0000-000000000000";
 
-const QUICK_EMOJIS = [
-  "😀", "😂", "🤣", "😎", "😭", "😡", "🥴", "🤠",
-  "❤️", "🔥", "👍", "👎", "💪", "🍺", "🐐", "💀",
-  "🎉", "👀", "🙏", "🤝", "🖕", "💩", "🧠", "⚽",
-  "🥂", "🍕", "🚬", "😈", "🤡", "🥶", "😤", "🫡",
-  "🤙", "👊", "🏆", "🎲", "⚡", "💯", "🙈", "😴",
-];
+/** Guld till kronor och medaljer; silver/brons till veckans tvåa och trea. */
+const ACCENT_GOLD = "#D4AF37";
+const WEEKLY_MEDALS = [ACCENT_GOLD, "#9AA3AD", "#B87333"];
 
 const COMPOSER_PLACEHOLDERS = [
   "Skriv ett meddelande…",
@@ -413,7 +411,7 @@ function ChatImage({ path }: { path: string }) {
   );
 }
 
-/** 🔥 Snap: bilden kan bara ses en gång per enhet, i 10 sekunder. */
+/** Snap: bilden kan bara ses en gång per enhet, i 10 sekunder. */
 function SnapImage({ id, path, tint }: { id: string; path: string; tint: string }) {
   const [burned, setBurned] = useState<boolean | null>(null);
   const [url, setUrl] = useState<string | null>(null);
@@ -444,16 +442,16 @@ function SnapImage({ id, path, tint }: { id: string; path: string; tint: string 
           }}
         >
           <Image source={{ uri: url }} style={styles.lightboxImage} resizeMode="contain" />
-          <Text style={styles.snapCountdown}>🔥 Bilden brinner upp om 10 s — tryck för att stänga</Text>
+          <Text style={styles.snapCountdown}>Bilden brinner upp om 10 s — tryck för att stänga</Text>
         </Pressable>
       </Modal>
     );
   }
   return burned ? (
-    <Text style={{ color: tint, fontSize: 14, fontStyle: "italic" }}>🔥 Snapen är bränd</Text>
+    <Text style={{ color: tint, fontSize: 14, fontStyle: "italic" }}>Snapen är bränd</Text>
   ) : (
     <Pressable onPress={view} style={styles.snapButton}>
-      <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🔥 Visa snap (en gång)</Text>
+      <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>Visa snap (en gång)</Text>
     </Pressable>
   );
 }
@@ -524,7 +522,7 @@ function AudioBubble({
   return (
     <View style={styles.audioBubble}>
       <Pressable onPress={toggle} hitSlop={8}>
-        <Text style={{ color: tint, fontSize: 20 }}>{playing ? "⏸" : "▶️"}</Text>
+        <AppIcon name={playing ? "pause" : "play"} size={19} color={tint} />
       </Pressable>
       <View style={styles.waveform}>
         {bars.map((h, i) => (
@@ -545,7 +543,7 @@ function AudioBubble({
           ? formatCountdown(positionMs)
           : durationMs
             ? formatCountdown(durationMs)
-            : "🎤"}
+            : ""}
       </Text>
       <Pressable onPress={cycleSpeed} hitSlop={8} style={styles.speedChip}>
         <Text style={{ color: tint, fontSize: 11, fontWeight: "800" }}>
@@ -779,7 +777,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                 <Image source={{ uri: avatar }} style={styles.msgAvatar} />
               ) : (
                 <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
-                  <Text style={{ fontSize: 12 }}>👤</Text>
+                  <AppIcon name="user" size={12} color={c.textSecondary} />
                 </View>
               )}
             </Pressable>
@@ -833,7 +831,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                     marginBottom: 6,
                   }}
                 >
-                  📊 {poll.question}
+                  {poll.question}
                 </Text>
                 {poll.options.map((o) => {
                   const pct = poll.total ? Math.round((o.votes / poll.total) * 100) : 0;
@@ -876,7 +874,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
             ) : (
               <View style={styles.pollBox}>
                 <Text style={{ color: c.text, fontWeight: "800", fontSize: 15, marginBottom: 2 }}>
-                  🎯 {wager.question}
+                  {wager.question}
                 </Text>
                 <Text style={{ color: c.textSecondary, fontSize: 11 }}>
                   Gissa {wager.kind === "time" ? "klockslag" : "en siffra"} — närmast vinner
@@ -890,6 +888,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                       style={[styles.pollOption, won ? styles.pollOptionMine : null]}
                     >
                       <View style={styles.pollOptionRow}>
+                        {won ? <AppIcon name="trophy" size={13} color="#fff" /> : null}
                         <Text
                           style={{
                             color: "#fff",
@@ -899,7 +898,6 @@ const ChatMessageRow = memo(function ChatMessageRow({
                           }}
                           numberOfLines={1}
                         >
-                          {won ? "🏆 " : ""}
                           {g.name}
                         </Text>
                         <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>
@@ -921,7 +919,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                       style={[styles.pollOption, { alignItems: "center", paddingVertical: 9 }]}
                     >
                       <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>
-                        {wager.mine ? `✏️ Ändra din gissning (${wager.mine})` : "🎯 Gissa!"}
+                        {wager.mine ? `Ändra din gissning (${wager.mine})` : "Gissa!"}
                       </Text>
                     </Pressable>
                     {mine ? (
@@ -933,7 +931,7 @@ const ChatMessageRow = memo(function ChatMessageRow({
                         ]}
                       >
                         <Text style={{ color: "#D4AF37", fontWeight: "800", fontSize: 13 }}>
-                          🏁 Ange facit & kora vinnare
+                          Ange facit & kora vinnare
                         </Text>
                       </Pressable>
                     ) : null}
@@ -987,12 +985,12 @@ const ChatMessageRow = memo(function ChatMessageRow({
           </Text>
         ) : null}
         {item.pending ? (
-          <Text style={[styles.msgStatus, { color: c.textSecondary }]}>🕒 Skickar…</Text>
+          <Text style={[styles.msgStatus, { color: c.textSecondary }]}>Skickar…</Text>
         ) : null}
         {item.failed ? (
           <View style={styles.failedRow}>
             <Text style={{ color: "#FF4C29", fontSize: 12, fontWeight: "700" }}>
-              ⚠️ Kunde inte skickas
+              Kunde inte skickas
             </Text>
             <Pressable onPress={() => act.retry(item)} hitSlop={8}>
               <Text style={{ color: c.brand, fontSize: 12, fontWeight: "700" }}>Försök igen</Text>
@@ -1150,14 +1148,14 @@ export default function GroupChatScreen() {
       const f = grab(e.clipboardData);
       if (f) {
         e.preventDefault();
-        void sendMediaRef.current?.("image", f, f.type, "📷 Bild");
+        void sendMediaRef.current?.("image", f, f.type, "Bild");
       }
     };
     const onDrop = (e: DragEvent) => {
       const f = grab(e.dataTransfer);
       if (f) {
         e.preventDefault();
-        void sendMediaRef.current?.("image", f, f.type, "📷 Bild");
+        void sendMediaRef.current?.("image", f, f.type, "Bild");
       }
     };
     const onDragOver = (e: DragEvent) => e.preventDefault();
@@ -1409,7 +1407,7 @@ export default function GroupChatScreen() {
       [...prev, p.msg].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     );
   }
-  /** Dubbeltryck = snabbreaktion (💪), enkeltryck lämnas till innehållet. */
+  /** Dubbeltryck = snabbreaktion (), enkeltryck lämnas till innehållet. */
   function onBubbleTap(item: LocalMsg, mine: boolean) {
     const now = Date.now();
     if (lastTapRef.current.id === item.id && now - lastTapRef.current.at < 300 && !mine) {
@@ -1431,7 +1429,7 @@ export default function GroupChatScreen() {
     callNoteTimer.current = setTimeout(() => setCallNote(null), ms);
   }
   function noteCall(video: boolean) {
-    toast(video ? "🎥 Videosamtal kommer i en senare fas!" : "📞 Gruppsamtal kommer i en senare fas!");
+    toast(video ? "Videosamtal kommer i en senare fas!" : "Gruppsamtal kommer i en senare fas!");
   }
 
   // Förstagångstips: tre snabba rader om chattens dolda krafter.
@@ -1446,7 +1444,7 @@ export default function GroupChatScreen() {
     void AsyncStorage.setItem("onboarded:chat:v1", "1");
   }
 
-  // 🎡 Vem gör det? — snurra fram en syndabock ur medlemslistan.
+  // Vem gör det? — snurra fram en syndabock ur medlemslistan.
   const [wheelOpen, setWheelOpen] = useState(false);
   const [wheelIdx, setWheelIdx] = useState<number | null>(null);
   const [wheelSpinning, setWheelSpinning] = useState(false);
@@ -1479,7 +1477,7 @@ export default function GroupChatScreen() {
     if (!groupId) return;
     const { error } = await supabase.rpc("start_party_mode", { gid: groupId });
     if (error) {
-      toast("🎉 Kunde inte starta — party/power hour pågår redan!");
+      toast("Kunde inte starta — party/power hour pågår redan!");
     }
   }
 
@@ -1487,14 +1485,14 @@ export default function GroupChatScreen() {
     if (!groupId) return;
     const { error } = await supabase.rpc("use_streak_freeze", { gid: groupId });
     if (error) {
-      toast("🧊 Frysen gick inte att använda (redan använd denna månad?)");
+      toast("Frysen gick inte att använda (redan använd denna månad?)");
       return;
     }
     await checkin();
-    toast("🧊 Streaken räddad! Frysen är förbrukad för denna månad.", 4000);
+    toast("Streaken räddad! Frysen är förbrukad för denna månad.", 4000);
   }
 
-  // 🤝 Vadslagning.
+  // Vadslagning.
   type Bet = {
     id: string;
     creator_id: string;
@@ -1528,19 +1526,19 @@ export default function GroupChatScreen() {
       claim_text: betClaim.trim(),
       stake_amount: betStake,
     });
-    if (error) toast("🤝 Kunde inte skapa vadet: " + error.message);
+    if (error) toast("Kunde inte skapa vadet: " + error.message);
     setBetModalOpen(false);
     setBetClaim("");
     void loadBets();
   }
   async function betAction(fn: "accept_bet" | "cancel_bet", bid: string) {
     const { error } = await supabase.rpc(fn, { bid });
-    if (error) toast("🤝 " + error.message);
+    if (error) toast(error.message);
     void loadBets();
   }
   async function settleBet(bid: string, winner: string) {
     const { error } = await supabase.rpc("settle_bet", { bid, winner });
-    if (error) toast("🤝 " + error.message);
+    if (error) toast(error.message);
     void loadBets();
   }
 
@@ -1549,8 +1547,8 @@ export default function GroupChatScreen() {
     const { error } = await supabase.rpc("buy_lottery_ticket", { gid: groupId });
     toast(
       error
-        ? "🎟 " + (error.message.includes("already") ? "Du är redan med denna vecka!" : error.message)
-        : "🎟 Lott köpt! Dragning söndag kväll. Lycka till!",
+        ? (error.message.includes("already") ? "Du är redan med denna vecka!" : error.message)
+        : "Lott köpt! Dragning söndag kväll. Lycka till!",
     );
   }
 
@@ -1558,7 +1556,7 @@ export default function GroupChatScreen() {
     if (!groupId) return;
     await supabase.rpc("create_poll", {
       gid: groupId,
-      question: "🍺 Fyllekollen — hur packad är du just nu?",
+      question: "Fyllekollen — hur packad är du just nu?",
       options: ["1 — Spiknykter", "2 — Salongs", "3 — Rundgång", "4 — Dimma", "5 — Blackout"],
     });
   }
@@ -1580,7 +1578,7 @@ export default function GroupChatScreen() {
       txt: msg.content.slice(0, 120),
       at_time: at.toISOString(),
     });
-    toast(error ? "⏰ " + error.message : "⏰ Påminnelse satt!");
+    toast(error ? error.message : "Påminnelse satt!");
   }
 
   // Schemalagda meddelanden: långtryck på skicka-knappen.
@@ -1605,9 +1603,9 @@ export default function GroupChatScreen() {
     setScheduleOpen(false);
     if (!error) {
       setText("");
-      toast("🕐 Meddelandet skickas " + (whenLabel === "1h" ? "om en timme" : whenLabel) + "!");
+      toast("Meddelandet skickas " + (whenLabel === "1h" ? "om en timme" : whenLabel) + "!");
     } else {
-      toast("🕐 " + error.message);
+      toast(error.message);
     }
   }
 
@@ -1674,7 +1672,7 @@ export default function GroupChatScreen() {
     );
   }
 
-  // ⭐ Sparade meddelanden (lokalt per grupp).
+  // Sparade meddelanden (lokalt per grupp).
   const [starred, setStarred] = useState<{ id: string; author: string; content: string }[]>([]);
   const [starredOpen, setStarredOpen] = useState(false);
   useEffect(() => {
@@ -1697,10 +1695,10 @@ export default function GroupChatScreen() {
       void AsyncStorage.setItem(`starred:${groupId}`, JSON.stringify(next));
       return next;
     });
-    toast("Sparat! Hitta det under ⚡-knappen → Sparade meddelanden");
+    toast("Sparat! Hitta det under blixt-knappen → Sparade meddelanden");
   }
 
-  // 🔥 Snap: bild som bara kan ses en gång per enhet.
+  // Snap: bild som bara kan ses en gång per enhet.
   async function sendSnap() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) return;
@@ -1708,12 +1706,12 @@ export default function GroupChatScreen() {
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     setAttachOpen(false);
-    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "🔥 Snap", {
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "Snap", {
       snap: true,
     });
   }
 
-  // 📖 Dagens story: 24h-bilder som ringar överst i chatten.
+  // Dagens story: 24h-bilder som ringar överst i chatten.
   type Story = { id: string; user_id: string; media_path: string; created_at: string };
   const [stories, setStories] = useState<Story[]>([]);
   const [storySeen, setStorySeen] = useState<Record<string, true>>({});
@@ -1756,7 +1754,7 @@ export default function GroupChatScreen() {
     const asset = result.assets[0];
     const path = await uploadChatMedia(groupId, userId, asset.uri, asset.mimeType ?? "image/jpeg");
     await supabase.from("stories").insert({ group_id: groupId, user_id: userId, media_path: path });
-    toast("📖 Din story är uppe i 24 timmar!");
+    toast("Din story är uppe i 24 timmar!");
     void loadStories();
   }
   useEffect(() => {
@@ -1798,7 +1796,7 @@ export default function GroupChatScreen() {
     }
   }
 
-  // 🧵 Trådar: sidodiskussion kring ett meddelande.
+  // Trådar: sidodiskussion kring ett meddelande.
   const [threadRoot, setThreadRoot] = useState<LocalMsg | null>(null);
   const [threadText, setThreadText] = useState("");
   const threadMsgs = threadRoot
@@ -1827,10 +1825,10 @@ export default function GroupChatScreen() {
     void deliver(tempId, content, threadRoot.id);
   }
 
-  // 👁 Läsinfo: vem har läst fram till ett visst meddelande.
+  // Läsinfo: vem har läst fram till ett visst meddelande.
   const [readInfoMsg, setReadInfoMsg] = useState<LocalMsg | null>(null);
 
-  // ⬇️ Exportera hela chatten som textfil (webb) eller delningsark (native).
+  // Exportera hela chatten som textfil (webb) eller delningsark (native).
   async function exportChat() {
     if (!groupId) return;
     const { data } = await supabase
@@ -2672,7 +2670,7 @@ export default function GroupChatScreen() {
             const prevPts = prevOwnPointsRef.current;
             prevOwnPointsRef.current = row.points;
             if (prevPts !== null && levelForPoints(row.points) > levelForPoints(prevPts)) {
-              setCelebration(`🎖️ LEVEL UP! Du är nu ${titleForPoints(row.points)}!`);
+              setCelebration(`LEVEL UP! Du är nu ${titleForPoints(row.points)}!`);
               setTimeout(() => setCelebration(null), 4000);
             }
           }
@@ -2824,7 +2822,7 @@ export default function GroupChatScreen() {
             const bonus = oldDuration ? (BEER_DURATION_BONUS[oldDuration] ?? 0) : 0;
             const reward = glass.points + bonus;
             setCelebration(
-              `🍻 ${glass.label} är fullt! Alla i chatten får +${reward} ${settingsRef.current.currency}.`,
+              `${glass.label} är fullt! Alla i chatten får +${reward} ${settingsRef.current.currency}.`,
             );
             setTimeout(() => setCelebration(null), 4000);
             void loadLeaderboard();
@@ -2888,7 +2886,7 @@ export default function GroupChatScreen() {
     }
   }
 
-  /** Optimistisk sändning: bubblan syns direkt (🕒), misslyckande ger ⚠️ med
+  /** Optimistisk sändning: bubblan syns direkt (), misslyckande ger med
    *  Försök igen/Ta bort. Realtime-INSERT dedupliceras på riktiga id:t. */
   async function deliver(tempId: string, content: string, replyToId: string | null) {
     if (!userId || !groupId) return;
@@ -2997,7 +2995,7 @@ export default function GroupChatScreen() {
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     setAttachOpen(false);
-    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "📷 Bild");
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "Bild");
   }
 
   async function takeChatPhoto() {
@@ -3010,7 +3008,7 @@ export default function GroupChatScreen() {
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
     setAttachOpen(false);
-    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "📷 Bild");
+    await sendMediaMessage("image", asset.uri, asset.mimeType ?? "image/jpeg", "Bild");
   }
 
   function cancelRecording() {
@@ -3048,7 +3046,7 @@ export default function GroupChatScreen() {
         const blob = new Blob(recordChunksRef.current, { type: mime });
         const durationMs = Date.now() - recordStartRef.current;
         if (blob.size > 0) {
-          void sendMediaMessage("audio", blob, mime, "🎤 Röstmemo", { duration_ms: durationMs });
+          void sendMediaMessage("audio", blob, mime, "Röstmemo", { duration_ms: durationMs });
         }
       };
       recorder.start();
@@ -3295,7 +3293,7 @@ export default function GroupChatScreen() {
     openProfile: (uid) => void openMemberCard(uid),
     showOriginal: (m) => {
       const orig = m.metadata?.original_content as string | undefined;
-      if (orig) toast(`✏️ Original: "${orig}"`, 5000);
+      if (orig) toast(`Original: "${orig}"`, 5000);
     },
   };
   const rowActions = useRef<RowActions>({
@@ -3352,7 +3350,7 @@ export default function GroupChatScreen() {
           }
           ListEmptyComponent={
             <View style={[styles.empty, { alignItems: "center", gap: 10 }]}>
-              <Text style={{ fontSize: 44 }}>🍻</Text>
+              <AppIcon name="beer" size={40} color={c.textSecondary} strokeWidth={1.4} />
               <Text style={{ color: c.textSecondary, fontSize: 14, textAlign: "center" }}>
                 Inga meddelanden än — bryt isen!
               </Text>
@@ -3503,7 +3501,7 @@ export default function GroupChatScreen() {
         <View style={[styles.replyPreview, { backgroundColor: c.backgroundElement }]}>
           <View style={styles.flex}>
             <Text style={{ color: c.brand, fontWeight: "700", fontSize: 12 }}>
-              ✏️ Redigerar meddelande
+              Redigerar meddelande
             </Text>
             <Text style={{ color: c.textSecondary, fontSize: 12 }} numberOfLines={1}>
               {editingMsg.content}
@@ -3669,10 +3667,10 @@ export default function GroupChatScreen() {
             {recording ? (
               <>
                 <Pressable onPress={cancelRecording} hitSlop={8} accessibilityLabel="Kasta inspelningen">
-                  <Text style={{ fontSize: 18 }}>🗑</Text>
+                  <AppIcon name="trash" size={18} color="#FF4C29" />
                 </Pressable>
                 <Text style={{ color: "#FF4C29", fontWeight: "800", fontSize: 13 }}>
-                  🔴 {Math.floor(recordElapsed / 60)}:{String(recordElapsed % 60).padStart(2, "0")}
+                  {Math.floor(recordElapsed / 60)}:{String(recordElapsed % 60).padStart(2, "0")}
                 </Text>
               </>
             ) : null}
@@ -3734,16 +3732,17 @@ export default function GroupChatScreen() {
           ) : null}
         </Pressable>
         <Pressable onPress={() => setSettingsOpen(true)} style={styles.headerTitleZone}>
-          <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
-            {group?.name ?? ""}
+          <View style={styles.inlineRow}>
+            <Text style={[styles.headerTitle, { color: c.text }]} numberOfLines={1}>
+              {group?.name ?? ""}
+            </Text>
             {(group?.msg_streak ?? 0) > 1 ? (
-              <Text style={{ fontSize: 13 }}>
-                {"  🔥"}
-                {group?.msg_streak}
-                {group?.msg_streak_date !== new Date().toISOString().slice(0, 10) ? "⌛" : ""}
-              </Text>
+              <>
+                <AppIcon name="fire" size={12} color={c.textSecondary} />
+                <Text style={{ fontSize: 13, color: c.textSecondary }}>{group?.msg_streak}</Text>
+              </>
             ) : null}
-          </Text>
+          </View>
           {typingName ? (
             <Text style={{ color: c.textSecondary, fontSize: 11 }} numberOfLines={1}>
               {typingName} skriver…
@@ -3766,9 +3765,10 @@ export default function GroupChatScreen() {
       </View>
 
       {offline ? (
-        <View style={styles.offlineBar}>
+        <View style={[styles.offlineBar, styles.inlineRow, { justifyContent: "center" }]}>
+          <AppIcon name="offline" size={12} color="#fff" />
           <Text style={{ color: "#fff", fontSize: 11, fontWeight: "700" }}>
-            📡 Ingen anslutning — försöker igen…
+            Ingen anslutning — försöker igen…
           </Text>
         </View>
       ) : null}
@@ -3805,7 +3805,7 @@ export default function GroupChatScreen() {
         </View>
       ) : null}
 
-      {/* 📖 Stories: 24h-ringar. */}
+      {/* Stories: 24h-ringar. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -3836,7 +3836,7 @@ export default function GroupChatScreen() {
                 {prof?.avatar ? (
                   <Image source={{ uri: prof.avatar }} style={styles.storyAvatar} />
                 ) : (
-                  <Text style={{ fontSize: 16 }}>👤</Text>
+                  <AppIcon name="user" size={16} color={c.textSecondary} />
                 )}
               </View>
               <Text style={[styles.storyName, { color: c.text }]} numberOfLines={1}>
@@ -3852,7 +3852,7 @@ export default function GroupChatScreen() {
         accessibilityLabel="Energibar — tryck för förklaring"
         onPress={() =>
           toast(
-            "⚡ Energibaren fylls när ni chattar och sjunker vid tystnad. Full bar startar Power Hour med dubbel XP! Syns ett ölglas i bakgrunden pågår en ölrunda — det fylls också av aktivitet.",
+            "Energibaren fylls när ni chattar och sjunker vid tystnad. Full bar startar Power Hour med dubbel XP! Syns ett ölglas i bakgrunden pågår en ölrunda — det fylls också av aktivitet.",
             6000,
           )
         }
@@ -3871,14 +3871,15 @@ export default function GroupChatScreen() {
 
       {group?.goal_points && group.goal_deadline && !dismissed[`goal:${group.goal_points}`] ? (
         <View style={[styles.goalBanner, { backgroundColor: c.backgroundElement }]}>
+          <AppIcon name="target" size={15} color={BRAND} />
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={{ color: c.text, fontSize: 12, fontWeight: "700" }}>
-              🎯 Gruppmål: {goalTotal ?? "…"}/{group.goal_points} teampoäng före{" "}
+              Gruppmål: {goalTotal ?? "…"}/{group.goal_points} teampoäng före{" "}
               {new Date(group.goal_deadline).toLocaleDateString("sv-SE", {
                 day: "numeric",
                 month: "short",
               })}
-              {goalTotal !== null && goalTotal >= group.goal_points ? " — I MÅL! 🏆" : ""}
+              {goalTotal !== null && goalTotal >= group.goal_points ? " — I MÅL!" : ""}
             </Text>
             <View style={[styles.progressTrackThin, { backgroundColor: c.backgroundSelected }]}>
               <View
@@ -3901,7 +3902,7 @@ export default function GroupChatScreen() {
       {bets.map((b) => (
         <View key={b.id} style={[styles.goalBanner, { backgroundColor: c.backgroundElement }]}>
           <Text style={{ color: c.text, fontSize: 12, flex: 1 }} numberOfLines={2}>
-            🤝 {namesRef.current[b.creator_id] ?? memberProfiles.find((m) => m.id === b.creator_id)?.name ?? "?"}
+            {namesRef.current[b.creator_id] ?? memberProfiles.find((m) => m.id === b.creator_id)?.name ?? "?"}
             {": "}
             {"”"}
             {b.claim}
@@ -3923,7 +3924,7 @@ export default function GroupChatScreen() {
                 pid ? (
                   <Pressable key={pid} onPress={() => void settleBet(b.id, pid)} hitSlop={6}>
                     <Text style={{ color: settings.color, fontWeight: "700", fontSize: 11 }}>
-                      🏆 {memberProfiles.find((m) => m.id === pid)?.name?.split(" ")[0] ?? "?"}
+                      {memberProfiles.find((m) => m.id === pid)?.name?.split(" ")[0] ?? "?"}
                     </Text>
                   </Pressable>
                 ) : null,
@@ -3943,8 +3944,9 @@ export default function GroupChatScreen() {
 
       {powerHourActive && !dismissed[`ph:${powerHourEndsAt}`] ? (
         <View style={[styles.powerHourBanner, styles.bannerRow]}>
+          <AppIcon name="zap" size={15} color="#15151B" />
           <Text style={[styles.powerHourText, { flex: 1 }]}>
-            ⚡ POWER HOUR — dubbel XP! {formatCountdown(powerHourRemainingMs)} kvar
+            POWER HOUR — dubbel XP! {formatCountdown(powerHourRemainingMs)} kvar
           </Text>
           <Pressable onPress={() => dismissBanner(`ph:${powerHourEndsAt}`)} hitSlop={10}>
             <Text style={[styles.bannerClose, { color: "#15151B" }]}>×</Text>
@@ -3957,16 +3959,17 @@ export default function GroupChatScreen() {
       streak.last_checkin !== new Date().toISOString().slice(0, 10) &&
       !dismissed[`streak:${new Date().toISOString().slice(0, 10)}`] ? (
         <View style={[styles.streakWarning, styles.bannerRow]}>
+          <AppIcon name="fire" size={15} color="#FF4C29" />
           <Pressable onPress={checkin} style={{ flex: 1 }}>
             <Text style={styles.streakWarningText}>
-              🔥 Din {streak.current_streak}-dagarsstreak ryker om du inte checkar in idag — tryck
+              Din {streak.current_streak}-dagarsstreak ryker om du inte checkar in idag — tryck
               här!
             </Text>
           </Pressable>
           {streak.last_checkin &&
           streak.last_checkin < new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) ? (
             <Pressable onPress={() => void freezeStreak()} hitSlop={8}>
-              <Text style={{ fontSize: 16 }}>🧊</Text>
+              <AppIcon name="freeze" size={16} color={BRAND} />
             </Pressable>
           ) : null}
           <Pressable
@@ -3980,8 +3983,9 @@ export default function GroupChatScreen() {
 
       {quest && !questDone && !dismissed[`quest:${new Date().toISOString().slice(0, 10)}:${quest.quest_id}`] ? (
         <View style={[styles.questStrip, { backgroundColor: c.backgroundElement }]}>
+          <AppIcon name="target" size={14} color={BRAND} />
           <Text style={[styles.questText, { color: c.text }]} numberOfLines={1}>
-            🎯 {quest.title}
+            {quest.title}
           </Text>
           <Pressable
             onPress={completeQuest}
@@ -4016,7 +4020,7 @@ export default function GroupChatScreen() {
           {duel.status === "pending" ? (
             <>
               <Text style={styles.duelText}>
-                ⚔️ {namesRef.current[duel.challenger_id] ?? "?"} utmanar{" "}
+                {namesRef.current[duel.challenger_id] ?? "?"} utmanar{" "}
                 {namesRef.current[duel.opponent_id] ?? "?"} om {duel.stake}p
               </Text>
               {duel.opponent_id === userId ? (
@@ -4050,7 +4054,7 @@ export default function GroupChatScreen() {
           ) : (
             <>
               <Text style={styles.duelText}>
-                ⚔️ {namesRef.current[duel.challenger_id] ?? "?"} ({duelVotes.ch}) vs{" "}
+                {namesRef.current[duel.challenger_id] ?? "?"} ({duelVotes.ch}) vs{" "}
                 {namesRef.current[duel.opponent_id] ?? "?"} ({duelVotes.op}) · pott {duel.stake * 2}p ·{" "}
                 {formatCountdown(duelRemainingMs)}
               </Text>
@@ -4090,10 +4094,15 @@ export default function GroupChatScreen() {
       {activation && !dismissed[`act:${activation.id}`] ? (
         <View style={[styles.activationCard, { backgroundColor: c.brand }]}>
           <View style={styles.activationTop}>
+            <AppIcon
+              name={ACTIVATION_KINDS[activation.kind]?.icon ?? "zap"}
+              size={15}
+              color="#fff"
+            />
             <Text style={styles.activationTitle} numberOfLines={1}>
-              {ACTIVATION_KINDS[activation.kind]?.emoji} {activation.name}
+              {activation.name}
             </Text>
-            <Text style={styles.activationTimer}>⏳ {formatRemaining(activationRemainingMs)}</Text>
+            <Text style={styles.activationTimer}>{formatRemaining(activationRemainingMs)}</Text>
             <Pressable onPress={() => dismissBanner(`act:${activation.id}`)} hitSlop={10}>
               <Text style={styles.bannerClose}>×</Text>
             </Pressable>
@@ -4119,8 +4128,8 @@ export default function GroupChatScreen() {
                   {activationBusy
                     ? "Skickar…"
                     : activation.kind === "longest_fart"
-                      ? "💨 Ladda upp prutt"
-                      : "👍 Skicka tumme"}
+                      ? "Ladda upp prutt"
+                      : "Skicka tumme"}
                 </Text>
               </Pressable>
             )}
@@ -4163,7 +4172,7 @@ export default function GroupChatScreen() {
         )}
       </KeyboardAvoidingView>
 
-      {/* 📖 Storyvisare. */}
+      {/* Storyvisare. */}
       <Modal
         visible={!!storyViewer}
         transparent
@@ -4193,7 +4202,7 @@ export default function GroupChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 🧵 Tråd. */}
+      {/* Tråd. */}
       <Modal
         visible={!!threadRoot}
         transparent
@@ -4207,7 +4216,7 @@ export default function GroupChatScreen() {
             onPress={() => {}}
           >
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>🧵 Tråd</Text>
+            <Text style={[styles.starTitle, { color: c.text }]}>Tråd</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {threadMsgs.map((m) => (
                 <View
@@ -4248,7 +4257,7 @@ export default function GroupChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 👁 Läsinfo. */}
+      {/* Läsinfo. */}
       <Modal
         visible={!!readInfoMsg}
         transparent
@@ -4261,9 +4270,12 @@ export default function GroupChatScreen() {
               style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 10 }]}
               onPress={() => {}}
             >
-              <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
-                👁 Vem har läst?
-              </Text>
+              <View style={[styles.inlineRow, { justifyContent: "center" }]}>
+                <AppIcon name="eye" size={15} color={c.text} />
+                <Text style={{ color: c.text, fontSize: 16, fontWeight: "800" }}>
+                  Vem har läst?
+                </Text>
+              </View>
               {memberProfiles
                 .filter((m) => m.id !== readInfoMsg.user_id)
                 .map((m) => {
@@ -4277,7 +4289,7 @@ export default function GroupChatScreen() {
                       {m.avatar ? (
                         <Image source={{ uri: m.avatar }} style={styles.typingAvatar} />
                       ) : (
-                        <Text style={{ fontSize: 13 }}>👤</Text>
+                        <AppIcon name="user" size={13} color={c.textSecondary} />
                       )}
                       <Text style={{ color: c.text, fontSize: 14, flex: 1 }}>{m.name}</Text>
                       <Text
@@ -4320,22 +4332,35 @@ export default function GroupChatScreen() {
                 <Image source={{ uri: memberCard.avatar }} style={styles.cardAvatar} />
               ) : (
                 <View style={[styles.cardAvatar, { backgroundColor: c.backgroundSelected, alignItems: "center", justifyContent: "center" }]}>
-                  <Text style={{ fontSize: 30 }}>👤</Text>
+                  <AppIcon name="user" size={28} color={c.textSecondary} />
                 </View>
               )}
-              <Text style={{ color: c.text, fontSize: 20, fontWeight: "800" }}>
-                {levelForPoints(memberCard.points ?? 0) >= 5 ? "👑 " : ""}
-                {memberCard.name}
-              </Text>
-              <Text style={{ color: c.textSecondary, fontSize: 14 }}>
-                {memberCard.points !== null
-                  ? `${titleForPoints(memberCard.points)} · ${memberCard.points} ${CURRENCY_META[settings.currency].emoji}`
-                  : "Laddar…"}
-              </Text>
+              <View style={styles.inlineRow}>
+                {levelForPoints(memberCard.points ?? 0) >= 5 ? (
+                  <AppIcon name="crown" size={17} color={ACCENT_GOLD} />
+                ) : null}
+                <Text style={{ color: c.text, fontSize: 20, fontWeight: "800" }}>
+                  {memberCard.name}
+                </Text>
+              </View>
+              <View style={styles.inlineRow}>
+                <Text style={{ color: c.textSecondary, fontSize: 14 }}>
+                  {memberCard.points !== null
+                    ? `${titleForPoints(memberCard.points)} · ${memberCard.points}`
+                    : "Laddar…"}
+                </Text>
+                {memberCard.points !== null ? (
+                  <AppIcon
+                    name={CURRENCY_META[settings.currency].icon}
+                    size={13}
+                    color={c.textSecondary}
+                  />
+                ) : null}
+              </View>
               <Text style={{ color: c.textSecondary, fontSize: 13 }}>
-                🔥 {memberCard.streak ?? 0} dagars streak
+                {memberCard.streak ?? 0} dagars streak
                 {memberCard.wins + memberCard.losses > 0
-                  ? ` · ⚔️ mot dig: ${memberCard.losses}–${memberCard.wins}`
+                  ? ` · mot dig: ${memberCard.losses}–${memberCard.wins}`
                   : ""}
               </Text>
               {memberCard.id !== userId ? (
@@ -4354,7 +4379,7 @@ export default function GroupChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 🤝 Nytt vad. */}
+      {/* Nytt vad. */}
       <Modal
         visible={betModalOpen}
         transparent
@@ -4365,7 +4390,7 @@ export default function GroupChatScreen() {
           <View style={{ flex: 1 }} />
           <Pressable style={[styles.starSheet, { backgroundColor: c.background }]} onPress={() => {}}>
             <View style={styles.sheetHandle} />
-            <Text style={[styles.starTitle, { color: c.text }]}>🤝 Slå vad</Text>
+            <Text style={[styles.starTitle, { color: c.text }]}>Slå vad</Text>
             <TextInput
               value={betClaim}
               onChangeText={setBetClaim}
@@ -4404,7 +4429,7 @@ export default function GroupChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* ⭐ Sparade meddelanden. */}
+      {/* Sparade meddelanden. */}
       <Modal
         visible={starredOpen}
         transparent
@@ -4453,7 +4478,7 @@ export default function GroupChatScreen() {
         </Pressable>
       </Modal>
 
-      {/* 🕐 Schemalägg meddelande. */}
+      {/* Schemalägg meddelande. */}
       <Modal
         visible={scheduleOpen}
         transparent
@@ -4466,7 +4491,7 @@ export default function GroupChatScreen() {
             onPress={() => {}}
           >
             <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
-              🕐 Skicka senare
+              Skicka senare
             </Text>
             <Text style={{ color: c.textSecondary, fontSize: 12 }} numberOfLines={2}>
               {"”"}{text.trim()}{"”"}
@@ -4500,7 +4525,7 @@ export default function GroupChatScreen() {
         <View style={styles.ctxBackdrop}>
           <View style={[styles.ctxCard, { backgroundColor: c.background, padding: 20, gap: 14 }]}>
             <Text style={{ color: c.text, fontSize: 18, fontWeight: "800", textAlign: "center" }}>
-              Välkommen till chatten! 👊
+              Välkommen till chatten!
             </Text>
             <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
               Blixtknappen startar spel, dueller, Poängjakten och mer.
@@ -4509,19 +4534,19 @@ export default function GroupChatScreen() {
               ↩︎ Svep ett meddelande åt höger för att svara på det.
             </Text>
             <Text style={{ color: c.text, fontSize: 14, lineHeight: 21 }}>
-              👆 Långtryck på en bubbla för reaktioner, kopiera, redigera och mer.
+              Långtryck på en bubbla för reaktioner, kopiera, redigera och mer.
             </Text>
             <Pressable
               onPress={dismissOnboarding}
               style={[styles.claimBtnLike, { backgroundColor: settings.color }]}
             >
-              <Text style={{ color: "#fff", fontWeight: "800" }}>Kör! 🍻</Text>
+              <Text style={{ color: "#fff", fontWeight: "800" }}>Kör!</Text>
             </Pressable>
           </View>
         </View>
       </Modal>
 
-      {/* 🎡 Vem gör det? */}
+      {/* Vem gör det? */}
       <Modal
         visible={wheelOpen}
         transparent
@@ -4565,7 +4590,7 @@ export default function GroupChatScreen() {
             </View>
             {wheelDone && wheelIdx !== null ? (
               <Text style={{ color: c.text, fontSize: 16, fontWeight: "800", textAlign: "center" }}>
-                🎯 {memberProfiles[wheelIdx]?.name} gör det!
+                {memberProfiles[wheelIdx]?.name} gör det!
               </Text>
             ) : null}
             <Pressable
@@ -4577,7 +4602,7 @@ export default function GroupChatScreen() {
               ]}
             >
               <Text style={{ color: "#fff", fontWeight: "800" }}>
-                {wheelSpinning ? "Snurrar…" : wheelDone ? "Snurra igen" : "🎰 Snurra"}
+                {wheelSpinning ? "Snurrar…" : wheelDone ? "Snurra igen" : "Snurra"}
               </Text>
             </Pressable>
           </Pressable>
@@ -4632,7 +4657,8 @@ export default function GroupChatScreen() {
                 }}
                 style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
               >
-                <Text style={[styles.ctxActionText, { color: c.text }]}>↩︎ Svara</Text>
+                <AppIcon name="reply" size={16} color={c.text} />
+                <Text style={[styles.ctxActionText, { color: c.text }]}>Svara</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -4641,7 +4667,8 @@ export default function GroupChatScreen() {
                 }}
                 style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
               >
-                <Text style={[styles.ctxActionText, { color: c.text }]}>📋 Kopiera text</Text>
+                <AppIcon name="copy" size={16} color={c.text} />
+                <Text style={[styles.ctxActionText, { color: c.text }]}>Kopiera text</Text>
               </Pressable>
               {menuMsg.kind === "user" && !menuMsg.pending && !menuMsg.failed ? (
                 <Pressable
@@ -4651,7 +4678,8 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: c.text }]}>↪️ Vidarebefordra</Text>
+                  <AppIcon name="send" size={16} color={c.text} />
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>Vidarebefordra</Text>
                 </Pressable>
               ) : null}
               {menuMsg.kind === "user" && !menuMsg.pending ? (
@@ -4678,7 +4706,8 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: c.text }]}>🧵 Öppna tråd</Text>
+                  <AppIcon name="thread" size={16} color={c.text} />
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>Öppna tråd</Text>
                 </Pressable>
               ) : null}
               {menuMsg.user_id === userId && !menuMsg.pending && !menuMsg.failed ? (
@@ -4689,12 +4718,14 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: c.text }]}>👁 Läsinfo</Text>
+                  <AppIcon name="eye" size={16} color={c.text} />
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>Läsinfo</Text>
                 </Pressable>
               ) : null}
               {!menuMsg.pending && !menuMsg.failed ? (
                 <View style={[styles.ctxAction, { borderTopColor: c.backgroundElement, flexDirection: "row", gap: 16 }]}>
-                  <Text style={[styles.ctxActionText, { color: c.text }]}>⏰ Påminn:</Text>
+                  <AppIcon name="clock" size={16} color={c.text} />
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>Påminn:</Text>
                   <Pressable
                     onPress={() => {
                       void remindMe(menuMsg, "1h");
@@ -4736,7 +4767,8 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: c.text }]}>✏️ Redigera</Text>
+                  <AppIcon name="edit" size={16} color={c.text} />
+                  <Text style={[styles.ctxActionText, { color: c.text }]}>Redigera</Text>
                 </Pressable>
               ) : null}
               {menuMsg.user_id === userId && !menuMsg.pending && !menuMsg.failed ? (
@@ -4747,7 +4779,8 @@ export default function GroupChatScreen() {
                   }}
                   style={[styles.ctxAction, { borderTopColor: c.backgroundElement }]}
                 >
-                  <Text style={[styles.ctxActionText, { color: "#FF4C29" }]}>🗑 Ta bort</Text>
+                  <AppIcon name="trash" size={16} color="#FF4C29" />
+                  <Text style={[styles.ctxActionText, { color: "#FF4C29" }]}>Ta bort</Text>
                 </Pressable>
               ) : null}
             </Pressable>
@@ -4778,7 +4811,7 @@ export default function GroupChatScreen() {
                   onPress={() => void forwardTo(g.id)}
                   style={[styles.starItem, { backgroundColor: c.backgroundElement }]}
                 >
-                  <Text style={{ fontSize: 20 }}>💬</Text>
+                  <AppIcon name="message" size={19} color={c.textSecondary} />
                   <Text style={[styles.starLabel, { color: c.text }]}>{g.name}</Text>
                   <Text style={{ color: c.textSecondary, fontSize: 18 }}>›</Text>
                 </Pressable>
@@ -4924,12 +4957,14 @@ export default function GroupChatScreen() {
                     <Image source={{ uri: m.avatar }} style={styles.msgAvatar} />
                   ) : (
                     <View style={[styles.msgAvatar, { backgroundColor: c.backgroundSelected }]}>
-                      <Text style={{ fontSize: 12 }}>👤</Text>
+                      <AppIcon name="user" size={12} color={c.textSecondary} />
                     </View>
                   )}
+                  {m.id === group?.owner_id ? (
+                    <AppIcon name="crown" size={12} color={ACCENT_GOLD} />
+                  ) : null}
                   <Text style={{ color: c.text, fontSize: 13, fontWeight: "600", flex: 1 }}>
                     {m.name}
-                    {m.id === group?.owner_id ? " 👑" : ""}
                     {m.id === userId ? " (du)" : ""}
                   </Text>
                   <Text style={{ color: c.textSecondary, fontSize: 12 }}>
@@ -4943,7 +4978,7 @@ export default function GroupChatScreen() {
               style={[styles.closeBtn, { backgroundColor: settings.color, marginTop: 4 }]}
             >
               <Text style={styles.sendText}>
-                {linkCopied ? "✓ Länk kopierad!" : "🔗 Dela chatten — bjud in med länk"}
+                {linkCopied ? "✓ Länk kopierad!" : "Dela chatten — bjud in med länk"}
               </Text>
             </Pressable>
 
@@ -4965,7 +5000,7 @@ export default function GroupChatScreen() {
             {group?.owner_id === userId ? (
               <>
                 <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                  🫥 Försvinnande meddelanden
+                  Försvinnande meddelanden
                 </Text>
                 <View style={styles.swatchRow}>
                   {(
@@ -4980,7 +5015,7 @@ export default function GroupChatScreen() {
                       onPress={() =>
                         void supabase
                           .rpc("set_ephemeral", { gid: groupId, hours })
-                          .then(({ error }) => error && toast("🫥 " + error.message))
+                          .then(({ error }) => error && toast(error.message))
                       }
                       style={[
                         styles.currencyChip,
@@ -5011,7 +5046,7 @@ export default function GroupChatScreen() {
                             target,
                             deadline: new Date(Date.now() + 30 * 86_400_000).toISOString(),
                           })
-                          .then(() => toast(`🎯 Mål satt: ${target} teampoäng!`))
+                          .then(() => toast(`Mål satt: ${target} teampoäng!`))
                       }
                       style={[
                         styles.currencyChip,
@@ -5056,7 +5091,7 @@ export default function GroupChatScreen() {
                       : null,
                   ]}
                 >
-                  <Text style={{ fontSize: 14 }}>{CURRENCY_META[cur].emoji}</Text>
+                  <AppIcon name={CURRENCY_META[cur].icon} size={14} color={c.text} />
                   <Text
                     style={{
                       color: settings.currency === cur ? c.text : c.textSecondary,
@@ -5142,7 +5177,7 @@ export default function GroupChatScreen() {
             </View>
 
             <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-              Öl-mode 🍺 (1 cl per meddelande, delad mellan alla i chatten)
+              Öl-mode (1 cl per meddelande, delad mellan alla i chatten)
             </Text>
             <View style={styles.beerPickerRow}>
               <Pressable
@@ -5219,7 +5254,7 @@ export default function GroupChatScreen() {
             {isAdmin ? (
               <>
                 <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
-                  Aktivera chatten 💤 (tävlingsledning)
+                  Aktivera chatten (tävlingsledning)
                 </Text>
                 <Pressable
                   onPress={adminStartActivation}
@@ -5244,7 +5279,7 @@ export default function GroupChatScreen() {
               <>
                 <Pressable onPress={() => void exportChat()} hitSlop={6}>
               <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
-                ⬇️ Exportera chatten som textfil
+                Exportera chatten som textfil
               </Text>
             </Pressable>
 
@@ -5267,14 +5302,27 @@ export default function GroupChatScreen() {
                 <View style={styles.leaderboard}>
                   {leaderboard.map((row) => (
                     <View key={row.userId} style={styles.leaderboardRow}>
-                      <Text style={{ color: c.text, fontSize: 13 }}>
-                        {levelForPoints(row.points) >= 5 ? "👑 " : ""}
-                        {row.name} · {titleForPoints(row.points)}
-                      </Text>
-                      <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
-                        {row.points} {CURRENCY_META[settings.currency].emoji}{" "}
-                        {settings.currency}
-                      </Text>
+                      <View style={styles.inlineRow}>
+                        {levelForPoints(row.points) >= 5 ? (
+                          <AppIcon name="crown" size={12} color={ACCENT_GOLD} />
+                        ) : null}
+                        <Text style={{ color: c.text, fontSize: 13 }}>
+                          {row.name} · {titleForPoints(row.points)}
+                        </Text>
+                      </View>
+                      <View style={styles.inlineRow}>
+                        <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                          {row.points}
+                        </Text>
+                        <AppIcon
+                          name={CURRENCY_META[settings.currency].icon}
+                          size={12}
+                          color={c.textSecondary}
+                        />
+                        <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
+                          {settings.currency}
+                        </Text>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -5289,10 +5337,12 @@ export default function GroupChatScreen() {
                 <View style={styles.leaderboard}>
                   {weekly.map((row, i) => (
                     <View key={row.userId} style={styles.leaderboardRow}>
-                      <Text style={{ color: c.text, fontSize: 13 }}>
-                        {i === 0 ? "🥇 " : i === 1 ? "🥈 " : i === 2 ? "🥉 " : ""}
-                        {row.name}
-                      </Text>
+                      <View style={styles.inlineRow}>
+                        {i < 3 ? (
+                          <AppIcon name="medal" size={13} color={WEEKLY_MEDALS[i]} />
+                        ) : null}
+                        <Text style={{ color: c.text, fontSize: 13 }}>{row.name}</Text>
+                      </View>
                       <Text style={{ color: c.textSecondary, fontSize: 13, fontWeight: "700" }}>
                         +{row.points}
                       </Text>
@@ -5304,7 +5354,7 @@ export default function GroupChatScreen() {
 
             {gotw ? (
               <Text style={[styles.pointsText, { color: c.text, fontWeight: "700" }]}>
-                👑 Grabb of the Week: {namesRef.current[gotw] ?? "?"}
+                Grabb of the Week: {namesRef.current[gotw] ?? "?"}
               </Text>
             ) : null}
 
@@ -5329,7 +5379,7 @@ export default function GroupChatScreen() {
                   </Text>
                   <Text style={{ color: c.textSecondary, fontSize: 12 }}>
                     {powerHourActive
-                      ? "På automatiskt — Partyläget pågår 🎉"
+                      ? "På automatiskt — Partyläget pågår"
                       : "Discoljus bakom chatten (slås på automatiskt i Partyläget)"}
                   </Text>
                 </View>
@@ -5358,7 +5408,7 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setPollModalOpen(false)} />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <Text style={[styles.sheetTitle, { color: c.text }]}>📊 Skapa omröstning</Text>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>Skapa omröstning</Text>
           <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Fråga</Text>
           <TextInput
             value={pollQuestion}
@@ -5406,7 +5456,7 @@ export default function GroupChatScreen() {
         </View>
       </Modal>
 
-      {/* 🎯 Skapa gissning: fråga + typ (klockslag/siffra). */}
+      {/* Skapa gissning: fråga + typ (klockslag/siffra). */}
       <Modal
         visible={wagerCreateOpen}
         animationType="slide"
@@ -5415,7 +5465,7 @@ export default function GroupChatScreen() {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => setWagerCreateOpen(false)} />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
-          <Text style={[styles.sheetTitle, { color: c.text }]}>🎯 Skapa gissning</Text>
+          <Text style={[styles.sheetTitle, { color: c.text }]}>Skapa gissning</Text>
           <Text style={{ color: c.textSecondary, fontSize: 13 }}>
             Alla i gruppen gissar — du anger facit när det hänt, och den som var närmast vinner
             automatiskt (+15 poäng).
@@ -5432,8 +5482,8 @@ export default function GroupChatScreen() {
           <View style={{ flexDirection: "row", gap: 8 }}>
             {(
               [
-                ["time", "🕐 Klockslag"],
-                ["number", "🔢 Siffra"],
+                ["time", "Klockslag"],
+                ["number", "Siffra"],
               ] as const
             ).map(([k, label]) => (
               <Pressable
@@ -5467,7 +5517,7 @@ export default function GroupChatScreen() {
         </View>
       </Modal>
 
-      {/* 🎯 Gissa / ange facit på en gissning. */}
+      {/* Gissa / ange facit på en gissning. */}
       <Modal
         visible={wagerModal !== null}
         animationType="slide"
@@ -5477,7 +5527,7 @@ export default function GroupChatScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setWagerModal(null)} />
         <View style={[styles.sheet, { backgroundColor: c.background }]}>
           <Text style={[styles.sheetTitle, { color: c.text }]}>
-            {wagerModal?.mode === "settle" ? "🏁 Ange facit" : "🎯 Din gissning"}
+            {wagerModal?.mode === "settle" ? "Ange facit" : "Din gissning"}
           </Text>
           <Text style={{ color: c.textSecondary, fontSize: 13 }}>{wagerModal?.question}</Text>
           {wagerModal?.mode === "settle" ? (
@@ -5637,6 +5687,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   starTitle: { fontSize: 16, fontWeight: "800", marginBottom: 4, textAlign: "center" },
+  inlineRow: { flexDirection: "row", alignItems: "center", gap: 5 },
   starItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -5696,7 +5747,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   ctxReaction: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  ctxAction: { paddingVertical: 14, paddingHorizontal: 16, borderTopWidth: 1 },
+  ctxAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+  },
   ctxActionText: { fontSize: 15, fontWeight: "600" },
   listContent: { padding: 12, gap: 8 },
   empty: { textAlign: "center", marginTop: 40, transform: [{ scaleY: -1 }] },

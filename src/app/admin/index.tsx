@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { supabase } from "@/lib/supabase";
 import type { Challenge, Tournament, TournamentEntry } from "@/lib/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
@@ -167,8 +168,9 @@ export default function AdminHomeScreen() {
             onPress={() => router.push("/admin/activations")}
             style={[styles.secondaryBtn, { borderColor: c.backgroundSelected }]}
           >
+            <AppIcon name="sleep" size={16} color={c.text} />
             <Text style={[styles.secondaryBtnText, { color: c.text }]}>
-              💤 Aktivera chattar
+              Aktivera chattar
             </Text>
           </Pressable>
 
@@ -239,7 +241,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     paddingVertical: 14,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     marginBottom: 8,
   },
   secondaryBtnText: { fontWeight: "700" },

@@ -18,6 +18,7 @@ import { useAuth } from "@/lib/auth";
 import { ACTIVATION_KINDS, ACTIVATION_KIND_OPTIONS } from "@/lib/activation";
 import { supabase } from "@/lib/supabase";
 import type { ActivationActivity, ActivationKind } from "@/lib/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 import { useIsAdmin } from "@/lib/useIsAdmin";
@@ -147,8 +148,13 @@ export default function AdminActivationsScreen() {
                     active ? { backgroundColor: c.brand, borderColor: c.brand } : null,
                   ]}
                 >
+                  <AppIcon
+                    name={ACTIVATION_KINDS[k].icon}
+                    size={14}
+                    color={active ? "#fff" : c.text}
+                  />
                   <Text style={[styles.kindChipText, { color: active ? "#fff" : c.text }]}>
-                    {ACTIVATION_KINDS[k].emoji} {ACTIVATION_KINDS[k].label}
+                    {ACTIVATION_KINDS[k].label}
                   </Text>
                 </Pressable>
               );
@@ -205,8 +211,9 @@ export default function AdminActivationsScreen() {
             rows.map((a) => (
               <View key={a.id} style={[styles.card, { backgroundColor: c.backgroundElement }]}>
                 <View style={styles.cardHeader}>
+                  <AppIcon name={ACTIVATION_KINDS[a.kind]?.icon ?? "zap"} size={15} color={c.text} />
                   <Text style={[styles.cardTitle, { color: c.text }]} numberOfLines={1}>
-                    {ACTIVATION_KINDS[a.kind]?.emoji} {a.name}
+                    {a.name}
                   </Text>
                   <Switch value={a.is_active} onValueChange={() => toggleActive(a)} />
                 </View>
@@ -250,7 +257,15 @@ const styles = StyleSheet.create({
   hint: { fontSize: 13, marginBottom: 8 },
   sectionTitle: { fontSize: 16, fontWeight: "800", marginTop: 20, marginBottom: 10 },
   kindRow: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
-  kindChip: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  kindChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   kindChipText: { fontSize: 13, fontWeight: "600" },
   kindBlurb: { fontSize: 12, marginTop: 8, marginBottom: 4 },
   input: {

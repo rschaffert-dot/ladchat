@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppIcon } from "@/components/AppIcon";
 import { useAuth } from "@/lib/auth";
 import { NEEDS_AVATAR_KEY, uploadAvatar } from "@/lib/avatar";
 import { useColors } from "@/lib/ui";
@@ -80,7 +81,7 @@ export default function AvatarOnboardingScreen() {
           {previewUri ? (
             <Image source={{ uri: previewUri }} style={styles.avatarImg} />
           ) : (
-            <Text style={{ fontSize: 56 }}>📷</Text>
+            <AppIcon name="camera" size={52} color={c.textSecondary} strokeWidth={1.4} />
           )}
         </View>
 

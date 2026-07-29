@@ -68,7 +68,7 @@ export default function ResetPasswordScreen() {
 
           {done ? (
             <>
-              <Text style={styles.notice}>Lösenordet är bytt! 🎉</Text>
+              <Text style={styles.notice}>Lösenordet är bytt!</Text>
               <Pressable
                 onPress={() => router.replace("/groups")}
                 style={[styles.button, { backgroundColor: c.brand }]}

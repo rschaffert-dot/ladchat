@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import type { AppIconName } from "@/components/AppIcon";
+
 export type Currency =
   | "Douchepoints"
   | "Ass points"
@@ -14,11 +16,11 @@ export const CURRENCY_OPTIONS: Currency[] = [
 ];
 
 /** Subtila symboler per valuta — antyder utan att skrika. */
-export const CURRENCY_META: Record<Currency, { emoji: string }> = {
-  Douchepoints: { emoji: "🚿" },
-  "Ass points": { emoji: "🍑" },
-  "Dick sticks": { emoji: "🌭" },
-  "Fanny farts": { emoji: "💨" },
+export const CURRENCY_META: Record<Currency, { icon: AppIconName }> = {
+  Douchepoints: { icon: "shower" },
+  "Ass points": { icon: "target" },
+  "Dick sticks": { icon: "star" },
+  "Fanny farts": { icon: "wind" },
 };
 
 export type ChatSettings = {

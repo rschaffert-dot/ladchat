@@ -1,5 +1,7 @@
 import { Platform } from "react-native";
 
+import type { AppIconName } from "@/components/AppIcon";
+
 /**
  * Delad kortdata för Poängjakten: tier-/kategoriutseende och domäntyper.
  * Används av jaktvyn (src/app/hunt) och LadBook på profilen, så korten
@@ -18,13 +20,13 @@ export type Category = "gang" | "social" | "charm" | "scen" | "fys" | "dryck";
 
 export const CATEGORY_ORDER: Category[] = ["gang", "social", "charm", "scen", "fys", "dryck"];
 
-export const CATEGORIES: Record<Category, { label: string; emoji: string }> = {
-  gang: { label: "Gänget", emoji: "👊" },
-  social: { label: "Främlingar", emoji: "🤝" },
-  charm: { label: "Charm", emoji: "💘" },
-  scen: { label: "Scenen", emoji: "🎤" },
-  fys: { label: "Styrka & mod", emoji: "💪" },
-  dryck: { label: "Dryckesmästarn", emoji: "🍺" },
+export const CATEGORIES: Record<Category, { label: string; icon: AppIconName }> = {
+  gang: { label: "Gänget", icon: "users" },
+  social: { label: "Främlingar", icon: "handshake" },
+  charm: { label: "Charm", icon: "heart" },
+  scen: { label: "Scenen", icon: "mic" },
+  fys: { label: "Styrka & mod", icon: "strength" },
+  dryck: { label: "Dryckesmästarn", icon: "beer" },
 };
 
 export const TIER_ORDER: Tier[] = ["wood", "bronze", "silver", "gold", "diamond"];
@@ -36,13 +38,13 @@ export const TIER_ORDER: Tier[] = ["wood", "bronze", "silver", "gold", "diamond"
  */
 export const TIERS: Record<
   Tier,
-  { label: string; symbol: string; frame: string; frameDark: string; face: string; text: string }
+  { label: string; icon: AppIconName; frame: string; frameDark: string; face: string; text: string }
 > = {
-  wood: { label: "Trä", symbol: "🪵", frame: "#8B6F47", frameDark: "#5D4A2F", face: "#FFFFFF", text: "#15151B" },
-  bronze: { label: "Brons", symbol: "🥉", frame: "#B87333", frameDark: "#7C4A1E", face: "#FFFFFF", text: "#15151B" },
-  silver: { label: "Silver", symbol: "🥈", frame: "#9AA3AD", frameDark: "#6D7681", face: "#FFFFFF", text: "#15151B" },
-  gold: { label: "Guld", symbol: "🏆", frame: "#D4AF37", frameDark: "#96781F", face: "#FFFFFF", text: "#15151B" },
-  diamond: { label: "Diamant", symbol: "💎", frame: "#3D5AFE", frameDark: "#2A3EB1", face: "#FFFFFF", text: "#15151B" },
+  wood: { label: "Trä", icon: "sprout", frame: "#8B6F47", frameDark: "#5D4A2F", face: "#FFFFFF", text: "#15151B" },
+  bronze: { label: "Brons", icon: "medal", frame: "#B87333", frameDark: "#7C4A1E", face: "#FFFFFF", text: "#15151B" },
+  silver: { label: "Silver", icon: "medal", frame: "#9AA3AD", frameDark: "#6D7681", face: "#FFFFFF", text: "#15151B" },
+  gold: { label: "Guld", icon: "trophy", frame: "#D4AF37", frameDark: "#96781F", face: "#FFFFFF", text: "#15151B" },
+  diamond: { label: "Diamant", icon: "gem", frame: "#3D5AFE", frameDark: "#2A3EB1", face: "#FFFFFF", text: "#15151B" },
 };
 
 export type HuntChallenge = {

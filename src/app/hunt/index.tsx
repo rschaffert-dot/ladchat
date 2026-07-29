@@ -28,6 +28,7 @@ import {
   TIERS,
 } from "@/lib/huntCards";
 import type { Category, HuntChallenge, HuntCompletion, Tier } from "@/lib/huntCards";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { supabase } from "@/lib/supabase";
 
@@ -364,7 +365,7 @@ export default function HuntScreen() {
           <Icon name="chevron-left" size={26} color="#84828C" />
         </Pressable>
         <Text style={styles.headerTitle}>
-          🃏 Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
+          Poängjakten{contextGroupName ? ` · ${contextGroupName}` : ""}
         </Text>
         <View style={{ width: 26 }} />
       </View>
@@ -392,27 +393,39 @@ export default function HuntScreen() {
                     ]}
                   />
                 </View>
-                <Text style={styles.progressDim}>⭐ {totalPoints} poäng insamlade i jakten</Text>
+                <View style={styles.iconRow}>
+                  <AppIcon name="star" size={13} color="#84828C" />
+                  <Text style={styles.progressDim}>{totalPoints} poäng insamlade i jakten</Text>
+                </View>
               </View>
 
               {contextGroupId ? (
                 <View style={styles.progressCard}>
-                  <Text style={styles.progressBig}>
-                    ⚜️ {contextGroupName ?? "Gruppen"}s jakt
-                  </Text>
+                  <View style={styles.iconRow}>
+                    <AppIcon name="shield" size={16} color="#15151B" />
+                    <Text style={styles.progressBig}>
+                      {contextGroupName ?? "Gruppen"}s jakt
+                    </Text>
+                  </View>
                   <Text style={styles.progressDim}>
                     {groupFeatCount} bekräftade bragder · {groupFeatPoints} poäng till laget
                   </Text>
                   {groupFeats.slice(0, 4).map((f) => (
-                    <Text key={f.id} style={styles.progressDim}>
-                      🃏 {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
-                    </Text>
+                    <View key={f.id} style={styles.iconRow}>
+                      <AppIcon name="medal" size={13} color="#84828C" />
+                      <Text style={styles.progressDim}>
+                        {f.name} klarade {"”"}{f.challengeName}{"”"} (+{f.points}p)
+                      </Text>
+                    </View>
                   ))}
                   {groupFeats.some((f) => f.proofUrl) ? (
                     <>
-                      <Text style={[styles.progressDim, { fontWeight: "800", marginTop: 4 }]}>
-                        🎞 Gruppens höjdpunkter
-                      </Text>
+                      <View style={[styles.iconRow, { marginTop: 4 }]}>
+                        <AppIcon name="film" size={13} color="#84828C" />
+                        <Text style={[styles.progressDim, { fontWeight: "800" }]}>
+                          Gruppens höjdpunkter
+                        </Text>
+                      </View>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                         <View style={{ flexDirection: "row", gap: 8 }}>
                           {groupFeats
@@ -425,7 +438,7 @@ export default function HuntScreen() {
                               >
                                 {f.proofIsVideo ? (
                                   <View style={styles.galleryThumbVideo}>
-                                    <Text style={{ fontSize: 24 }}>🎬</Text>
+                                    <AppIcon name="film" size={22} color="#F5F4F0" />
                                   </View>
                                 ) : (
                                   <Image
@@ -444,7 +457,10 @@ export default function HuntScreen() {
 
               {witnessReqs.length > 0 ? (
                 <View style={styles.witnessBox}>
-                  <Text style={styles.witnessTitle}>🕯 Du är kallad som vittne</Text>
+                  <View style={styles.iconRow}>
+                    <AppIcon name="eye" size={15} color="#15151B" />
+                    <Text style={styles.witnessTitle}>Du är kallad som vittne</Text>
+                  </View>
                   {witnessReqs.map((r) => (
                     <View key={r.id} style={styles.witnessRow}>
                       <Text style={styles.witnessText}>
@@ -455,9 +471,10 @@ export default function HuntScreen() {
                         r.proofIsVideo ? (
                           <Pressable
                             onPress={() => Linking.openURL(r.proofSignedUrl!)}
-                            style={styles.proofVideoBtn}
+                            style={[styles.proofVideoBtn, styles.iconRow]}
                           >
-                            <Text style={styles.btnText}>🎬 Visa videobevis</Text>
+                            <AppIcon name="film" size={15} color="#F5F4F0" />
+                            <Text style={styles.btnText}>Visa videobevis</Text>
                           </Pressable>
                         ) : (
                           <Pressable onPress={() => Linking.openURL(r.proofSignedUrl!)}>
@@ -495,11 +512,10 @@ export default function HuntScreen() {
                     <Pressable
                       key={t}
                       onPress={() => setTierFilter(t)}
-                      style={[styles.filterChip, tierFilter === t ? styles.filterChipOn : null]}
+                      style={[styles.filterChip, styles.iconRow, tierFilter === t ? styles.filterChipOn : null]}
                     >
-                      <Text style={styles.filterText}>
-                        {TIERS[t].symbol} {TIERS[t].label}
-                      </Text>
+                      <AppIcon name={TIERS[t].icon} size={13} color={TIERS[t].frameDark} />
+                      <Text style={styles.filterText}>{TIERS[t].label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -516,11 +532,10 @@ export default function HuntScreen() {
                     <Pressable
                       key={cat}
                       onPress={() => setCatFilter(cat)}
-                      style={[styles.filterChip, catFilter === cat ? styles.filterChipOn : null]}
+                      style={[styles.filterChip, styles.iconRow, catFilter === cat ? styles.filterChipOn : null]}
                     >
-                      <Text style={styles.filterText}>
-                        {CATEGORIES[cat].emoji} {CATEGORIES[cat].label}
-                      </Text>
+                      <AppIcon name={CATEGORIES[cat].icon} size={13} color="#15151B" />
+                      <Text style={styles.filterText}>{CATEGORIES[cat].label}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -545,8 +560,12 @@ export default function HuntScreen() {
               <Pressable onPress={() => openCard(item)} style={{ flex: 1 / 3 }}>
                 <View style={[styles.cardBack, { borderColor: t.frame, backgroundColor: t.face }]}>
                   <View style={[styles.cardInnerFrame, { borderColor: t.frameDark }]}>
-                    <Text style={styles.cornerSymbol}>{t.symbol}</Text>
-                    <Text style={styles.cornerCategory}>{CATEGORIES[item.category].emoji}</Text>
+                    <View style={styles.cornerSymbol}>
+                      <AppIcon name={t.icon} size={12} color={t.frameDark} />
+                    </View>
+                    <View style={styles.cornerCategory}>
+                      <AppIcon name={CATEGORIES[item.category].icon} size={11} color={t.frameDark} />
+                    </View>
                     <Text style={[styles.cardName, { color: t.text }]} numberOfLines={3}>
                       {item.name.toUpperCase()}
                     </Text>
@@ -563,7 +582,7 @@ export default function HuntScreen() {
                   {st === "confirmed" ? <KlaradStamp small /> : null}
                   {st === "pending" ? (
                     <View style={styles.pendingBadge}>
-                      <Text style={{ fontSize: 12 }}>⏳</Text>
+                      <AppIcon name="hourglass" size={11} color={t.frameDark} />
                     </View>
                   ) : null}
                 </View>
@@ -597,35 +616,51 @@ export default function HuntScreen() {
               >
                 <View style={[styles.bigInnerFrame, { borderColor: selTier.frameDark }]}>
                   <View style={styles.bigTopRow}>
-                    <Text style={{ fontSize: 22 }}>{selTier.symbol}</Text>
+                    <AppIcon name={selTier.icon} size={20} color={selTier.frameDark} />
                     <Text style={[styles.bigTier, { color: selTier.frameDark }]}>
                       {selTier.label}
                     </Text>
-                    <Text style={{ fontSize: 22 }}>{selTier.symbol}</Text>
+                    <AppIcon name={selTier.icon} size={20} color={selTier.frameDark} />
                   </View>
 
                   <Text style={[styles.bigName, { color: selTier.text }]}>
                     {sel.name.toUpperCase()}
                   </Text>
-                  <Text style={[styles.bigCategory, { color: selTier.frameDark }]}>
-                    {CATEGORIES[sel.category].emoji} {CATEGORIES[sel.category].label}
-                  </Text>
+                  <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                    <AppIcon
+                      name={CATEGORIES[sel.category].icon}
+                      size={13}
+                      color={selTier.frameDark}
+                    />
+                    <Text style={[styles.bigCategory, { color: selTier.frameDark }]}>
+                      {CATEGORIES[sel.category].label}
+                    </Text>
+                  </View>
                   <Text style={[styles.ornament, { color: selTier.frame }]}>✦ ─────── ✦</Text>
 
                   <Text style={[styles.bigDesc, { color: selTier.text }]}>{sel.description}</Text>
 
-                  <Text style={[styles.bigPoints, { color: selTier.text }]}>
-                    ⭐ {sel.points} poäng
-                  </Text>
-                  {sel.bonus_points ? (
-                    <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
-                      ✨ Bonus +{sel.bonus_points}p: {sel.bonus_condition}
+                  <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                    <AppIcon name="star" size={15} color={selTier.text} />
+                    <Text style={[styles.bigPoints, { color: selTier.text }]}>
+                      {sel.points} poäng
                     </Text>
+                  </View>
+                  {sel.bonus_points ? (
+                    <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                      <AppIcon name="sparkles" size={12} color={selTier.frameDark} />
+                      <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
+                        Bonus +{sel.bonus_points}p: {sel.bonus_condition}
+                      </Text>
+                    </View>
                   ) : null}
                   {sel.requires_alcohol ? (
-                    <Text style={styles.alcoholNote}>
-                      🔞 Alkoholfritt alternativ gäller alltid — drick ansvarsfullt, aldrig under 18.
-                    </Text>
+                    <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                      <AppIcon name="warning" size={12} color="#FF4C29" />
+                      <Text style={styles.alcoholNote}>
+                        Alkoholfritt alternativ gäller alltid — drick ansvarsfullt, aldrig under 18.
+                      </Text>
+                    </View>
                   ) : null}
 
                   {selCompletion?.status === "confirmed" ? (
@@ -635,9 +670,12 @@ export default function HuntScreen() {
                       </Text>
                     </View>
                   ) : selCompletion?.status === "pending" ? (
-                    <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
-                      ⏳ Väntar på vittnets bekräftelse…
-                    </Text>
+                    <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                      <AppIcon name="hourglass" size={12} color={selTier.frameDark} />
+                      <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
+                        Väntar på vittnets bekräftelse…
+                      </Text>
+                    </View>
                   ) : !claiming ? (
                     <Pressable onPress={startClaim} style={styles.claimBtn}>
                       <Text style={styles.btnText}>Klarmarkera</Text>
@@ -694,18 +732,26 @@ export default function HuntScreen() {
                             Bevis (obligatoriskt) — bild eller video:
                           </Text>
                           <View style={styles.chipWrap}>
-                            <Pressable onPress={takeProofPhoto} style={styles.pickChip}>
-                              <Text style={styles.pickChipText}>📷 Ta foto</Text>
+                            <Pressable onPress={takeProofPhoto} style={[styles.pickChip, styles.iconRow]}>
+                              <AppIcon name="camera" size={14} color={selTier.text} />
+                              <Text style={styles.pickChipText}>Ta foto</Text>
                             </Pressable>
-                            <Pressable onPress={pickProofFromLibrary} style={styles.pickChip}>
-                              <Text style={styles.pickChipText}>🖼 Välj bild/video</Text>
+                            <Pressable
+                              onPress={pickProofFromLibrary}
+                              style={[styles.pickChip, styles.iconRow]}
+                            >
+                              <AppIcon name="image" size={14} color={selTier.text} />
+                              <Text style={styles.pickChipText}>Välj bild/video</Text>
                             </Pressable>
                           </View>
                           {proof ? (
                             proof.video ? (
-                              <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
-                                🎬 Video vald — bifogas när du skickar.
-                              </Text>
+                              <View style={[styles.iconRow, { justifyContent: "center" }]}>
+                                <AppIcon name="film" size={12} color={selTier.frameDark} />
+                                <Text style={[styles.bigBonus, { color: selTier.frameDark }]}>
+                                  Video vald — bifogas när du skickar.
+                                </Text>
+                              </View>
                             ) : (
                               <Image source={{ uri: proof.uri }} style={styles.proofPreview} />
                             )
@@ -737,7 +783,7 @@ export default function HuntScreen() {
                         ]}
                       >
                         <Text style={styles.btnText}>
-                          {sending ? "Laddar upp bevis…" : "Skicka till vittnet 🕯"}
+                          {sending ? "Laddar upp bevis…" : "Skicka till vittnet"}
                         </Text>
                       </Pressable>
                     </View>
@@ -760,7 +806,7 @@ export default function HuntScreen() {
           </ScrollView>
         </View>
       </Modal>
-      {/* 🎞 Bevisvisare för gruppens höjdpunkter. */}
+      {/* Bevisvisare för gruppens höjdpunkter. */}
       <Modal
         visible={!!galleryFeat}
         transparent
@@ -774,9 +820,10 @@ export default function HuntScreen() {
           {galleryFeat?.proofIsVideo && galleryFeat.proofUrl ? (
             <Pressable
               onPress={() => void Linking.openURL(galleryFeat.proofUrl!)}
-              style={styles.confirmBtn}
+              style={[styles.confirmBtn, styles.iconRow]}
             >
-              <Text style={styles.btnText}>🎬 Öppna videobeviset</Text>
+              <AppIcon name="film" size={15} color="#F5F4F0" />
+              <Text style={styles.btnText}>Öppna videobeviset</Text>
             </Pressable>
           ) : galleryFeat?.proofUrl ? (
             <Image
@@ -908,8 +955,9 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
-  cornerSymbol: { position: "absolute", top: 3, left: 5, fontSize: 12 },
-  cornerCategory: { position: "absolute", top: 3, right: 5, fontSize: 11 },
+  cornerSymbol: { position: "absolute", top: 4, left: 5 },
+  cornerCategory: { position: "absolute", top: 4, right: 5 },
+  iconRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   bigCategory: {
     fontFamily: SERIF,
     fontSize: 13,

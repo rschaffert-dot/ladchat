@@ -10,8 +10,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { achievementIcon } from "@/lib/achievements";
 import { supabase } from "@/lib/supabase";
 import type { Tournament, TournamentEntry } from "@/lib/types";
+import { AppIcon } from "@/components/AppIcon";
 import { Icon } from "@/components/Icon";
 import { useColors } from "@/lib/ui";
 
@@ -34,7 +36,8 @@ const STATUS_ORDER: Record<Tournament["status"], number> = {
   completed: 3,
 };
 
-const MEDALS = ["🥇", "🥈", "🥉"];
+/** Guld/silver/brons till de tre första — färgen bär rangen, inte en emoji. */
+const MEDAL_COLORS = ["#D4AF37", "#9AA3AD", "#B87333"];
 
 type Tab = "tournaments" | "leaderboard";
 
@@ -76,16 +79,13 @@ export default function FeedScreen() {
     );
     setTournaments(sorted);
 
-    // code → emoji, samt group_id → emoji-lista för gruppens achievements.
-    const emojiFor = new Map(
-      ((catalog ?? []) as { code: string; emoji: string }[]).map((a) => [a.code, a.emoji]),
-    );
+    // group_id → lista med trofékoder. Koderna blir ikoner i vyn.
+    const known = new Set(((catalog ?? []) as { code: string }[]).map((a) => a.code));
     const achByGroup = new Map<string, string[]>();
     for (const r of (groupAch ?? []) as { group_id: string; code: string }[]) {
-      const emoji = emojiFor.get(r.code);
-      if (!emoji) continue;
+      if (!known.has(r.code)) continue;
       const list = achByGroup.get(r.group_id) ?? [];
-      list.push(emoji);
+      list.push(r.code);
       achByGroup.set(r.group_id, list);
     }
 
@@ -213,9 +213,13 @@ export default function FeedScreen() {
           }
           renderItem={({ item, index }) => (
             <View style={[styles.boardRow, { backgroundColor: c.backgroundElement }]}>
-              <Text style={[styles.rank, { color: c.textSecondary }]}>
-                {MEDALS[index] ?? `${index + 1}`}
-              </Text>
+              <View style={styles.rank}>
+                {index < 3 ? (
+                  <AppIcon name="medal" size={20} color={MEDAL_COLORS[index]} />
+                ) : (
+                  <Text style={[styles.rankNum, { color: c.textSecondary }]}>{index + 1}</Text>
+                )}
+              </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.boardName, { color: c.text }]} numberOfLines={1}>
                   {item.groupName}
@@ -224,9 +228,11 @@ export default function FeedScreen() {
                   {item.tournaments} {item.tournaments === 1 ? "turnering" : "turneringar"}
                 </Text>
                 {item.achievements.length > 0 ? (
-                  <Text style={styles.boardBadges} numberOfLines={1}>
-                    {item.achievements.join(" ")}
-                  </Text>
+                  <View style={styles.boardBadges}>
+                    {item.achievements.map((code) => (
+                      <AppIcon key={code} name={achievementIcon(code)} size={14} color={c.brand} />
+                    ))}
+                  </View>
                 ) : null}
               </View>
               <Text style={[styles.points, { color: c.brand }]}>{item.points}p</Text>
@@ -277,9 +283,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  rank: { width: 28, fontSize: 17, fontWeight: "800", textAlign: "center" },
+  rank: { width: 28, alignItems: "center", justifyContent: "center" },
+  rankNum: { fontSize: 17, fontWeight: "800", textAlign: "center" },
   boardName: { fontSize: 15, fontWeight: "700" },
   boardMeta: { fontSize: 12, marginTop: 1 },
-  boardBadges: { fontSize: 15, marginTop: 3 },
+  boardBadges: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
   points: { fontSize: 17, fontWeight: "800" },
 });
