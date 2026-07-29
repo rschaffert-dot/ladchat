@@ -2052,6 +2052,17 @@ export default function GroupChatScreen() {
   const powerHourRemainingMs = powerHourEndsAt ? Math.max(0, powerHourEndsAt - nowTick) : 0;
   const powerHourActive = powerHourRemainingMs > 0;
 
+  // LadReal: messages är redan nyast-först, så första träffen är senaste.
+  // Fönstret (15 min) speglar exakt on_message_social i migration 0033/0037.
+  const latestLadreal = messages.find(
+    (m) => m.kind === "system" && m.metadata?.reason === "ladreal",
+  );
+  const ladrealRemainingMs = latestLadreal
+    ? Math.max(0, new Date(latestLadreal.created_at).getTime() + 15 * 60_000 - nowTick)
+    : 0;
+  const ladrealActive =
+    ladrealRemainingMs > 0 && !dismissed[`ladreal:${latestLadreal?.id}`];
+
   // Discoljus: manuellt påslaget i inställningarna, eller automatiskt så
   // länge Partyläget (2h dubbel XP) pågår.
   const partyLightsOn = settings.partyMode || powerHourActive;
@@ -3763,6 +3774,27 @@ export default function GroupChatScreen() {
           <Icon name="settings" size={20} />
         </Pressable>
       </View>
+
+      {ladrealActive ? (
+        <View style={styles.ladrealBadge}>
+          <Pressable
+            onPress={() => dismissBanner(`ladreal:${latestLadreal?.id}`)}
+            hitSlop={10}
+            style={styles.bannerCloseCorner}
+            accessibilityLabel="Stäng LadReal"
+          >
+            <Text style={styles.bannerClose}>×</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void takeChatPhoto()}
+            style={styles.ladrealTap}
+            accessibilityLabel="Skicka en LadReal-bild"
+          >
+            <AppIcon name="camera" size={20} color="#fff" />
+            <Text style={styles.ladrealBadgeText}>+15p</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {offline ? (
         <View style={[styles.offlineBar, styles.inlineRow, { justifyContent: "center" }]}>
@@ -5809,6 +5841,18 @@ const styles = StyleSheet.create({
   bannerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   bannerClose: { color: "rgba(255,255,255,0.85)", fontSize: 20, fontWeight: "700", lineHeight: 22 },
   bannerCloseCorner: { position: "absolute", top: 6, right: 10, zIndex: 1 },
+  ladrealBadge: {
+    alignSelf: "flex-end",
+    width: 56,
+    height: 56,
+    marginTop: 6,
+    marginRight: 12,
+    marginBottom: 2,
+    borderRadius: 12,
+    backgroundColor: "#FF4C29",
+  },
+  ladrealTap: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2 },
+  ladrealBadgeText: { color: "#fff", fontSize: 10, fontWeight: "800" },
   powerHourBanner: { backgroundColor: "#D4AF37", paddingHorizontal: 16, paddingVertical: 8 },
   powerHourText: { color: "#15151B", fontWeight: "900", textAlign: "center", fontSize: 13 },
   streakWarning: { backgroundColor: "#D63A1C", paddingHorizontal: 16, paddingVertical: 8 },
