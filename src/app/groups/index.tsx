@@ -43,11 +43,9 @@ function avatarColor(name: string): string {
 /** Visar vilka som är med i chatten: överlappande avatarer + "+N" om fler. */
 function MemberStack({
   members,
-  color,
   ringColor,
 }: {
   members: { id: string; name: string; avatar: string | null }[];
-  color: string;
   ringColor: string;
 }) {
   if (members.length === 0) return null;
@@ -67,7 +65,12 @@ function MemberStack({
           {m.avatar ? (
             <Image source={{ uri: m.avatar }} style={styles.memberDotImg} />
           ) : (
-            <View style={[styles.memberDotImg, { backgroundColor: color, alignItems: "center", justifyContent: "center" }]}>
+            <View
+              style={[
+                styles.memberDotImg,
+                { backgroundColor: avatarColor(m.id), alignItems: "center", justifyContent: "center" },
+              ]}
+            >
               <Text style={styles.memberDotInitial}>{m.name.trim().charAt(0).toUpperCase()}</Text>
             </View>
           )}
@@ -547,7 +550,6 @@ export default function GroupsScreen() {
                     </View>
                     <MemberStack
                       members={membersByGroup[item.id] ?? []}
-                      color={avatarColor(item.name)}
                       ringColor={c.backgroundElement}
                     />
                     {previews[item.id] ? (
