@@ -1,7 +1,8 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Image,
   Pressable,
@@ -20,6 +21,7 @@ import { avatarUrl } from "@/lib/avatar";
 import {
   CURRENCY_OPTIONS,
   DEFAULT_CHAT_SETTINGS,
+  loadChatSettings,
   saveChatSettings,
 } from "@/lib/chatSettings";
 import type { Currency } from "@/lib/chatSettings";
@@ -133,6 +135,32 @@ function GroupIcon({
   );
 }
 
+/** Pulserande discoring runt rutan — samma två accenter som partyljusen i chatten. */
+function PartyGlow() {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 450, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 450, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  // borderColor animeras inte här — det stöds inte av native driver, och
+  // att blanda drivrutiner på samma Animated.Value kraschar. Opacitet +
+  // skala räcker för att läsas tydligt som "blinkande".
+  const opacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] });
+  const scale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.14] });
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[styles.partyGlow, { opacity, transform: [{ scale }] }]}
+    />
+  );
+}
+
 export default function GroupsScreen() {
   const c = useColors();
   const router = useRouter();
@@ -164,6 +192,9 @@ export default function GroupsScreen() {
   const [membersByGroup, setMembersByGroup] = useState<
     Record<string, { id: string; name: string; avatar: string | null }[]>
   >({});
+  // Vilka chattar har blinkande partyljus just nu — Power Hour (delad,
+  // server-driven) eller Party-Mode manuellt påslaget på den här enheten.
+  const [partying, setPartying] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -271,6 +302,25 @@ export default function GroupsScreen() {
           ),
         );
       }
+
+      // Blinkande party-indikator: delad Power Hour (server) eller lokalt
+      // påslaget Party-Mode (samma logik som partyLightsOn i chattvyn).
+      const { data: activeHours } = await supabase
+        .from("power_hours")
+        .select("group_id")
+        .in("group_id", myGroups.map((g) => g.id))
+        .gt("ends_at", new Date().toISOString());
+      const powerHourGroups = new Set((activeHours ?? []).map((h) => h.group_id as string));
+      const localFlags = new Map(
+        await Promise.all(
+          myGroups.map(async (g) => [g.id, (await loadChatSettings(g.id)).partyMode] as const),
+        ),
+      );
+      setPartying(
+        Object.fromEntries(
+          myGroups.map((g) => [g.id, powerHourGroups.has(g.id) || Boolean(localFlags.get(g.id))]),
+        ),
+      );
     }
 
     if (userId) {
@@ -564,14 +614,17 @@ export default function GroupsScreen() {
                     p?.archived ? { opacity: 0.55 } : null,
                   ]}
                 >
-                  <View
-                    style={[styles.groupAvatar, { backgroundColor: avatarColor(item.name) }]}
-                  >
-                    <GroupIcon
-                      iconUrl={groupIconUrl(item.icon_path)}
-                      members={membersByGroup[item.id]}
-                      groupName={item.name}
-                    />
+                  <View style={styles.groupAvatarWrap}>
+                    {partying[item.id] ? <PartyGlow /> : null}
+                    <View
+                      style={[styles.groupAvatar, { backgroundColor: avatarColor(item.name) }]}
+                    >
+                      <GroupIcon
+                        iconUrl={groupIconUrl(item.icon_path)}
+                        members={membersByGroup[item.id]}
+                        groupName={item.name}
+                      />
+                    </View>
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <View style={styles.groupNameRow}>
@@ -681,6 +734,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   headerBrand: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+  groupAvatarWrap: { width: 44, height: 44 },
   groupAvatar: {
     width: 44,
     height: 44,
@@ -688,6 +742,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
+  },
+  partyGlow: {
+    position: "absolute",
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 16,
+    borderWidth: 2.5,
+    borderColor: "#FF4C29",
   },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
