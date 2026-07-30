@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +16,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SkeletonListRow } from "@/components/Skeleton";
 
 import { useAuth } from "@/lib/auth";
+import { avatarUrl } from "@/lib/avatar";
 import {
   CURRENCY_OPTIONS,
   DEFAULT_CHAT_SETTINGS,
@@ -36,6 +38,50 @@ function avatarColor(name: string): string {
   let h = 0;
   for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+/** Visar vilka som är med i chatten: överlappande avatarer + "+N" om fler. */
+function MemberStack({
+  members,
+  color,
+  ringColor,
+}: {
+  members: { id: string; name: string; avatar: string | null }[];
+  color: string;
+  ringColor: string;
+}) {
+  if (members.length === 0) return null;
+  const shown = members.slice(0, 5);
+  const rest = members.length - shown.length;
+  return (
+    <View style={styles.memberStack}>
+      {shown.map((m, i) => (
+        <View
+          key={m.id}
+          style={[
+            styles.memberDot,
+            { borderColor: ringColor },
+            i > 0 ? { marginLeft: -8 } : null,
+          ]}
+        >
+          {m.avatar ? (
+            <Image source={{ uri: m.avatar }} style={styles.memberDotImg} />
+          ) : (
+            <View style={[styles.memberDotImg, { backgroundColor: color, alignItems: "center", justifyContent: "center" }]}>
+              <Text style={styles.memberDotInitial}>{m.name.trim().charAt(0).toUpperCase()}</Text>
+            </View>
+          )}
+        </View>
+      ))}
+      {rest > 0 ? (
+        <View style={[styles.memberDot, { borderColor: ringColor, marginLeft: -8 }]}>
+          <View style={[styles.memberDotImg, styles.memberDotMore]}>
+            <Text style={styles.memberDotMoreText}>+{rest}</Text>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function GroupsScreen() {
@@ -65,6 +111,10 @@ export default function GroupsScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const [previews, setPreviews] = useState<Record<string, { text: string; at: string }>>({});
   const [folder, setFolder] = useState<"alla" | "olasta" | "nalade">("alla");
+  // Vem som är med i varje chatt — visas som en liten avatarstapel i listan.
+  const [membersByGroup, setMembersByGroup] = useState<
+    Record<string, { id: string; name: string; avatar: string | null }[]>
+  >({});
 
   const load = useCallback(async () => {
     if (!userId) {
@@ -136,6 +186,42 @@ export default function GroupsScreen() {
           ]),
         ),
       );
+
+      // Vilka som är med i varje chatt — samlas ihop till en liten avatarstapel.
+      const { data: allMembers } = await supabase
+        .from("group_members")
+        .select("group_id, user_id")
+        .in("group_id", myGroups.map((g) => g.id));
+      const idsByGroup: Record<string, string[]> = {};
+      for (const m of allMembers ?? []) {
+        const gid = m.group_id as string;
+        (idsByGroup[gid] ??= []).push(m.user_id as string);
+      }
+      const memberIds = [...new Set((allMembers ?? []).map((m) => m.user_id as string))];
+      if (memberIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, display_name, email, avatar_path")
+          .in("id", memberIds);
+        const profMap = Object.fromEntries(
+          (profs ?? []).map((p) => [
+            p.id as string,
+            {
+              id: p.id as string,
+              name: (p.display_name || p.email || "Okänd") as string,
+              avatar: avatarUrl(p.avatar_path as string | null),
+            },
+          ]),
+        );
+        setMembersByGroup(
+          Object.fromEntries(
+            Object.entries(idsByGroup).map(([gid, ids]) => [
+              gid,
+              ids.map((id) => profMap[id]).filter(Boolean),
+            ]),
+          ),
+        );
+      }
     }
 
     if (userId) {
@@ -459,6 +545,11 @@ export default function GroupsScreen() {
                         </View>
                       ) : null}
                     </View>
+                    <MemberStack
+                      members={membersByGroup[item.id] ?? []}
+                      color={avatarColor(item.name)}
+                      ringColor={c.backgroundElement}
+                    />
                     {previews[item.id] ? (
                       <Text
                         style={{ color: c.textSecondary, fontSize: 13 }}
@@ -551,6 +642,15 @@ const styles = StyleSheet.create({
   },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  memberStack: { flexDirection: "row", alignItems: "center" },
+  memberDot: {
+    borderRadius: 10,
+    borderWidth: 1.5,
+  },
+  memberDotImg: { width: 18, height: 18, borderRadius: 9 },
+  memberDotInitial: { color: "#fff", fontSize: 9, fontWeight: "800" },
+  memberDotMore: { backgroundColor: "#84828C", alignItems: "center", justifyContent: "center" },
+  memberDotMoreText: { color: "#fff", fontSize: 8, fontWeight: "800" },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   badge: {
     backgroundColor: "#FF4C29",
