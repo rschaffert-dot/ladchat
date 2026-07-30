@@ -36,6 +36,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/lib/auth";
 import { avatarUrl } from "@/lib/avatar";
+import { clearGroupIcon, groupIconUrl, uploadGroupIcon } from "@/lib/groupIcon";
 import { SkeletonBubbles } from "@/components/Skeleton";
 import { BEER_DURATION_BONUS, BEER_DURATION_OPTIONS, BEER_GLASSES } from "@/lib/beer";
 import {
@@ -1060,6 +1061,7 @@ export default function GroupChatScreen() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [settings, setSettings] = useState<ChatSettings>(DEFAULT_CHAT_SETTINGS);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [groupIconBusy, setGroupIconBusy] = useState(false);
   const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [reactions, setReactions] = useState<Record<string, ReactionBucket>>({});
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -2342,7 +2344,7 @@ export default function GroupChatScreen() {
       const { data: g } = await supabase
         .from("groups")
         .select(
-          "id,name,owner_id,created_at,beer_glass_size,beer_fill_cl,beer_round_started_at,beer_duration_minutes,energy,energy_updated_at",
+          "id,name,owner_id,created_at,beer_glass_size,beer_fill_cl,beer_round_started_at,beer_duration_minutes,energy,energy_updated_at,icon_path",
         )
         .eq("id", groupId)
         .single();
@@ -3279,6 +3281,40 @@ export default function GroupChatScreen() {
       Share.share({
         message: `Gå med i "${group?.name ?? "gruppen"}" på LadChat:\n\n${link}`,
       }).catch(() => {});
+    }
+  }
+
+  // Egen gruppikon: valfri bild i stället för mosaiken av medlemmarnas
+  // profilbilder som annars visas i grupplistan.
+  async function changeGroupIcon() {
+    if (!groupId) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.7,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setGroupIconBusy(true);
+    try {
+      // groups-radens realtime-prenumeration (nedan) fångar UPDATE:en och
+      // uppdaterar group.icon_path automatiskt — inget manuellt patch behövs.
+      await uploadGroupIcon(groupId, asset.uri, asset.mimeType ?? "image/jpeg");
+    } finally {
+      setGroupIconBusy(false);
+    }
+  }
+
+  async function removeGroupIcon() {
+    if (!groupId) return;
+    setGroupIconBusy(true);
+    try {
+      await clearGroupIcon(groupId);
+    } finally {
+      setGroupIconBusy(false);
     }
   }
 
@@ -5059,6 +5095,49 @@ export default function GroupChatScreen() {
               </Pressable>
             </View>
 
+            <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>Gruppikon</Text>
+            <View style={styles.groupIconRow}>
+              <Pressable
+                onPress={() => void changeGroupIcon()}
+                disabled={groupIconBusy}
+                style={[
+                  styles.groupIconPreview,
+                  { backgroundColor: c.backgroundSelected, opacity: groupIconBusy ? 0.5 : 1 },
+                ]}
+              >
+                {groupIconUrl(group?.icon_path) ? (
+                  <Image
+                    source={{ uri: groupIconUrl(group?.icon_path) as string }}
+                    style={styles.groupIconPreviewImg}
+                  />
+                ) : (
+                  <AppIcon name="image" size={20} color={c.textSecondary} />
+                )}
+              </Pressable>
+              <View style={{ flex: 1, gap: 4 }}>
+                <Pressable onPress={() => void changeGroupIcon()} disabled={groupIconBusy}>
+                  <Text style={{ color: c.brand, fontWeight: "700", fontSize: 13 }}>
+                    {groupIconBusy
+                      ? "Laddar upp…"
+                      : group?.icon_path
+                        ? "Byt bild"
+                        : "Välj en bild"}
+                  </Text>
+                </Pressable>
+                {group?.icon_path ? (
+                  <Pressable onPress={() => void removeGroupIcon()} disabled={groupIconBusy}>
+                    <Text style={{ color: c.textSecondary, fontWeight: "600", fontSize: 12 }}>
+                      Ta bort — visa medlemmarnas bilder i stället
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text style={{ color: c.textSecondary, fontSize: 12 }}>
+                    Utan egen bild visas en mosaik av medlemmarnas profilbilder i listan.
+                  </Text>
+                )}
+              </View>
+            </View>
+
             <Text style={[styles.sheetLabel, { color: c.textSecondary }]}>
               Medlemmar ({memberProfiles.length})
             </Text>
@@ -6448,6 +6527,16 @@ const styles = StyleSheet.create({
   sheetScrollContent: { gap: 4, paddingBottom: 12 },
   sheetTitle: { fontSize: 18, fontWeight: "800", marginBottom: 8 },
   sheetLabel: { fontSize: 13, fontWeight: "600", marginTop: 14, marginBottom: 8 },
+  groupIconRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  groupIconPreview: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  groupIconPreviewImg: { width: "100%", height: "100%" },
   swatchRow: { flexDirection: "row", gap: 12, flexWrap: "wrap" },
   currencyChip: {
     flexDirection: "row",

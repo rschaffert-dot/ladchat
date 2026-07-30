@@ -31,6 +31,7 @@ export interface Group {
   msg_streak?: number;
   msg_streak_date?: string | null;
   ephemeral_hours?: number | null;
+  icon_path?: string | null;
 }
 
 export interface Message {

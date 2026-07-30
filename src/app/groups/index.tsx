@@ -24,6 +24,7 @@ import {
 } from "@/lib/chatSettings";
 import type { Currency } from "@/lib/chatSettings";
 import { GodSilhouette, pickGod } from "@/lib/godAvatars";
+import { groupIconUrl } from "@/lib/groupIcon";
 import { supabase } from "@/lib/supabase";
 import type { Group } from "@/lib/types";
 import { AppIcon } from "@/components/AppIcon";
@@ -40,49 +41,94 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-/** Visar vilka som är med i chatten: överlappande avatarer + "+N" om fler. */
-function MemberStack({
-  members,
-  ringColor,
-}: {
-  members: { id: string; name: string; avatar: string | null }[];
-  ringColor: string;
-}) {
-  if (members.length === 0) return null;
-  const shown = members.slice(0, 5);
-  const rest = members.length - shown.length;
+type Member = { id: string; name: string; avatar: string | null };
+
+/** En mosaikruta: medlemmens foto, eller en färgad initial om ingen bild finns. */
+function MosaicCell({ m, w, h, fontSize }: { m: Member; w: number; h: number; fontSize: number }) {
   return (
-    <View style={styles.memberStack}>
-      {shown.map((m, i) => (
+    <View style={{ width: w, height: h, overflow: "hidden" }}>
+      {m.avatar ? (
+        <Image source={{ uri: m.avatar }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+      ) : (
         <View
-          key={m.id}
-          style={[
-            styles.memberDot,
-            { borderColor: ringColor },
-            i > 0 ? { marginLeft: -8 } : null,
-          ]}
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundColor: avatarColor(m.id),
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          {m.avatar ? (
-            <Image source={{ uri: m.avatar }} style={styles.memberDotImg} />
-          ) : (
-            <View
-              style={[
-                styles.memberDotImg,
-                { backgroundColor: avatarColor(m.id), alignItems: "center", justifyContent: "center" },
-              ]}
-            >
-              <Text style={styles.memberDotInitial}>{m.name.trim().charAt(0).toUpperCase()}</Text>
-            </View>
-          )}
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize }}>
+            {m.name.trim().charAt(0).toUpperCase()}
+          </Text>
         </View>
+      )}
+    </View>
+  );
+}
+
+/** 1/2/3/4+ medlemmar i en Messenger-lik mosaik — 1 stor, 2 halvor, 3 = en + två, 4+ = rutnät. */
+function Mosaic({ members, size }: { members: Member[]; size: number }) {
+  const half = size / 2;
+  const fontSize = Math.max(9, size * 0.24);
+  if (members.length === 1) {
+    return <MosaicCell m={members[0]} w={size} h={size} fontSize={size * 0.35} />;
+  }
+  if (members.length === 2) {
+    return (
+      <View style={{ flexDirection: "row", width: size, height: size }}>
+        <MosaicCell m={members[0]} w={half} h={size} fontSize={fontSize} />
+        <MosaicCell m={members[1]} w={half} h={size} fontSize={fontSize} />
+      </View>
+    );
+  }
+  if (members.length === 3) {
+    return (
+      <View style={{ flexDirection: "row", width: size, height: size }}>
+        <MosaicCell m={members[0]} w={half} h={size} fontSize={fontSize} />
+        <View>
+          <MosaicCell m={members[1]} w={half} h={half} fontSize={fontSize} />
+          <MosaicCell m={members[2]} w={half} h={half} fontSize={fontSize} />
+        </View>
+      </View>
+    );
+  }
+  const four = members.slice(0, 4);
+  return (
+    <View style={{ width: size, height: size, flexDirection: "row", flexWrap: "wrap" }}>
+      {four.map((m) => (
+        <MosaicCell key={m.id} m={m} w={half} h={half} fontSize={fontSize} />
       ))}
-      {rest > 0 ? (
-        <View style={[styles.memberDot, { borderColor: ringColor, marginLeft: -8 }]}>
-          <View style={[styles.memberDotImg, styles.memberDotMore]}>
-            <Text style={styles.memberDotMoreText}>+{rest}</Text>
-          </View>
-        </View>
-      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Gruppens ruta i listan: egen uppladdad ikon om gruppen satt en, annars en
+ * mosaik av medlemmarnas bilder/initialer. Innan medlemmarna hunnit laddas
+ * (eller om listan undantagsvis är tom) visas gudasiluetten som platshållare.
+ */
+function GroupIcon({
+  iconUrl,
+  members,
+  groupName,
+  size = 44,
+}: {
+  iconUrl: string | null;
+  members: Member[] | undefined;
+  groupName: string;
+  size?: number;
+}) {
+  if (iconUrl) {
+    return <Image source={{ uri: iconUrl }} style={{ width: size, height: size }} resizeMode="cover" />;
+  }
+  if (members && members.length > 0) {
+    return <Mosaic members={members} size={size} />;
+  }
+  return (
+    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
+      <GodSilhouette god={pickGod(groupName)} size={size * 0.68} />
     </View>
   );
 }
@@ -131,7 +177,7 @@ export default function GroupsScreen() {
     const { data } = await supabase
       .from("groups")
       .select(
-        "id,name,owner_id,created_at,msg_streak,msg_streak_date,group_members!inner(user_id,pinned_at,muted,archived)",
+        "id,name,owner_id,created_at,msg_streak,msg_streak_date,icon_path,group_members!inner(user_id,pinned_at,muted,archived)",
       )
       .eq("group_members.user_id", userId)
       .order("created_at", { ascending: false });
@@ -521,7 +567,11 @@ export default function GroupsScreen() {
                   <View
                     style={[styles.groupAvatar, { backgroundColor: avatarColor(item.name) }]}
                   >
-                    <GodSilhouette god={pickGod(item.name)} size={30} />
+                    <GroupIcon
+                      iconUrl={groupIconUrl(item.icon_path)}
+                      members={membersByGroup[item.id]}
+                      groupName={item.name}
+                    />
                   </View>
                   <View style={{ flex: 1, gap: 2 }}>
                     <View style={styles.groupNameRow}>
@@ -548,10 +598,6 @@ export default function GroupsScreen() {
                         </View>
                       ) : null}
                     </View>
-                    <MemberStack
-                      members={membersByGroup[item.id] ?? []}
-                      ringColor={c.backgroundElement}
-                    />
                     {previews[item.id] ? (
                       <Text
                         style={{ color: c.textSecondary, fontSize: 13 }}
@@ -639,20 +685,12 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },
   groupName: { fontSize: 16, fontWeight: "600" },
   groupNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  memberStack: { flexDirection: "row", alignItems: "center" },
-  memberDot: {
-    borderRadius: 10,
-    borderWidth: 1.5,
-  },
-  memberDotImg: { width: 18, height: 18, borderRadius: 9 },
-  memberDotInitial: { color: "#fff", fontSize: 9, fontWeight: "800" },
-  memberDotMore: { backgroundColor: "#84828C", alignItems: "center", justifyContent: "center" },
-  memberDotMoreText: { color: "#fff", fontSize: 8, fontWeight: "800" },
   streakRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   badge: {
     backgroundColor: "#FF4C29",
